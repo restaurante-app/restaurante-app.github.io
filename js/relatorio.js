@@ -30,13 +30,12 @@
     const comandas = P.Store.all('comandas').filter(c => set.has(c.dia_operacional) && c.status !== 'ABERTA');
     const fechadas = comandas.filter(c => c.status === 'FECHADA').sort((a, b) => (a.fechada_em < b.fechada_em ? -1 : 1));
     const canceladas = comandas.filter(c => c.status === 'CANCELADA');
-    const manuais = P.Store.all('vendas_dia').filter(v => set.has(v.dia_operacional) && +v.quantidade > 0);
     const despesas = P.Store.all('despesas').filter(d => set.has(d.dia_operacional)).sort((a, b) => (a.criado_em < b.criado_em ? -1 : 1));
 
     const r = {
       dias, fatBruto: 0, desconto: 0, cmv: 0, qtd: 0,
       porItem: new Map(), porHora: new Map(), porCanal: {}, porForma: {}, recebidoFiado: {}, linhasCsv: [],
-      fechadas, canceladas, despesas, manualFat: 0, merc: 0, outras: 0, diasMov: new Set(),
+      fechadas, canceladas, despesas, merc: 0, outras: 0, diasMov: new Set(),
     };
     CANAIS.forEach(k => { r.porCanal[k] = { fat: 0, cmv: 0, contas: 0, totContas: 0 }; });
     FORMAS.forEach(f => { r.porForma[f] = 0; r.recebidoFiado[f] = 0; });
@@ -76,18 +75,6 @@
       pc.fat -= d; pc.contas++; pc.totContas += +c.total || 0;
       r.diasMov.add(c.dia_operacional);
     });
-    manuais.forEach(v => {
-      const q = +v.quantidade || 0;
-      const it = I.itens.get(v.item_id);
-      addItem(v.item_id, it && it.nome, q, +v.preco_unit || 0, +v.cmv_unit || 0, v.canal, null);
-      r.manualFat += q * (+v.preco_unit || 0);
-      r.linhasCsv.push([
-        v.dia_operacional, '', 'lançamento manual', '', '', NOME_CANAL[v.canal] || v.canal,
-        it ? it.nome : v.item_id, it ? P.Fichas.CAT[it.categoria] : '', q, num(v.preco_unit), num(q * v.preco_unit), num(v.cmv_unit, 4), num(q * v.cmv_unit),
-        num(q * (v.preco_unit - v.cmv_unit)), '', usu(v.usuario_id),
-      ]);
-      r.diasMov.add(v.dia_operacional);
-    });
     P.Store.all('pagamentos').forEach(p => {
       if (p.forma === 'FIADO' && p.recebido_em && set.has(p.recebido_dia)) r.recebidoFiado[p.recebido_forma] = (r.recebidoFiado[p.recebido_forma] || 0) + (+p.valor || 0);
     });
@@ -104,7 +91,7 @@
     r.fixo = P.Painel.fixoMensal() / P.Painel.diasMes() * r.diasMov.size;
     r.lucroBruto = r.fat - r.cmv;
     r.lucro = r.lucroBruto - r.fixo;
-    r.entradas = ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].reduce((s, f) => s + r.porForma[f] + (r.recebidoFiado[f] || 0), 0) + r.manualFat;
+    r.entradas = ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].reduce((s, f) => s + r.porForma[f] + (r.recebidoFiado[f] || 0), 0);
     r.saidas = r.merc + r.outras;
     r.ticket = fechadas.length ? fechadas.reduce((s, c) => s + (+c.total || 0), 0) / fechadas.length : null;
     r.fiadoEmAberto = P.Mesas.fiadoAberto().reduce((s, p) => s + (+p.valor || 0), 0);
@@ -171,7 +158,6 @@
 
       corpo.appendChild(secao('Caixa (dinheiro que entrou e saiu)',
         ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].map(f => linhaV(P.Mesas.NOME_FORMA[f], P.brl(r.porForma[f]) + (r.recebidoFiado[f] ? ' + ' + P.brl(r.recebidoFiado[f]) + ' de fiado' : ''))),
-        r.manualFat ? linhaV('Lançado sem comanda (sem forma)', P.brl(r.manualFat)) : null,
         linhaV('= Entradas', P.brl(r.entradas), 'forte'),
         linhaV('(−) Mercadoria', P.brl(r.merc)),
         linhaV('(−) Outras despesas', P.brl(r.outras)),

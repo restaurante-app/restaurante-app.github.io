@@ -128,9 +128,9 @@
     return P.UI.subnav([
       { id: 'abertas', rota: 'mesas', rotulo: 'Mesas' },
       { id: 'hoje', rota: 'mesas/hoje', rotulo: 'Fechadas' },
+      { id: 'totais', rota: 'mesas/totais', rotulo: 'Totais do dia' },
       { id: 'despesas', rota: 'mesas/despesas', rotulo: 'Despesas' },
       { id: 'fiado', rota: 'mesas/fiado', rotulo: 'Fiado', badge: nFiado || null },
-      { id: 'lancar', rota: 'lancar', rotulo: 'Lançar totais' },
     ], ativo);
   }
   function voltar(href, rot) { return h('a', { class: 'voltar', href }, P.UI.icone('voltar'), rot || 'Voltar'); }
@@ -514,6 +514,59 @@
   }
 
   // ---------------------------------------------------------------
+  //  TELA: TOTAIS DO DIA — automático, somado das comandas (nada é digitado)
+  // ---------------------------------------------------------------
+  function totaisDoDia(dia, canal) {
+    const itens = new Map();
+    const r = { fechado: 0, nFechadas: 0, aberto: 0, nAbertas: 0, qtd: 0, itens };
+    P.Store.all('comandas').forEach(c => {
+      if (c.status === 'CANCELADA') return;
+      const d = c.status === 'FECHADA' ? c.dia_operacional : P.Dia.diaOperacional(c.aberta_em);
+      if (d !== dia || (canal !== 'TODOS' && c.canal !== canal)) return;
+      const ls = linhas(c.id);
+      if (!ls.length) return;
+      const aberta = c.status !== 'FECHADA';
+      if (aberta) { r.aberto += totalDe(c); r.nAbertas++; } else { r.fechado += +c.total || 0; r.nFechadas++; }
+      ls.forEach(l => {
+        const q = +l.quantidade || 0;
+        if (!itens.has(l.item_id)) itens.set(l.item_id, { nome: l.nome, q: 0, v: 0, qAberta: 0 });
+        const g = itens.get(l.item_id);
+        g.q += q; g.v += q * (+l.preco_unit || 0);
+        if (aberta) g.qAberta += q;
+        r.qtd += q;
+      });
+    });
+    return r;
+  }
+  function telaTotais(view) {
+    view.className = 'v-mesas';
+    let dia = P.Dia.hoje();
+    let canal = 'TODOS';
+    const corpo = h('div');
+    function desenhar() {
+      corpo.innerHTML = '';
+      corpo.appendChild(navDia(dia, d => { dia = d; desenhar(); }));
+      corpo.appendChild(P.UI.seg([{ v: 'TODOS', rotulo: 'Todos' }, { v: 'ESPETO', rotulo: 'Espeto' }, { v: 'SALAO', rotulo: 'Salão' }, { v: 'MARMITA', rotulo: 'Marmita' }],
+        canal, v => { canal = v; desenhar(); }, 'seg-p'));
+      const t = totaisDoDia(dia, canal);
+      corpo.appendChild(h('div', { class: 'fx-resumo' },
+        h('div', { class: 'fx-tot' }, h('small', null, 'Vendido · ' + t.nFechadas + (t.nFechadas === 1 ? ' conta fechada' : ' contas fechadas')), h('b', null, P.brl(t.fechado))),
+        h('div', { class: 'fx-formas' },
+          h('span', { class: 'fx-f' }, 'Itens ', h('b', null, P.num(t.qtd))),
+          t.nAbertas ? h('span', { class: 'fx-f' }, 'Em aberto nas mesas ', h('b', null, P.brl(t.aberto)), ' (' + t.nAbertas + ')') : null)));
+      const lista = [...t.itens.values()].sort((a, b) => b.q - a.q || b.v - a.v);
+      if (!lista.length) { corpo.appendChild(P.UI.vazio('Nenhum item vendido neste dia. Tudo que for lançado nas mesas aparece aqui sozinho.')); return; }
+      corpo.appendChild(h('div', { class: 'secao' }, 'Itens vendidos (automático, pelas comandas)'));
+      corpo.appendChild(h('div', { class: 'ms-lista' }, lista.map(g => h('div', { class: 'ms-card' },
+        h('div', { class: 'ms-card-n' }, h('b', null, P.num(g.q) + '× '), g.nome, g.qAberta ? h('small', null, g.qAberta + ' ainda em mesa aberta') : null),
+        h('b', null, P.brl(g.v))))));
+    }
+    view.append(subnavMesas('totais'), corpo);
+    desenhar();
+    return { onDados(t) { if (t.has('comandas') || t.has('comanda_itens')) desenhar(); } };
+  }
+
+  // ---------------------------------------------------------------
   //  TELA: DESPESAS (quanto gastei)
   // ---------------------------------------------------------------
   function novaDespesa(dia, cat0) {
@@ -633,11 +686,12 @@
   P.UI.rota('mesas/c/:id/:modo', { titulo: 'Venda rápida', tab: 'mesas', render: telaComanda });
   P.UI.rota('mesas/pagar/:id', { titulo: 'Pagamento', tab: 'mesas', render: telaPagar });
   P.UI.rota('mesas/hoje', { titulo: 'Contas fechadas', tab: 'mesas', render: telaFechadas });
+  P.UI.rota('mesas/totais', { titulo: 'Totais do dia', tab: 'mesas', render: telaTotais });
   P.UI.rota('mesas/despesas', { titulo: 'Despesas', tab: 'mesas', render: telaDespesas });
   P.UI.rota('mesas/fiado', { titulo: 'Fiado', tab: 'mesas', render: telaFiado });
 
   P.Mesas = {
-    linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, fiadoAberto,
+    linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, fiadoAberto, totaisDoDia,
     FORMAS, NOME_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP,
     _abrir: abrir, _adicionar: adicionar, _fechar: fechar, _tirar: tirar,
   };

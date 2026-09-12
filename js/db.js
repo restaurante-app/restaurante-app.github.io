@@ -20,7 +20,6 @@
     itens: ['id', 'nome', 'categoria', 'preco_venda', 'perda_pct', 'ativo'],
     componentes: ['id', 'item_id', 'insumo_id', 'item_componente_id', 'gramas', 'ordem'],
     historico_precos: ['id', 'insumo_id', 'preco', 'data'],
-    vendas_dia: ['id', 'dia_operacional', 'canal', 'item_id', 'quantidade', 'preco_unit', 'cmv_unit', 'usuario_id'],
     comandas: ['id', 'dia_operacional', 'mesa', 'cliente', 'canal', 'status', 'aberta_em', 'fechada_em', 'desconto', 'total',
       'usuario_id', 'fechada_por', 'cancelada_por', 'obs'],
     comanda_itens: ['id', 'comanda_id', 'item_id', 'nome', 'quantidade', 'preco_unit', 'cmv_unit', 'adicionado_em', 'usuario_id',
@@ -101,14 +100,15 @@
     try { idb.transaction('_meta', 'readwrite').objectStore('_meta').put({ k, v }); } catch (e) { console.error(e); }
   }
 
-  // Avisa as telas (uma vez por quadro) quais tabelas mudaram
+  // Avisa as telas quais tabelas mudaram (agrupa as gravações seguidas num aviso só).
+  // setTimeout e não requestAnimationFrame: rAF para quando o app está em segundo plano.
   const mudadas = new Set();
   let avisoAgendado = false;
   function avisar(t) {
     mudadas.add(t);
     if (avisoAgendado) return;
     avisoAgendado = true;
-    (window.requestAnimationFrame || setTimeout)(() => {
+    setTimeout(() => {
       avisoAgendado = false;
       const set = new Set(mudadas);
       mudadas.clear();

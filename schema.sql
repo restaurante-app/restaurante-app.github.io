@@ -39,7 +39,8 @@ create table if not exists config (
   sincronizado_em timestamptz not null default clock_timestamp()
 );
 
--- ETAPA 1 — contador de fluxo (uma linha por bloco de contagem)
+-- ETAPA 1 — contador de fluxo (uma linha por bloco de contagem).
+-- Só PASSOU é contado à mão; "comprou" é calculado das comandas.
 create table if not exists contagens (
   id text primary key,
   dia_operacional date not null,
@@ -101,22 +102,7 @@ create table if not exists historico_precos (
   sincronizado_em timestamptz not null default clock_timestamp()
 );
 
--- Vendas lançadas sem comanda (totais por item/canal/dia)
-create table if not exists vendas_dia (
-  id text primary key,                     -- dia|canal|item
-  dia_operacional date not null,
-  canal text not null check (canal in ('ESPETO', 'SALAO', 'MARMITA')),
-  item_id text not null,
-  quantidade numeric(10, 2) not null default 0,
-  preco_unit numeric(12, 2) not null default 0,
-  cmv_unit numeric(12, 4) not null default 0,
-  usuario_id text,
-  modificado_em timestamptz not null default now(),
-  excluido boolean not null default false,
-  sincronizado_em timestamptz not null default clock_timestamp()
-);
-
--- MESAS / COMANDAS ao vivo
+-- MESAS / COMANDAS ao vivo (toda venda passa por aqui; totais e "comprou" saem daqui)
 create table if not exists comandas (
   id text primary key,
   dia_operacional date not null,           -- dia do fechamento (regra das 03:00)
@@ -189,7 +175,7 @@ do $$
 declare t text;
 begin
   foreach t in array array['usuarios', 'config', 'contagens', 'insumos', 'itens', 'componentes', 'historico_precos',
-                           'vendas_dia', 'comandas', 'comanda_itens', 'pagamentos', 'despesas'] loop
+                           'comandas', 'comanda_itens', 'pagamentos', 'despesas'] loop
     execute format('drop trigger if exists trg_%1$s_lww on %1$s', t);
     execute format('create trigger trg_%1$s_lww before insert or update on %1$s for each row execute function pari_lww()', t);
     execute format('create index if not exists idx_%1$s_sync on %1$s (sincronizado_em)', t);

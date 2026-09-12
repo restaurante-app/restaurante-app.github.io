@@ -16,8 +16,8 @@ Em **Ajustes → Pessoas e PINs** o dono cadastra os operadores.
 
 | | Dono | Operador |
 |---|---|---|
-| Mesas, venda rápida, marmita, fechar conta, fiado, despesas | ✓ | ✓ |
-| Contador de fluxo | ✓ | ✓ |
+| Mesas, venda rápida, marmita, fechar conta, fiado, despesas, totais do dia | ✓ | ✓ |
+| Contador de fluxo (passou) | ✓ | ✓ |
 | Atualizar preço de compra | ✓ | ✓ |
 | Painel, relatório, análise do fluxo, fichas, simulação, cadastro | ✓ | — |
 | Reabrir conta fechada | ✓ | — |
@@ -30,13 +30,16 @@ A sessão do dono trava sozinha depois de 10 minutos com o app em segundo plano.
 saem. Cada item fica com o horário. O total é automático. Em *Fechar conta* escolha a
 forma (Dinheiro, Pix, Débito, Crédito, Fiado); dá para dividir e calcular troco.
 *Venda rápida* é para o balcão (sem mesa). *Marmita* abre comanda no canal marmita.
-Abas: **Fechadas** (contas do dia), **Despesas** (mercadoria e outros gastos),
-**Fiado** (quem deve, com "Recebi em…"), **Lançar totais** (vendas sem comanda).
+Abas: **Fechadas** (contas do dia), **Totais do dia** (automático: itens e valores
+somados das comandas, nada é digitado), **Despesas** (mercadoria e outros gastos),
+**Fiado** (quem deve, com "Recebi em…").
 Item tirado de uma comanda e conta cancelada ficam registrados com quem fez.
 
-**Fluxo** — botão +1 gigante, modos PASSOU / COMPROU, faixa de hora automática,
-fecha sozinho na virada da hora, retoma se o app fechar. Análise (dono): média por
-faixa, conversão, filtro por dia da semana, 3 maiores e 3 menores, exportar CSV.
+**Fluxo** — só a passagem é contada à mão: botão +1 gigante para **PASSOU**, faixa de
+hora automática, fecha sozinho na virada da hora, retoma se o app fechar.
+**COMPROU é automático**: cada comanda com item conta como uma compra, na hora em que
+foi aberta. A tela mostra a conversão (comprou ÷ passou) ao vivo. Análise (dono): média
+por faixa, conversão, filtro por dia da semana, 3 maiores e 3 menores, exportar CSV.
 
 **Fichas** — painel de margem (semáforo 35% / 40%), ficha detalhada, atualização de
 preço um por vez ("Contra filé grelhado saiu de 38% para 42%"), simulação de porção e

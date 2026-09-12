@@ -1,8 +1,7 @@
 /* ETAPA 6 — PAINEL DO DONO: "o negócio deu lucro hoje?"
    Três cards (dia · semana · mês), um número grande em cada, um semáforo.
-   Vendas vêm das COMANDAS (mesas, balcão, marmita) e, se preciso, de
-   LANÇAR TOTAIS (quantidade por item e canal, sem comanda). O CMV vem das
-   fichas técnicas; a mercadoria comprada vem de Despesas. */
+   Tudo automático: vendas vêm das COMANDAS (mesas, balcão, marmita), o CMV
+   das fichas técnicas e a mercadoria comprada de Despesas. */
 (function () {
   'use strict';
   const P = window.P;
@@ -24,35 +23,28 @@
     const set = new Set(dias);
     const I = P.Calc.idx();
     const r = { fat: 0, cmv: 0, desconto: 0, mercadoria: 0, outras: 0, espetos: 0, comandas: 0, dias: new Set(), canal: {} };
-    CANAIS.forEach(c => { r.canal[c] = { fat: 0, cmv: 0, bebidas: 0, pratos: 0, itens: 0, comandas: 0, comBebida: 0, manBeb: 0, manPratos: 0, fatComandas: 0, fatManual: 0 }; });
-    function soma(canal, itemId, q, preco, cmvU, manual) {
+    CANAIS.forEach(c => { r.canal[c] = { fat: 0, cmv: 0, bebidas: 0, pratos: 0, itens: 0, comandas: 0, comBebida: 0 }; });
+    function soma(canal, itemId, q, preco, cmvU) {
       const c = r.canal[canal] || r.canal.SALAO;
       const fat = q * preco, cmv = q * cmvU;
       c.fat += fat; c.cmv += cmv; c.itens += q;
-      if (manual) c.fatManual += fat; else c.fatComandas += fat;
       r.fat += fat; r.cmv += cmv;
       const it = I.itens.get(itemId);
       const cat = it && it.categoria;
-      if (cat === 'BEBIDA') { c.bebidas += q; if (manual) c.manBeb += q; }
-      if (cat === 'PRATO') { c.pratos += q; if (manual) c.manPratos += q; }
+      if (cat === 'BEBIDA') c.bebidas += q;
+      if (cat === 'PRATO') c.pratos += q;
       r.espetos += q * P.Calc.espetosPorUnidade(itemId);
       return cat;
     }
-    P.Store.all('vendas_dia').forEach(v => {
-      const q = +v.quantidade || 0;
-      if (!set.has(v.dia_operacional) || q <= 0) return;
-      soma(v.canal, v.item_id, q, +v.preco_unit || 0, +v.cmv_unit || 0, true);
-      r.dias.add(v.dia_operacional);
-    });
     P.Store.all('comandas').forEach(cm => {
       if (cm.status !== 'FECHADA' || !set.has(cm.dia_operacional)) return;
       const k = r.canal[cm.canal] ? cm.canal : 'SALAO';
       let temBebida = false;
       P.Mesas.linhas(cm.id).forEach(l => {
-        if (soma(k, l.item_id, +l.quantidade || 0, +l.preco_unit || 0, +l.cmv_unit || 0, false) === 'BEBIDA') temBebida = true;
+        if (soma(k, l.item_id, +l.quantidade || 0, +l.preco_unit || 0, +l.cmv_unit || 0) === 'BEBIDA') temBebida = true;
       });
       const d = +cm.desconto || 0;
-      r.fat -= d; r.canal[k].fat -= d; r.canal[k].fatComandas -= d; r.desconto += d;
+      r.fat -= d; r.canal[k].fat -= d; r.desconto += d;
       r.canal[k].comandas++;
       if (temBebida) r.canal[k].comBebida++;
       r.comandas++;
@@ -62,21 +54,11 @@
       if (!set.has(d.dia_operacional)) return;
       if (d.categoria === 'MERCADORIA') r.mercadoria += +d.valor || 0; else r.outras += +d.valor || 0;
     });
-    // anexação de bebida: pelas comandas (com bebida ÷ total); sem comanda, aproxima
-    // bebidas ÷ clientes (espeto = contador COMPROU do Fluxo; salão/marmita = pratos)
-    const t = cfg('turnos');
-    let comprouEspeto = 0;
-    P.Store.all('contagens').forEach(c => {
-      if (c.modo === 'COMPROU' && set.has(c.dia_operacional) && c.faixa_hora >= t.espeto_ini && c.faixa_hora < t.espeto_fim) comprouEspeto += +c.quantidade || 0;
-    });
+    // anexação de bebida: contas com bebida ÷ total de contas, por canal
     r.anexacao = {};
     CANAIS.forEach(k => {
       const c = r.canal[k];
-      if (c.comandas > 0) r.anexacao[k] = c.comBebida / c.comandas * 100;
-      else {
-        const cl = k === 'ESPETO' ? comprouEspeto : c.manPratos;
-        r.anexacao[k] = cl > 0 ? Math.min(100, c.manBeb / cl * 100) : null;
-      }
+      r.anexacao[k] = c.comandas > 0 ? c.comBebida / c.comandas * 100 : null;
     });
     return r;
   }
@@ -203,119 +185,6 @@
     desenhar();
     if (P.Sync.configurado()) P.Sync.agendar(0);
     return { onDados: desenhar };
-  }
-
-  // ---------------------------------------------------------------
-  //  LANÇAR TOTAIS — vendas sem comanda (quantidade por item e canal)
-  // ---------------------------------------------------------------
-  const ORDEM_CAT = {
-    ESPETO: ['ESPETO', 'PRATO', 'BEBIDA', 'GUARNICAO'],
-    SALAO: ['PRATO', 'BEBIDA', 'GUARNICAO', 'ESPETO'],
-    MARMITA: ['PRATO', 'BEBIDA', 'GUARNICAO', 'ESPETO'],
-  };
-  function gravarVenda(dia, canal, item, q) {
-    const id = dia + '|' + canal + '|' + item.id;
-    const ant = P.Store.get('vendas_dia', id);
-    if (q <= 0 && !ant) return;
-    const f = P.Calc.ficha(item);
-    const u = P.Auth.usuario();
-    P.Store.put('vendas_dia', {
-      id, dia_operacional: dia, canal, item_id: item.id, quantidade: Math.max(0, q),
-      preco_unit: P.round(f.preco, 2), cmv_unit: P.round(f.cmv, 4), usuario_id: u ? u.id : null,
-    }, { silent: true });
-  }
-
-  function telaLancar(view) {
-    view.className = 'v-lancar';
-    let dia = P.Dia.hoje();
-    let canal = P.Mesas.canalPeloRelogio();
-    const elDia = h('div', { class: 'lc-dia' });
-    const elCanais = h('div', { class: 'seg lc-canais' });
-    const elAviso = h('div', { class: 'lc-aviso' });
-    const elLista = h('div', { class: 'lc-lista' });
-    const elResumo = h('div', { class: 'lc-resumo' });
-
-    function totaisManual(c) {
-      let fat = 0, cmv = 0, n = 0;
-      P.Store.all('vendas_dia').forEach(v => {
-        if (v.dia_operacional !== dia || v.canal !== c) return;
-        const q = +v.quantidade || 0;
-        fat += q * (+v.preco_unit || 0); cmv += q * (+v.cmv_unit || 0); n += q;
-      });
-      return { fat, cmv, n };
-    }
-    function desenharTopo() {
-      const hoje = P.Dia.hoje();
-      elDia.replaceChildren(
-        h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Dia anterior', onClick: () => { dia = P.Dia.anterior(dia); tudo(); } }, P.UI.icone('voltar')),
-        h('div', { class: 'lc-dia-t' }, dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), h('small', null, P.Dia.rotuloCurto(dia))),
-        h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo dia', disabled: dia >= hoje, onClick: () => { dia = P.Dia.seguinte(dia); tudo(); } }, P.UI.icone('avancar')));
-      elCanais.replaceChildren(...CANAIS.map(c => {
-        const t = totaisManual(c);
-        return h('button', { type: 'button', class: c === canal ? 'on' : '', onClick: () => { if (canal === c) return; canal = c; P.vibrar(10); tudo(); } },
-          h('span', null, NOME_CANAL[c]), h('small', null, t.n ? P.brl0(t.fat) : '—'));
-      }));
-      const ag = agregar([dia]).canal[canal];
-      elAviso.hidden = !(ag.fatComandas > 0);
-      elAviso.textContent = 'As comandas fechadas de ' + NOME_CANAL[canal] + ' neste dia (' + P.brl(ag.fatComandas) + ') já contam no painel. Aqui, lance só o que foi vendido sem comanda.';
-    }
-    function desenharResumo() {
-      const t = totaisManual(canal);
-      elResumo.replaceChildren(
-        h('span', null, NOME_CANAL[canal] + ' · ', h('b', null, P.num(t.n)), t.n === 1 ? ' item' : ' itens'),
-        h('span', null, h('b', null, P.brl(t.fat))),
-        h('span', null, 'CMV ', h('b', null, P.pct(t.fat ? t.cmv / t.fat * 100 : null, 0))));
-    }
-    function desenharLista() {
-      elLista.innerHTML = '';
-      const itens = P.Store.all('itens').filter(P.Calc.vendavel);
-      ORDEM_CAT[canal].forEach(cat => {
-        const l = itens.filter(i => i.categoria === cat).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-        if (!l.length) return;
-        elLista.appendChild(h('div', { class: 'lc-cat' }, P.Fichas.CAT[cat]));
-        l.forEach(it => elLista.appendChild(linha(it)));
-      });
-    }
-    function linha(item) {
-      const rec = P.Store.get('vendas_dia', dia + '|' + canal + '|' + item.id);
-      let q = rec ? +rec.quantidade || 0 : 0;
-      const elQ = h('button', { type: 'button', class: 'lc-q', 'aria-label': 'Quantidade de ' + item.nome });
-      const row = h('div', { class: 'lc-lin' },
-        h('div', { class: 'lc-n' }, item.nome, h('small', null, P.brl(item.preco_venda))),
-        h('button', { type: 'button', class: 'lc-b', 'aria-label': 'menos', onClick: () => setQ(q - 1) }, P.UI.icone('menos')),
-        elQ,
-        h('button', { type: 'button', class: 'lc-b mais', 'aria-label': 'mais', onClick: () => setQ(q + 1) }, P.UI.icone('mais')));
-      elQ.addEventListener('click', async () => {
-        const v = await P.UI.pedirNumero({ titulo: item.nome, sub: NOME_CANAL[canal] + ' · ' + P.Dia.rotulo(dia), valor: q, decimais: 0, maxInteiros: 4, rapidos: [1, 5, 10] });
-        if (v != null) setQ(v);
-      });
-      function mostrar() { elQ.textContent = q; row.classList.toggle('tem', q > 0); }
-      function setQ(v) {
-        v = Math.max(0, Math.round(v));
-        if (v === q) { P.vibrar(40); return; }
-        q = v;
-        gravarVenda(dia, canal, item, q);
-        P.vibrar(10);
-        mostrar();
-        desenharResumo();
-        desenharTopo();
-      }
-      mostrar();
-      return row;
-    }
-    function tudo() { desenharTopo(); desenharLista(); desenharResumo(); }
-
-    view.append(P.Mesas.subnavMesas('lancar'), elDia, elCanais, elAviso, elLista, elResumo);
-    tudo();
-    return {
-      onDados(t) {
-        if (t.has('vendas_dia') || t.has('itens') || t.has('comandas')) {
-          const y = view.scrollTop;
-          tudo();
-          view.scrollTop = y;
-        }
-      },
-    };
   }
 
   // ---------------------------------------------------------------
@@ -506,7 +375,6 @@
   }
 
   P.UI.rota('painel', { titulo: 'Painel', tab: 'painel', dono: true, render: telaPainel });
-  P.UI.rota('lancar', { titulo: 'Lançar totais', tab: 'mesas', render: telaLancar });
   P.UI.rota('ajustes', { titulo: 'Ajustes', tab: 'ajustes', render: telaAjustes });
 
   P.Painel = { agregar, fixoMensal, diasMes, subnavPainel, CANAIS, NOME_CANAL };

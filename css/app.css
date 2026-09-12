@@ -212,8 +212,10 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 /* ---------- FLUXO: contagem ---------- */
 #view.v-contar { display: flex; flex-direction: column; --modo: var(--passou); padding-bottom: 10px; }
 #view.v-contar > * { flex: 0 0 auto; }
-.seg-modo button { min-height: 60px; font-size: 1.05rem; letter-spacing: .04em; }
-.seg-modo button.on { background: var(--c); color: #fff; box-shadow: none; }
+.ct-titulo { font-weight: 900; font-size: .95rem; letter-spacing: .03em; color: var(--passou); margin: 0 4px 4px; text-transform: uppercase; }
+.ct-comp { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; background: var(--verde-bg); color: var(--tx2); border-radius: 12px; padding: 7px 12px; margin-bottom: 10px; font-size: .86rem; }
+.ct-comp-t { width: 100%; font-size: .68rem; font-weight: 800; text-transform: uppercase; color: var(--verde); letter-spacing: .03em; }
+.ct-comp b { color: var(--tx); font-size: 1rem; }
 .ct-info { display: flex; justify-content: space-between; color: var(--tx2); font-weight: 700; font-size: .9rem; padding: 0 4px; }
 .ct-hora { font-size: 1.05rem; color: var(--tx); }
 .ct-placar { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: 14px; padding: 2px 4px 8px; }
@@ -441,30 +443,15 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
   .pn-esc-bar { margin-top: 4px; }
 }
 
-/* ---------- LANÇAR TOTAIS ---------- */
-.v-lancar { padding-bottom: 0; }
+/* ---------- Navegação de dia e botões −/+ (usados em várias telas) ---------- */
 .lc-dia { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .lc-dia .pn-nav { width: 52px; height: 48px; }
 .lc-dia-t { flex: 1 1 auto; text-align: center; font-weight: 900; font-size: 1.05rem; text-transform: capitalize; }
 .lc-dia-t small { display: block; font-weight: 600; color: var(--tx3); font-size: .78rem; }
-.lc-canais button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
-.lc-canais small { font-size: .72rem; font-weight: 700; color: var(--tx3); }
-.lc-aviso { background: var(--azul-bg); color: var(--azul); border-radius: 12px; padding: 10px 12px; font-size: .8rem; font-weight: 600; margin-bottom: 10px; }
-.lc-cat { position: sticky; top: -10px; z-index: 1; background: var(--bg); padding: 10px 2px 6px; font-size: .75rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--tx3); }
-.lc-lin { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 12px; background: var(--card); border: 1px solid var(--linha); border-radius: 14px; margin-bottom: 6px; }
-.lc-lin.tem { border-color: var(--verde); background: var(--verde-bg); }
-.lc-n { flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: .92rem; }
-.lc-n small { display: block; color: var(--tx2); font-weight: 600; font-size: .76rem; }
 .lc-b { flex: 0 0 auto; width: 52px; height: 52px; border-radius: 13px; border: 1px solid var(--linha); background: var(--card2); display: grid; place-items: center; touch-action: manipulation; }
 .lc-b.mais { background: var(--verde); border-color: transparent; color: #03170a; }
 [data-theme="light"] .lc-b.mais { color: #fff; }
 .lc-b:active { transform: scale(.95); }
-.lc-q { flex: 0 0 auto; min-width: 56px; height: 52px; border-radius: 13px; border: 1px dashed var(--linha); background: var(--card); font-size: 1.25rem; font-weight: 900; }
-.lc-resumo {
-  position: sticky; bottom: -18px; margin: 10px -12px -18px; padding: 12px 14px calc(12px); background: var(--sup); border-top: 1px solid var(--linha);
-  display: flex; justify-content: space-between; gap: 8px; font-size: .88rem; color: var(--tx2); z-index: 2;
-}
-.lc-resumo b { color: var(--tx); }
 
 /* ---------- AJUSTES ---------- */
 .aj-sec { background: var(--card); border: 1px solid var(--linha); border-radius: 16px; padding: 6px 12px 12px; margin-bottom: 12px; }

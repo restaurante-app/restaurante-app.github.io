@@ -5,7 +5,7 @@
    Publicado em endereço próprio (restaurante-app.github.io). Mesmo assim, por
    garantia: só apaga cache com o prefixo deste app e refaz o cache se sumir. */
 const PREFIXO = 'pari-';
-const CACHE = PREFIXO + 'v1';
+const CACHE = PREFIXO + 'v2';
 const ARQUIVOS = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/config.js', './js/core.js', './js/db.js', './js/calc.js', './js/seed.js', './js/ui.js', './js/auth.js',
