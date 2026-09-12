@@ -2,9 +2,8 @@
    Os dados NÃO passam por aqui (ficam no IndexedDB e vão direto ao Supabase).
    Sempre que mudar algum arquivo do app, aumente a versão abaixo.
 
-   O endereço agrobras123-lab.github.io é dividido com outros apps (ERP etc.):
-   aqui só se apaga cache com o prefixo deste app, e o cache se refaz sozinho
-   se outro app apagá-lo. */
+   Publicado em endereço próprio (restaurante-app.github.io). Mesmo assim, por
+   garantia: só apaga cache com o prefixo deste app e refaz o cache se sumir. */
 const PREFIXO = 'pari-';
 const CACHE = PREFIXO + 'v1';
 const ARQUIVOS = [

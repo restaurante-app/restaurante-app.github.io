@@ -90,8 +90,8 @@ Faça isso de vez em quando se não estiver usando o Supabase.
 
 ## Publicado e instalar no celular
 
-**Link: https://agrobras123-lab.github.io/restaurante/**
-(repositório `agrobras123-lab/restaurante`, GitHub Pages a partir do `main`).
+**Link: https://restaurante-app.github.io/**
+(organização `restaurante-app`, repositório `restaurante-app.github.io`, GitHub Pages a partir do `main`).
 
 Abra o link no Chrome do celular → menu → **Instalar app / Adicionar à tela inicial**.
 Abre em tela cheia e funciona sem internet depois da primeira abertura.
@@ -99,9 +99,9 @@ Abre em tela cheia e funciona sem internet depois da primeira abertura.
 Para atualizar: altere os arquivos, aumente a versão em `sw.js` (`pari-v1` → `pari-v2`)
 e faça `git push`. Sem aumentar a versão o celular continua abrindo a versão guardada.
 
-O endereço `agrobras123-lab.github.io` é o mesmo do ERP e da contagem. O app só mexe
-nos próprios dados (prefixo `pari`). O service worker do ERP apaga caches de outros
-apps quando atualiza; o deste app se refaz sozinho na próxima abertura com internet.
+O app tem endereço próprio (organização separada), então não divide o armazenamento
+do navegador com o ERP nem com a contagem, que ficam em `agrobras123-lab.github.io`.
+Por garantia, ele só mexe nos próprios dados (prefixo `pari`).
 
 ## Limitações conhecidas
 
