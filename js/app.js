@@ -27,6 +27,10 @@
     const semSW = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && localStorage.getItem('pari.sw') !== '1';
     if ('serviceWorker' in navigator && location.protocol !== 'file:' && !semSW) {
       navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW', e));
+      // o endereço é dividido com outros apps que limpam caches: refaz o nosso se sumir
+      const garantir = () => navigator.serviceWorker.ready.then(r => { if (r.active) r.active.postMessage('garantir-cache'); }).catch(() => {});
+      garantir();
+      window.addEventListener('online', garantir);
     }
   }
 

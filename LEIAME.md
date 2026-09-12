@@ -88,13 +88,20 @@ Conflito entre aparelhos: vence a alteração mais recente.
 Ajustes → Backup → **Exportar** gera um arquivo `.json` com tudo; **Importar** restaura.
 Faça isso de vez em quando se não estiver usando o Supabase.
 
-## Publicar e instalar no celular
+## Publicado e instalar no celular
 
-Precisa de HTTPS (ex.: GitHub Pages). Depois de publicado, abra o link no Chrome do
-celular → menu → **Instalar app / Adicionar à tela inicial**. Abre em tela cheia.
+**Link: https://agrobras123-lab.github.io/restaurante/**
+(repositório `agrobras123-lab/restaurante`, GitHub Pages a partir do `main`).
 
-Sempre que alterar algum arquivo, aumente a versão em `sw.js`, senão o celular
-continua abrindo a versão guardada.
+Abra o link no Chrome do celular → menu → **Instalar app / Adicionar à tela inicial**.
+Abre em tela cheia e funciona sem internet depois da primeira abertura.
+
+Para atualizar: altere os arquivos, aumente a versão em `sw.js` (`pari-v1` → `pari-v2`)
+e faça `git push`. Sem aumentar a versão o celular continua abrindo a versão guardada.
+
+O endereço `agrobras123-lab.github.io` é o mesmo do ERP e da contagem. O app só mexe
+nos próprios dados (prefixo `pari`). O service worker do ERP apaga caches de outros
+apps quando atualiza; o deste app se refaz sozinho na próxima abertura com internet.
 
 ## Limitações conhecidas
 
