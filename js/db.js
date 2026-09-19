@@ -26,6 +26,9 @@
       'removidos', 'removido_por', 'removido_em'],
     pagamentos: ['id', 'comanda_id', 'dia_operacional', 'forma', 'valor', 'pago_em', 'usuario_id', 'recebido_em', 'recebido_dia', 'recebido_forma'],
     despesas: ['id', 'dia_operacional', 'categoria', 'descricao', 'valor', 'criado_em', 'usuario_id'],
+    compras: ['id', 'dia_operacional', 'fornecedor', 'forma', 'total', 'criado_em', 'usuario_id',
+      'pago_em', 'pago_dia', 'pago_forma', 'obs'],
+    compra_itens: ['id', 'compra_id', 'insumo_id', 'descricao', 'quantidade', 'unidade', 'preco_unit', 'valor', 'ordem'],
   };
   const COMUNS = ['modificado_em', 'excluido'];
   const TABLES = Object.keys(SCHEMA);

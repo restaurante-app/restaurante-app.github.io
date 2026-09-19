@@ -1,8 +1,12 @@
 # Pátio do Pari · Restaurante
 
-App de gestão do restaurante: **mesas e comandas ao vivo**, **contador de fluxo**,
-**fichas técnicas com preço vivo** e **painel do dono**. Programa novo, independente
-do ERP da Agro Bras (não usa nada dele).
+App de gestão do restaurante: **mesas e comandas ao vivo**, **compras com lucro em
+tempo real**, **contador de fluxo**, **fichas técnicas com preço vivo** e **painel do
+dono**. Programa novo, independente do ERP da Agro Bras (não usa nada dele).
+
+Navegação (barra de baixo) — dono: Painel · Mesas · Compras · Fichas · Mais.
+Operador: Mesas · Compras · Fluxo · Mais. Em **Mais** fica tudo o resto, com um número
+ao vivo em cada atalho (fiado, a pagar, despesas, preços desatualizados…).
 
 - Funciona **offline**: tudo é gravado no celular na hora; sincroniza quando há rede.
 - Tema escuro, botões grandes (mínimo 56 px), uso com uma mão.
@@ -17,6 +21,8 @@ Em **Ajustes → Pessoas e PINs** o dono cadastra os operadores.
 | | Dono | Operador |
 |---|---|---|
 | Mesas, venda rápida, marmita, fechar conta, fiado, despesas, totais do dia | ✓ | ✓ |
+| Lançar compras, marcar compra a prazo como paga | ✓ | ✓ |
+| Resultado ao vivo, custos (comprado × usado), excluir compra | ✓ | — |
 | Contador de fluxo (passou) | ✓ | ✓ |
 | Atualizar preço de compra | ✓ | ✓ |
 | Painel, relatório, análise do fluxo, fichas, simulação, cadastro | ✓ | — |
@@ -31,9 +37,25 @@ saem. Cada item fica com o horário. O total é automático. Em *Fechar conta* e
 forma (Dinheiro, Pix, Débito, Crédito, Fiado); dá para dividir e calcular troco.
 *Venda rápida* é para o balcão (sem mesa). *Marmita* abre comanda no canal marmita.
 Abas: **Fechadas** (contas do dia), **Totais do dia** (automático: itens e valores
-somados das comandas, nada é digitado), **Despesas** (mercadoria e outros gastos),
+somados das comandas, nada é digitado), **Despesas** (gás, carvão, embalagem, limpeza),
 **Fiado** (quem deve, com "Recebi em…").
 Item tirado de uma comanda e conta cancelada ficam registrados com quem fez.
+O dono vê no topo das Mesas: vendido hoje, em aberto nas mesas e o lucro do dia.
+
+**Compras** — *Lançar compra*: de quem comprou, os itens (quantidade + preço por kg, ou
+o total pago) e como pagou (Dinheiro, Pix, Cartão ou **A prazo**). Cada item de insumo
+**atualiza o preço da ficha técnica** e o app mostra na hora o efeito nos pratos
+("Filé de frango saiu de 37% para 39%"). Item sem ficha (gelo, sacola) entra só no gasto.
+Ao editar uma compra antiga, o preço não passa por cima de uma compra mais nova.
+**A pagar**: compras a prazo por fornecedor, com "Paguei em…".
+**Resultado do dia ao vivo** (dono):
+
+    resultado = vendas − custo do que foi vendido (fichas) − despesas − custo fixo do dia
+    caixa     = recebido (sem fiado) − compras pagas − despesas
+
+**Custos** (dono): por insumo, quanto foi comprado × quanto as vendas usaram pela ficha
+(peso bruto, com fator de correção e perda). Sobra grande que se repete = desperdício,
+porção maior que a ficha ou venda sem comanda. Mostra também os preços que mudaram.
 
 **Fluxo** — só a passagem é contada à mão: botão +1 gigante para **PASSOU**, faixa de
 hora automática, fecha sozinho na virada da hora, retoma se o app fechar.
@@ -45,11 +67,12 @@ por faixa, conversão, filtro por dia da semana, 3 maiores e 3 menores, exportar
 preço um por vez ("Contra filé grelhado saiu de 38% para 42%"), simulação de porção e
 preço, cadastro de insumos e itens (item pode conter outro item).
 
-**Painel** — três cards (dia, semana, mês) que cabem na tela: lucro estimado com
-semáforo, prime cost, food cost ficha × real, bebida junto por canal, projeção do mês
-e a escada de espetos/dia. **Relatório detalhado**: resultado, caixa por forma de
-pagamento, por canal, por hora, o que foi vendido, contas, gastos, controle de
-cancelamentos; exporta CSV (abre no Excel) e imprime.
+**Painel** — três cards (dia, semana, mês) que cabem na tela, atualizando ao vivo:
+lucro ou prejuízo do dia com semáforo e caixa (entrou × saiu), prime cost, food cost
+ficha × real (compras ÷ vendas), bebida junto por canal, projeção do mês e a escada de
+espetos/dia. **Relatório detalhado**: resultado, caixa por forma de pagamento, compras
+por insumo, por canal, por hora, o que foi vendido, contas, despesas, controle de
+cancelamentos; exporta CSV (itens vendidos, contas, compras e gastos) e imprime.
 
 ## Dados iniciais
 
@@ -74,14 +97,14 @@ pelo custo sem perda; a perda operacional é aplicada uma vez, no item vendido.
 
 ## Sincronizar vários celulares (Supabase) — opcional
 
-Sem configurar, tudo fica só no aparelho (a pílula no topo mostra "sem nuvem").
+Sem configurar, tudo fica só no aparelho (a pílula no topo mostra "no aparelho").
 Para o painel do dono enxergar o que a equipe registra em outros celulares:
 
 1. Crie um **projeto novo** no Supabase (separado do ERP).
 2. SQL Editor → cole e rode o arquivo `schema.sql`.
 3. Project Settings → API → copie a URL e a chave pública (anon/publishable).
 4. Cole em `js/config.js` (`SUPABASE_URL` e `SUPABASE_ANON_KEY`).
-5. Aumente a versão em `sw.js` (`pari-v1` → `pari-v2`) e publique de novo.
+5. Aumente a versão em `sw.js` (ex.: `pari-v3` → `pari-v4`) e publique de novo.
 
 A pílula passa a mostrar **online / offline / N pendentes**.
 Conflito entre aparelhos: vence a alteração mais recente.
@@ -99,8 +122,10 @@ Faça isso de vez em quando se não estiver usando o Supabase.
 Abra o link no Chrome do celular → menu → **Instalar app / Adicionar à tela inicial**.
 Abre em tela cheia e funciona sem internet depois da primeira abertura.
 
-Para atualizar: altere os arquivos, aumente a versão em `sw.js` (`pari-v1` → `pari-v2`)
+Para atualizar: altere os arquivos, aumente a versão em `sw.js` (ex.: `pari-v3` → `pari-v4`)
 e faça `git push`. Sem aumentar a versão o celular continua abrindo a versão guardada.
+A fonte (Inter) vem do Google Fonts e fica guardada no celular na primeira abertura
+com internet; sem ela, o app usa a fonte do sistema.
 
 O app tem endereço próprio (organização separada), então não divide o armazenamento
 do navegador com o ERP nem com a contagem, que ficam em `agrobras123-lab.github.io`.

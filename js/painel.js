@@ -1,7 +1,10 @@
 /* ETAPA 6 — PAINEL DO DONO: "o negócio deu lucro hoje?"
    Três cards (dia · semana · mês), um número grande em cada, um semáforo.
-   Tudo automático: vendas vêm das COMANDAS (mesas, balcão, marmita), o CMV
-   das fichas técnicas e a mercadoria comprada de Despesas. */
+   Tudo automático: vendas vêm das COMANDAS (mesas, balcão, marmita), o custo do
+   que foi vendido das fichas técnicas (com o preço das últimas compras), a
+   mercadoria comprada de COMPRAS e os demais gastos de DESPESAS.
+     resultado = vendas − custo do vendido − despesas − custo fixo rateado
+     caixa     = recebido (fora fiado) − compras pagas − despesas */
 (function () {
   'use strict';
   const P = window.P;
@@ -22,7 +25,10 @@
   function agregar(dias) {
     const set = new Set(dias);
     const I = P.Calc.idx();
-    const r = { fat: 0, cmv: 0, desconto: 0, mercadoria: 0, outras: 0, espetos: 0, comandas: 0, dias: new Set(), canal: {} };
+    const r = {
+      fat: 0, cmv: 0, desconto: 0, mercadoria: 0, compras: 0, nCompras: 0, outras: 0, espetos: 0, comandas: 0,
+      entrou: 0, saiu: 0, dias: new Set(), canal: {},
+    };
     CANAIS.forEach(c => { r.canal[c] = { fat: 0, cmv: 0, bebidas: 0, pratos: 0, itens: 0, comandas: 0, comBebida: 0 }; });
     function soma(canal, itemId, q, preco, cmvU) {
       const c = r.canal[canal] || r.canal.SALAO;
@@ -53,6 +59,16 @@
     P.Store.all('despesas').forEach(d => {
       if (!set.has(d.dia_operacional)) return;
       if (d.categoria === 'MERCADORIA') r.mercadoria += +d.valor || 0; else r.outras += +d.valor || 0;
+      r.saiu += +d.valor || 0;
+    });
+    P.Store.all('compras').forEach(c => {
+      if (set.has(c.dia_operacional)) { r.compras += +c.total || 0; r.nCompras++; }
+      if (c.pago_em && set.has(c.pago_dia)) r.saiu += +c.total || 0;
+    });
+    r.mercadoria += r.compras;
+    P.Store.all('pagamentos').forEach(p => {
+      if (p.forma !== 'FIADO' && set.has(p.dia_operacional)) r.entrou += +p.valor || 0;
+      if (p.forma === 'FIADO' && p.recebido_em && set.has(p.recebido_dia)) r.entrou += +p.valor || 0;
     });
     // anexação de bebida: contas com bebida ÷ total de contas, por canal
     r.anexacao = {};
@@ -61,6 +77,16 @@
       r.anexacao[k] = c.comandas > 0 ? c.comBebida / c.comandas * 100 : null;
     });
     return r;
+  }
+  // Resultado de um dia, ao vivo (painel, compras, mesas)
+  function resultadoDia(dia) {
+    const r = agregar([dia]);
+    const fixo = fixoMensal() / diasMes();
+    return {
+      fat: r.fat, cmv: r.cmv, outras: r.outras, fixo, compras: r.compras, entrou: r.entrou, saiu: r.saiu, ag: r,
+      resultado: r.fat - r.cmv - r.outras - fixo,
+      temMovimento: r.dias.size > 0 || r.compras > 0 || r.outras > 0,
+    };
   }
 
   // ---------------------------------------------------------------
@@ -93,26 +119,29 @@
       const hoje = P.Dia.hoje();
 
       // ---------- DIA ----------
-      const rd = agregar([dia]);
-      const temDia = rd.dias.size > 0;
-      const lucroDia = rd.fat - rd.cmv - fixoDia;
-      const semDia = !temDia ? 'cinza' : lucroDia >= metaDia ? 'verde' : lucroDia >= 0 ? 'amarelo' : 'vermelho';
+      const res = resultadoDia(dia);
+      const rd = res.ag;
+      const lucroDia = res.resultado;
+      const semDia = !res.temMovimento ? 'cinza' : lucroDia >= metaDia ? 'verde' : lucroDia >= 0 ? 'amarelo' : 'vermelho';
       const dif = lucroDia - metaDia;
+      const saldoCx = res.entrou - res.saiu;
       wrap.appendChild(h('section', { class: 'pn-card pn-dia s-' + semDia },
         h('div', { class: 'pn-cab' },
           h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Dia anterior', onClick: () => { dia = P.Dia.anterior(dia); desenhar(); } }, P.UI.icone('voltar')),
-          h('div', { class: 'pn-tit' }, dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), h('small', null, P.Dia.rotuloCurto(dia))),
+          h('div', { class: 'pn-tit' }, dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), h('small', null, P.Dia.rotuloCurto(dia) + (dia === hoje ? ' · ao vivo' : ''))),
           h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo dia', disabled: dia >= hoje, onClick: () => { dia = P.Dia.seguinte(dia); desenhar(); } }, P.UI.icone('avancar')),
           luz(semDia)),
-        temDia ? [
-          hero(P.brl0(lucroDia), semDia, 'Lucro estimado do dia',
+        res.temMovimento ? [
+          hero(P.brl0(lucroDia), semDia, lucroDia >= 0 ? 'Lucro do dia' : 'Prejuízo do dia',
             ['meta ' + P.brl0(metaDia) + ' · ', valorCor((dif >= 0 ? '+' : '−') + 'R$ ' + Math.round(Math.abs(dif)).toLocaleString('pt-BR'), dif >= 0 ? 'verde' : 'vermelho')]),
-          h('div', { class: 'pn-linha' }, CANAIS.map(c => mini(NOME_CANAL[c], P.brl0(rd.canal[c].fat)))),
           h('div', { class: 'pn-linha' },
-            mini('Faturamento', P.brl0(rd.fat)),
-            mini('CMV ficha', P.brl0(rd.cmv) + ' · ' + P.pct(rd.fat ? rd.cmv / rd.fat * 100 : null, 0)),
-            mini('Fixo do dia', P.brl0(fixoDia))),
-        ] : h('div', { class: 'pn-vazio' }, 'Nenhuma venda neste dia.', h('a', { href: '#/mesas', class: 'btn mini primario' }, 'Ir para Mesas'))));
+            mini('Vendas', P.brl0(rd.fat)),
+            mini('Custo vendido', P.brl0(rd.cmv) + ' · ' + P.pct(rd.fat ? rd.cmv / rd.fat * 100 : null, 0)),
+            mini('Despesas + fixo', P.brl0(res.outras + res.fixo))),
+          h('div', { class: 'pn-linha' }, CANAIS.map(c => mini(NOME_CANAL[c], P.brl0(rd.canal[c].fat)))),
+          h('a', { class: 'pn-txt pn-caixa', href: '#/compras' }, 'Caixa: entrou ', h('b', null, P.brl0(res.entrou)), ' · saiu ', h('b', null, P.brl0(res.saiu)),
+            ' · saldo ', valorCor(P.brl0(saldoCx), saldoCx >= 0 ? 'verde' : 'vermelho'), res.compras ? ' · compras ' + P.brl0(res.compras) : ''),
+        ] : h('div', { class: 'pn-vazio' }, 'Nada lançado neste dia.', h('a', { href: '#/mesas', class: 'btn mini primario' }, 'Ir para Mesas'))));
 
       // ---------- SEMANA (últimos 6 dias operacionais = 1 semana do mercado) ----------
       const diasSem = P.Dia.ultimos(6, dia);
@@ -147,9 +176,9 @@
       const mes = P.Dia.mes(dia);
       const rm = agregar(P.Dia.doMes(mes, dia));
       const nM = rm.dias.size;
-      const lucroM = rm.fat - rm.cmv - fixoDia * nM;
+      const lucroM = rm.fat - rm.cmv - rm.outras - fixoDia * nM;
       const projFat = nM ? rm.fat / nM * D : 0;
-      const projLucro = nM ? (rm.fat - rm.cmv) / nM * D - fixoM : 0;
+      const projLucro = nM ? (rm.fat - rm.cmv - rm.outras) / nM * D - fixoM : 0;
       const margem = rm.fat > 0 ? lucroM / rm.fat * 100 : null;
       const semM = !nM ? 'cinza' : projLucro >= (+metas.lucro_mensal || 0) ? 'verde' : projLucro >= 0 ? 'amarelo' : 'vermelho';
       wrap.appendChild(h('section', { class: 'pn-card s-' + semM },
@@ -375,7 +404,7 @@
   }
 
   P.UI.rota('painel', { titulo: 'Painel', tab: 'painel', dono: true, render: telaPainel });
-  P.UI.rota('ajustes', { titulo: 'Ajustes', tab: 'ajustes', render: telaAjustes });
+  P.UI.rota('ajustes', { titulo: 'Ajustes', tab: 'mais', render: telaAjustes });
 
-  P.Painel = { agregar, fixoMensal, diasMes, subnavPainel, CANAIS, NOME_CANAL };
+  P.Painel = { agregar, resultadoDia, fixoMensal, diasMes, subnavPainel, CANAIS, NOME_CANAL };
 })();

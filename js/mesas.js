@@ -12,6 +12,7 @@
     { v: 'DEBITO', rotulo: 'Débito' }, { v: 'CREDITO', rotulo: 'Crédito' }, { v: 'FIADO', rotulo: 'Fiado' },
   ];
   const NOME_FORMA = { DINHEIRO: 'Dinheiro', PIX: 'Pix', DEBITO: 'Débito', CREDITO: 'Crédito', FIADO: 'Fiado' };
+  const ICONE_FORMA = { DINHEIRO: 'dinheiro', PIX: 'pix', DEBITO: 'cartao', CREDITO: 'cartao', FIADO: 'fiado', CARTAO: 'cartao', PRAZO: 'prazo' };
   const NOME_CANAL = { ESPETO: 'Espeto', SALAO: 'Salão', MARMITA: 'Marmita' };
   const CAT_DESPESA = [
     { v: 'MERCADORIA', rotulo: 'Mercadoria' }, { v: 'GAS_CARVAO', rotulo: 'Gás / carvão' },
@@ -193,23 +194,37 @@
     function desenhar() {
       corpo.innerHTML = '';
       const ab = abertas();
+      if (P.Auth.isDono()) {
+        const r = P.Painel.resultadoDia(P.Dia.hoje());
+        const cor = !r.temMovimento ? 'cinza' : r.resultado >= 0 ? 'verde' : 'vermelho';
+        corpo.appendChild(h('a', { class: 'viva', href: '#/painel' },
+          h('span', { class: 'viva-pt ' + cor }),
+          h('span', { class: 'viva-i' }, h('small', null, 'Vendido hoje'), h('b', null, P.brl0(r.fat))),
+          h('span', { class: 'viva-i' }, h('small', null, 'Em mesas'), h('b', null, P.brl0(ab.reduce((s, c) => s + totalDe(c), 0)))),
+          h('span', { class: 'viva-i' }, h('small', null, r.resultado >= 0 ? 'Lucro' : 'Prejuízo'), h('b', { class: 't-' + cor }, P.brl0(r.resultado))),
+          P.UI.icone('avancar')));
+      }
       corpo.appendChild(h('div', { class: 'ms-acoes' },
-        h('button', { type: 'button', class: 'btn primario ms-rapida', onClick: vendaRapida }, h('span', { class: 'ms-raio' }, '⚡'), 'Venda rápida (balcão)'),
-        h('button', { type: 'button', class: 'btn ms-marm', onClick: abrirMarmita }, 'Marmita')));
+        h('button', { type: 'button', class: 'btn primario ms-rapida', onClick: vendaRapida }, P.UI.icone('fogo'), 'Venda rápida'),
+        h('button', { type: 'button', class: 'btn ms-marm', onClick: abrirMarmita }, P.UI.icone('compras'), 'Marmita')));
 
       const n = Math.max(1, +P.cfg('mesas').quantidade || 12);
       const grade = h('div', { class: 'ms-grade' });
+      const livres = [];
       for (let i = 1; i <= n; i++) {
         const cs = ab.filter(c => c.mesa === String(i));
+        if (!cs.length) livres.push(i);
         const tot = cs.reduce((s, c) => s + totalDe(c), 0);
-        grade.appendChild(h('button', { type: 'button', class: 'ms-mesa' + (cs.length ? ' ocupada' : ''), onClick: () => abrirMesa(i) },
-          h('span', { class: 'ms-n' }, i),
+        const min = cs.length ? (Date.now() - Date.parse(cs[0].aberta_em)) / 60000 : 0;
+        grade.appendChild(h('button', { type: 'button', class: 'ms-mesa' + (cs.length ? ' ocupada' : '') + (min > 60 ? ' demorada' : ''), onClick: () => abrirMesa(i) },
+          h('span', { class: 'ms-topo' }, h('span', { class: 'ms-n' }, i), cs.length ? h('span', { class: 'ms-tempo' }, P.UI.icone('relogio'), tempo(cs[0].aberta_em)) : null),
           cs.length ? [
             h('span', { class: 'ms-cli' }, cs.map(c => c.cliente || 'sem nome').join(', ')),
             h('span', { class: 'ms-tot' }, P.brl(tot)),
-            h('span', { class: 'ms-tempo' }, tempo(cs[0].aberta_em)),
           ] : h('span', { class: 'ms-livre' }, 'livre')));
       }
+      corpo.appendChild(h('div', { class: 'secao sec-linha' }, h('span', null, 'Salão'),
+        h('small', null, (n - livres.length) + ' ocupada' + (n - livres.length === 1 ? '' : 's') + ' · ' + livres.length + ' livre' + (livres.length === 1 ? '' : 's'))));
       corpo.appendChild(grade);
 
       const outras = ab.filter(c => !/^\d+$/.test(c.mesa || ''));
@@ -231,7 +246,7 @@
     relogio = setInterval(desenhar, 30000);
     return {
       cleanup() { clearInterval(relogio); },
-      onDados(t) { if (t.has('comandas') || t.has('comanda_itens')) desenhar(); },
+      onDados(t) { if (t.has('comandas') || t.has('comanda_itens') || t.has('compras') || t.has('despesas') || t.has('pagamentos')) desenhar(); },
     };
   }
 
@@ -250,7 +265,7 @@
     let cat = ORDEM[c.canal] ? ORDEM[c.canal][0] : 'PRATO';
 
     const elCab = h('div', { class: 'cm-cab' });
-    const elTotal = h('div', { class: 'cm-total' });
+    const elTotal = h('div', { class: 'barra-acao' });
     const elCats = h('div', { class: 'cm-cats' });
     const elGrade = h('div', { class: 'cm-grade' });
     const elConsumo = h('div', { class: 'cm-consumo' });
@@ -266,15 +281,16 @@
       elCab.replaceChildren(
         h('a', { class: 'cm-voltar', href: '#/mesas', 'aria-label': 'Voltar às mesas' }, P.UI.icone('voltar')),
         h('button', { type: 'button', class: 'cm-tit', onClick: renomear },
-          h('b', null, nomeLocal(c)), h('span', null, c.cliente || 'toque para pôr o nome')),
-        h('button', { type: 'button', class: 'cm-canal', onClick: trocarCanal }, NOME_CANAL[c.canal] || c.canal),
-        h('span', { class: 'cm-tempo' }, tempo(c.aberta_em)));
+          h('b', null, nomeLocal(c)), h('span', null, c.cliente || 'toque para pôr o nome', P.UI.icone('lapis'))),
+        h('div', { class: 'cm-dir' },
+          h('button', { type: 'button', class: 'cm-canal k-' + (c.canal || 'SALAO').toLowerCase(), onClick: trocarCanal }, NOME_CANAL[c.canal] || c.canal),
+          h('span', { class: 'cm-tempo' }, P.UI.icone('relogio'), tempo(c.aberta_em))));
     }
     function desenharTotal() {
       const n = qtdItens(c.id);
       elTotal.replaceChildren(
-        h('div', { class: 'cm-tot-v' }, h('small', null, n + (n === 1 ? ' item' : ' itens')), h('b', null, P.brl(totalDe(c)))),
-        h('button', { type: 'button', class: 'btn primario cm-fechar', disabled: !n, onClick: () => { location.hash = '#/mesas/pagar/' + c.id; } }, 'Fechar conta', P.UI.icone('avancar')));
+        h('div', { class: 'barra-tot' }, h('small', null, n + (n === 1 ? ' item' : ' itens')), h('b', null, P.brl(totalDe(c)))),
+        h('button', { type: 'button', class: 'btn primario barra-btn', disabled: !n, onClick: () => { location.hash = '#/mesas/pagar/' + c.id; } }, 'Fechar conta', P.UI.icone('avancar')));
     }
     function desenharCats() {
       const presentes = new Set(vendaveis().map(i => i.categoria));
@@ -285,7 +301,7 @@
       elGrade.innerHTML = '';
       vendaveis().filter(i => i.categoria === cat).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).forEach(it => {
         const n = q.get(it.id) || 0;
-        elGrade.appendChild(h('button', { type: 'button', class: 'cm-item' + (n ? ' tem' : ''), onClick: e => {
+        elGrade.appendChild(h('button', { type: 'button', class: 'cm-item k-' + it.categoria.toLowerCase() + (n ? ' tem' : ''), onClick: e => {
           adicionar(c, it);
           P.vibrar(15);
           const b = e.currentTarget;
@@ -337,7 +353,7 @@
       location.hash = '#/mesas';
     }
 
-    view.append(elCab, elTotal, elCats, elGrade, elConsumo);
+    view.append(elCab, elCats, elGrade, elConsumo, elTotal);
     desenharCab(); desenharCats(); atualizar();
     if (rapida) P.UI.toast('Venda rápida: toque nos itens e depois em Fechar conta');
     const relogio = setInterval(desenharCab, 30000);
@@ -415,7 +431,7 @@
         h('div', { class: 'pg-total' }, P.brl(total())),
         h('div', { class: 'pg-sub' }, qtdItens(c.id) + ' itens · subtotal ' + P.brl(subtotal(c.id)),
           h('button', { type: 'button', class: 'btn mini', onClick: pedirDesconto }, desconto ? 'desconto ' + P.brl(desconto) : '+ desconto')));
-      elFormas.replaceChildren(...FORMAS.map(f => h('button', { type: 'button', class: 'pg-forma f-' + f.v.toLowerCase(), onClick: () => escolher(f.v) }, f.rotulo)));
+      elFormas.replaceChildren(...FORMAS.map(f => h('button', { type: 'button', class: 'pg-forma f-' + f.v.toLowerCase(), onClick: () => escolher(f.v) }, P.UI.icone(ICONE_FORMA[f.v]), f.rotulo)));
       elPags.innerHTML = '';
       pags.forEach((p, i) => {
         const troco = p.forma === 'DINHEIRO' && p.recebido > p.valor ? P.round(p.recebido - p.valor, 2) : 0;
@@ -571,10 +587,10 @@
   // ---------------------------------------------------------------
   function novaDespesa(dia, cat0) {
     return new Promise(resolve => {
-      let cat = cat0 || 'MERCADORIA';
+      let cat = cat0 || 'GAS_CARVAO';
       let valor = null;
       let feito = false;
-      const desc = h('input', { class: 'campo', type: 'text', placeholder: 'O quê? (ex.: frango — box 12)', autocomplete: 'off' });
+      const desc = h('input', { class: 'campo', type: 'text', placeholder: 'O quê? (ex.: botijão, detergente)', autocomplete: 'off' });
       const bValor = h('button', { type: 'button', class: 'btn valor bloco' });
       const mostrar = () => { bValor.textContent = valor ? P.brl(valor) : 'Valor (R$)'; };
       bValor.addEventListener('click', async () => {
@@ -582,7 +598,7 @@
         if (v != null) { valor = v; mostrar(); }
       });
       const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
-        P.UI.seg(CAT_DESPESA, cat, v => { cat = v; }, 'seg-p seg-cat'),
+        P.UI.seg(CAT_DESPESA.filter(c => c.v !== 'MERCADORIA'), cat, v => { cat = v; }, 'seg-p seg-cat'),
         bValor, desc,
         h('div', { class: 'row gap' },
           h('button', { type: 'button', class: 'btn', onClick: () => sh.fechar() }, 'Cancelar'),
@@ -605,15 +621,15 @@
       corpo.innerHTML = '';
       corpo.appendChild(navDia(dia, d => { dia = d; desenhar(); }));
       const ds = P.Store.all('despesas').filter(d => d.dia_operacional === dia).sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1));
-      const merc = ds.filter(d => d.categoria === 'MERCADORIA').reduce((s, d) => s + (+d.valor || 0), 0);
-      const outras = ds.filter(d => d.categoria !== 'MERCADORIA').reduce((s, d) => s + (+d.valor || 0), 0);
+      const tot = ds.reduce((s, d) => s + (+d.valor || 0), 0);
+      const compras = P.Compras.doDia(dia).reduce((s, c) => s + (+c.total || 0), 0);
       corpo.appendChild(h('div', { class: 'fx-resumo' },
-        h('div', { class: 'fx-tot' }, h('small', null, 'Gasto no dia'), h('b', null, P.brl(merc + outras))),
-        h('div', { class: 'fx-formas' }, h('span', { class: 'fx-f' }, 'Mercadoria ', h('b', null, P.brl(merc))), h('span', { class: 'fx-f' }, 'Outras ', h('b', null, P.brl(outras))))));
+        h('div', { class: 'fx-tot' }, h('small', null, 'Despesas do dia'), h('b', null, P.brl(tot))),
+        h('a', { class: 'fx-formas link', href: '#/compras' }, h('span', { class: 'fx-f' }, 'Compras de mercadoria ', h('b', null, P.brl(compras))), P.UI.icone('avancar'))));
       corpo.appendChild(h('div', { class: 'row gap' },
-        h('button', { type: 'button', class: 'btn primario grow', onClick: () => novaDespesa(dia, 'MERCADORIA').then(desenhar) }, P.UI.icone('mais'), 'Mercadoria'),
-        h('button', { type: 'button', class: 'btn grow', onClick: () => novaDespesa(dia, 'OUTROS').then(desenhar) }, P.UI.icone('mais'), 'Outra despesa')));
-      if (!ds.length) { corpo.appendChild(P.UI.vazio('Nenhuma despesa lançada neste dia. Mercadoria entra no food cost real do painel.')); return; }
+        h('button', { type: 'button', class: 'btn primario grow', onClick: () => novaDespesa(dia, 'GAS_CARVAO').then(desenhar) }, P.UI.icone('mais'), 'Despesa'),
+        h('a', { class: 'btn grow', href: '#/compras/nova' }, P.UI.icone('compras'), 'Compra de mercadoria')));
+      if (!ds.length) { corpo.appendChild(P.UI.vazio('Nenhuma despesa neste dia. Aqui entram gás, carvão, embalagem, limpeza. Mercadoria (comida e bebida) vai em Compras.', 'caixa')); return; }
       corpo.appendChild(h('div', { class: 'ms-lista' }, ds.map(d => h('div', { class: 'ms-card' },
         h('div', { class: 'ms-card-n' }, d.descricao || NOME_DESP[d.categoria], h('small', null, P.Dia.hora(d.criado_em) + ' · ' + NOME_DESP[d.categoria])),
         h('b', null, P.brl(d.valor)),
@@ -673,7 +689,7 @@
           P.UI.toast(g.nome + ': ' + P.brl(g.total) + ' recebido (' + f.rotulo + ')', {
             acao: { rotulo: 'Desfazer', fn: () => g.pags.forEach(p => P.Store.put('pagamentos', Object.assign({}, p, { recebido_em: null, recebido_dia: null, recebido_forma: null }))) },
           });
-        } }, f.rotulo)))),
+        } }, P.UI.icone(ICONE_FORMA[f.v]), f.rotulo)))),
       { titulo: 'Fiado de ' + g.nome });
     }
     view.append(subnavMesas('fiado'), corpo);
@@ -692,7 +708,7 @@
 
   P.Mesas = {
     linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, fiadoAberto, totaisDoDia,
-    FORMAS, NOME_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP,
+    FORMAS, NOME_FORMA, ICONE_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP,
     _abrir: abrir, _adicionar: adicionar, _fechar: fechar, _tirar: tirar,
   };
 })();

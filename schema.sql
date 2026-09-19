@@ -170,12 +170,45 @@ create table if not exists despesas (
   sincronizado_em timestamptz not null default clock_timestamp()
 );
 
+-- COMPRAS de mercadoria (cada item de insumo atualiza o preço da ficha técnica)
+create table if not exists compras (
+  id text primary key,
+  dia_operacional date not null,
+  fornecedor text,
+  forma text not null default 'DINHEIRO' check (forma in ('DINHEIRO', 'PIX', 'CARTAO', 'PRAZO')),
+  total numeric(12, 2) not null default 0,
+  criado_em timestamptz not null default now(),
+  usuario_id text,
+  pago_em timestamptz,                     -- a prazo: vazio até pagar
+  pago_dia date,
+  pago_forma text,
+  obs text,
+  modificado_em timestamptz not null default now(),
+  excluido boolean not null default false,
+  sincronizado_em timestamptz not null default clock_timestamp()
+);
+
+create table if not exists compra_itens (
+  id text primary key,
+  compra_id text not null,
+  insumo_id text,                          -- vazio = item sem ficha (gelo, sacola…)
+  descricao text not null,
+  quantidade numeric(12, 3) not null default 0,
+  unidade text not null default 'kg',
+  preco_unit numeric(12, 4) not null default 0,
+  valor numeric(12, 2) not null default 0,
+  ordem integer not null default 0,
+  modificado_em timestamptz not null default now(),
+  excluido boolean not null default false,
+  sincronizado_em timestamptz not null default clock_timestamp()
+);
+
 -- Gatilho, índice de sincronização e acesso (chave pública do app)
 do $$
 declare t text;
 begin
   foreach t in array array['usuarios', 'config', 'contagens', 'insumos', 'itens', 'componentes', 'historico_precos',
-                           'comandas', 'comanda_itens', 'pagamentos', 'despesas'] loop
+                           'comandas', 'comanda_itens', 'pagamentos', 'despesas', 'compras', 'compra_itens'] loop
     execute format('drop trigger if exists trg_%1$s_lww on %1$s', t);
     execute format('create trigger trg_%1$s_lww before insert or update on %1$s for each row execute function pari_lww()', t);
     execute format('create index if not exists idx_%1$s_sync on %1$s (sincronizado_em)', t);
@@ -190,3 +223,5 @@ end $$;
 create index if not exists idx_comandas_dia on comandas (dia_operacional);
 create index if not exists idx_comanda_itens_comanda on comanda_itens (comanda_id);
 create index if not exists idx_contagens_dia on contagens (dia_operacional);
+create index if not exists idx_compras_dia on compras (dia_operacional);
+create index if not exists idx_compra_itens_compra on compra_itens (compra_id);

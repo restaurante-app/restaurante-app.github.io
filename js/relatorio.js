@@ -79,6 +79,18 @@
       if (p.forma === 'FIADO' && p.recebido_em && set.has(p.recebido_dia)) r.recebidoFiado[p.recebido_forma] = (r.recebidoFiado[p.recebido_forma] || 0) + (+p.valor || 0);
     });
     despesas.forEach(d => { if (d.categoria === 'MERCADORIA') r.merc += +d.valor || 0; else r.outras += +d.valor || 0; });
+    // compras de mercadoria: feitas no período (custo) e pagas no período (caixa)
+    r.compras = P.Store.all('compras').filter(c => set.has(c.dia_operacional)).sort((a, b) => (a.criado_em < b.criado_em ? -1 : 1));
+    r.comprasTotal = r.compras.reduce((s, c) => s + (+c.total || 0), 0);
+    r.comprasPagas = P.Store.all('compras').filter(c => c.pago_em && set.has(c.pago_dia)).reduce((s, c) => s + (+c.total || 0), 0);
+    r.comprasAPrazo = r.compras.filter(c => c.forma === 'PRAZO' && !c.pago_em).reduce((s, c) => s + (+c.total || 0), 0);
+    r.porInsumo = new Map();
+    r.compras.forEach(c => P.Compras.itensDe(c.id).forEach(l => {
+      const k = l.insumo_id || 'avulso:' + P.UI.semAcento(l.descricao);
+      if (!r.porInsumo.has(k)) r.porInsumo.set(k, { nome: l.descricao, un: l.unidade, q: 0, v: 0 });
+      const g = r.porInsumo.get(k);
+      g.q += +l.quantidade || 0; g.v += +l.valor || 0;
+    }));
 
     // controle: itens tirados e contas canceladas
     const idsPer = new Set(comandas.map(c => c.id));
@@ -90,9 +102,10 @@
     r.fat = r.fatBruto - r.desconto;
     r.fixo = P.Painel.fixoMensal() / P.Painel.diasMes() * r.diasMov.size;
     r.lucroBruto = r.fat - r.cmv;
-    r.lucro = r.lucroBruto - r.fixo;
+    r.lucro = r.lucroBruto - r.outras - r.fixo;
     r.entradas = ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].reduce((s, f) => s + r.porForma[f] + (r.recebidoFiado[f] || 0), 0);
-    r.saidas = r.merc + r.outras;
+    r.saidas = r.comprasPagas + r.merc + r.outras;
+    r.gastoMercadoria = r.comprasTotal + r.merc;
     r.ticket = fechadas.length ? fechadas.reduce((s, c) => s + (+c.total || 0), 0) / fechadas.length : null;
     r.fiadoEmAberto = P.Mesas.fiadoAberto().reduce((s, p) => s + (+p.valor || 0), 0);
     return r;
@@ -134,16 +147,16 @@
       corpo.appendChild(h('div', { class: 'an-base' }, dias.length
         ? (dias.length === 1 ? P.Dia.rotulo(dias[0]) : P.Dia.rotuloCurto(dias[0]) + ' a ' + P.Dia.rotuloCurto(dias[dias.length - 1])) + ' · ' + r.diasMov.size + (r.diasMov.size === 1 ? ' dia com venda' : ' dias com venda')
         : 'Escolha um período válido.'));
-      if (!r.fechadas.length && !r.porItem.size && !r.despesas.length && !r.canceladas.length) {
-        corpo.appendChild(P.UI.vazio('Nada registrado neste período.'));
+      if (!r.fechadas.length && !r.porItem.size && !r.despesas.length && !r.canceladas.length && !r.compras.length) {
+        corpo.appendChild(P.UI.vazio('Nada registrado neste período.', 'relatorio'));
         return;
       }
       const margem = r.fat > 0 ? r.lucro / r.fat * 100 : null;
       corpo.appendChild(h('div', { class: 'rl-kpis' },
         kpi('Faturamento', P.brl(r.fat), P.num(r.qtd) + ' itens'),
-        kpi('Lucro estimado', P.brl(r.lucro), 'margem ' + P.pct(margem, 1), r.lucro >= 0 ? 'verde' : 'vermelho'),
-        kpi('CMV (fichas)', P.brl(r.cmv), P.pct(r.fat ? r.cmv / r.fat * 100 : null, 1) + ' do faturamento'),
-        kpi('Gastos lançados', P.brl(r.saidas), 'mercadoria ' + P.brl0(r.merc)),
+        kpi(r.lucro >= 0 ? 'Lucro' : 'Prejuízo', P.brl(r.lucro), 'margem ' + P.pct(margem, 1), r.lucro >= 0 ? 'verde' : 'vermelho'),
+        kpi('Custo do vendido', P.brl(r.cmv), P.pct(r.fat ? r.cmv / r.fat * 100 : null, 1) + ' das vendas (fichas)'),
+        kpi('Compras', P.brl(r.gastoMercadoria), P.pct(r.fat ? r.gastoMercadoria / r.fat * 100 : null, 0) + ' das vendas · real'),
         kpi('Contas fechadas', String(r.fechadas.length), 'ticket ' + (r.ticket == null ? '—' : P.brl(r.ticket))),
         kpi('Fiado em aberto', P.brl(r.fiadoEmAberto), 'total de todos os dias', r.fiadoEmAberto > 0 ? 'amarelo' : null)));
 
@@ -151,18 +164,21 @@
         linhaV('Faturamento bruto (itens)', P.brl(r.fatBruto)),
         r.desconto ? linhaV('(−) Descontos', P.brl(r.desconto)) : null,
         linhaV('= Faturamento líquido', P.brl(r.fat), 'forte'),
-        linhaV('(−) CMV pelas fichas técnicas', P.brl(r.cmv)),
+        linhaV('(−) Custo do que foi vendido (fichas)', P.brl(r.cmv)),
         linhaV('= Lucro bruto', P.brl(r.lucroBruto), 'forte'),
+        linhaV('(−) Despesas (gás, embalagem, limpeza…)', P.brl(r.outras)),
         linhaV('(−) Custo fixo rateado (' + r.diasMov.size + (r.diasMov.size === 1 ? ' dia' : ' dias') + ')', P.brl(r.fixo)),
-        linhaV('= Lucro estimado', P.brl(r.lucro), 'total ' + (r.lucro >= 0 ? 't-verde' : 't-vermelho'))));
+        linhaV(r.lucro >= 0 ? '= Lucro' : '= Prejuízo', P.brl(r.lucro), 'total ' + (r.lucro >= 0 ? 't-verde' : 't-vermelho')),
+        r.gastoMercadoria ? linhaV('Compras × custo do vendido: ' + (r.gastoMercadoria - r.cmv >= 0 ? 'comprou ' + P.brl(r.gastoMercadoria - r.cmv) + ' a mais (estoque ou perda)' : 'usou ' + P.brl(r.cmv - r.gastoMercadoria) + ' de estoque'), '', 'nota') : null));
 
       corpo.appendChild(secao('Caixa (dinheiro que entrou e saiu)',
         ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].map(f => linhaV(P.Mesas.NOME_FORMA[f], P.brl(r.porForma[f]) + (r.recebidoFiado[f] ? ' + ' + P.brl(r.recebidoFiado[f]) + ' de fiado' : ''))),
         linhaV('= Entradas', P.brl(r.entradas), 'forte'),
-        linhaV('(−) Mercadoria', P.brl(r.merc)),
-        linhaV('(−) Outras despesas', P.brl(r.outras)),
+        linhaV('(−) Compras pagas', P.brl(r.comprasPagas + r.merc)),
+        linhaV('(−) Despesas', P.brl(r.outras)),
         linhaV('= Saldo de caixa do período', P.brl(r.entradas - r.saidas), 'total ' + (r.entradas - r.saidas >= 0 ? 't-verde' : 't-vermelho')),
-        r.porForma.FIADO ? linhaV('Vendido no fiado neste período (a receber)', P.brl(r.porForma.FIADO), 'aviso') : null));
+        r.porForma.FIADO ? linhaV('Vendido no fiado neste período (a receber)', P.brl(r.porForma.FIADO), 'aviso') : null,
+        r.comprasAPrazo ? linhaV('Comprado a prazo neste período (a pagar)', P.brl(r.comprasAPrazo), 'aviso') : null));
 
       corpo.appendChild(secao('Por canal',
         h('div', { class: 'rl-tab' },
@@ -203,8 +219,20 @@
           lista.length > mostrar.length ? h('button', { type: 'button', class: 'btn bloco', onClick: () => { verTodas = true; desenhar(); } }, 'Mostrar todas as ' + lista.length) : null));
       }
 
+      if (r.compras.length) {
+        const ins = [...r.porInsumo.values()].sort((a, b) => b.v - a.v);
+        corpo.appendChild(secao('Compras (' + r.compras.length + ') · ' + P.brl(r.comprasTotal),
+          h('div', { class: 'rl-tab' },
+            h('div', { class: 'rl-tr th rl-tr3' }, h('span', null, 'Insumo'), h('span', null, 'Qtd'), h('span', null, 'Valor')),
+            ins.map(g => h('div', { class: 'rl-tr rl-tr3' }, h('span', null, g.nome), h('span', null, P.numAuto(g.q, 2) + ' ' + g.un), h('span', null, P.brl(g.v))))),
+          h('div', { class: 'ms-lista' }, r.compras.slice().reverse().map(c => h('a', { class: 'ms-card', href: '#/compras/c/' + c.id },
+            h('div', { class: 'ms-card-n' }, c.fornecedor || 'Compra',
+              h('small', null, (dias.length > 1 ? P.Dia.rotuloCurto(c.dia_operacional) + ' · ' : '') + P.Dia.hora(c.criado_em) + ' · ' + (P.Compras.NOME_FORMA[c.forma] || c.forma) + (c.forma === 'PRAZO' && !c.pago_em ? ' (a pagar)' : ''))),
+            h('b', null, P.brl(c.total)))))));
+      }
+
       if (r.despesas.length) {
-        corpo.appendChild(secao('Gastos lançados',
+        corpo.appendChild(secao('Despesas',
           h('div', { class: 'ms-lista' }, r.despesas.map(d => h('div', { class: 'ms-card' },
             h('div', { class: 'ms-card-n' }, d.descricao || P.Mesas.NOME_DESP[d.categoria],
               h('small', null, (dias.length > 1 ? P.Dia.rotuloCurto(d.dia_operacional) + ' · ' : '') + P.Dia.hora(d.criado_em) + ' · ' + P.Mesas.NOME_DESP[d.categoria])),
@@ -232,9 +260,12 @@
                 P.Mesas.pagamentos(c.id).map(p => P.Mesas.NOME_FORMA[p.forma] + ' ' + num(p.valor)).join(' + ')])), 'text/csv;charset=utf-8');
           } }, P.UI.icone('download'), 'Contas'),
           h('button', { type: 'button', class: 'btn', onClick: () => {
-            P.UI.baixar('gastos_' + nomeArq + '.csv', csv(['dia_operacional', 'data_hora', 'categoria', 'descricao', 'valor'],
-              r.despesas.map(d => [d.dia_operacional, fmtDataHora(d.criado_em), P.Mesas.NOME_DESP[d.categoria], d.descricao || '', num(d.valor)])), 'text/csv;charset=utf-8');
-          } }, P.UI.icone('download'), 'Gastos'),
+            const linhas = [];
+            r.compras.forEach(c => P.Compras.itensDe(c.id).forEach(l => linhas.push([c.dia_operacional, fmtDataHora(c.criado_em), 'Compra', c.fornecedor || '',
+              l.descricao, num(l.quantidade, 3), l.unidade, num(l.preco_unit, 4), num(l.valor), P.Compras.NOME_FORMA[c.forma] || c.forma, c.pago_em ? 'sim' : 'não'])));
+            r.despesas.forEach(d => linhas.push([d.dia_operacional, fmtDataHora(d.criado_em), 'Despesa · ' + P.Mesas.NOME_DESP[d.categoria], '', d.descricao || '', '', '', '', num(d.valor), '', 'sim']));
+            P.UI.baixar('gastos_' + nomeArq + '.csv', csv(['dia_operacional', 'data_hora', 'tipo', 'fornecedor', 'item', 'quantidade', 'unidade', 'preco_unit', 'valor', 'forma', 'pago'], linhas), 'text/csv;charset=utf-8');
+          } }, P.UI.icone('download'), 'Compras e gastos'),
           h('button', { type: 'button', class: 'btn', onClick: () => window.print() }, 'Imprimir'))));
     }
 

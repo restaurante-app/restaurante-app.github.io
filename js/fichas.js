@@ -648,7 +648,7 @@
   // ---------------------------------------------------------------
   //  Rotas
   // ---------------------------------------------------------------
-  const tabPrecos = () => (P.Auth.isDono() ? 'fichas' : 'precos');
+  const tabPrecos = () => (P.Auth.isDono() ? 'fichas' : 'mais');
   P.UI.rota('fichas', { titulo: 'Fichas · margem', tab: 'fichas', dono: true, render: telaMargem });
   P.UI.rota('fichas/item/:id', { titulo: 'Ficha técnica', tab: 'fichas', dono: true, render: telaItem });
   P.UI.rota('fichas/simular', { titulo: 'Simulação', tab: 'fichas', dono: true, render: telaSimular });
@@ -660,5 +660,5 @@
   P.UI.rota('precos', { titulo: 'Preços', tab: tabPrecos, render: telaPrecos });
   P.UI.rota('precos/:id', { titulo: 'Preços', tab: tabPrecos, render: telaPrecos });
 
-  P.Fichas = { aplicarPreco, CAT, CATS };
+  P.Fichas = { aplicarPreco, medirEfeito, frasesEfeito, precoFmt, precoUnit, haDias, CAT, CATS };
 })();

@@ -157,6 +157,31 @@
     return [...ids].map(id => I.itens.get(id)).filter(Boolean);
   }
 
+  // Quanto de cada insumo (na unidade de compra: kg, L ou un, peso BRUTO) é gasto
+  // para vender `qtd` unidades do item — pela ficha, com fator de correção e perda.
+  function consumo(itemId, qtd, acc, pilha, perdaAplicada) {
+    acc = acc || new Map();
+    const I = idx();
+    const it = I.itens.get(itemId);
+    if (!it || !(qtd > 0)) return acc;
+    pilha = pilha || new Set();
+    if (pilha.has(itemId)) return acc;
+    pilha.add(itemId);
+    const mult = perdaAplicada ? qtd : qtd * (1 + (+it.perda_pct || 0) / 100);
+    (I.comps.get(itemId) || []).forEach(c => {
+      if (c.insumo_id) {
+        const ins = I.insumos.get(c.insumo_id);
+        if (!ins) return;
+        const q = mult * (+c.gramas || 0) * (+ins.fator_correcao || 1) / divisor(ins.unidade);
+        acc.set(ins.id, (acc.get(ins.id) || 0) + q);
+      } else if (c.item_componente_id) {
+        consumo(c.item_componente_id, mult * (+c.gramas || 0), acc, pilha, true);
+      }
+    });
+    pilha.delete(itemId);
+    return acc;
+  }
+
   const vendavel = it => it && it.ativo !== false && (+it.preco_venda || 0) > 0;
 
   // foto do food cost de todos os itens vendáveis (para comparar antes × depois)
@@ -200,7 +225,7 @@
 
   P.Calc = {
     cfgFichas, idx, custoInsumo, custoBruto, custoLista, ficha, fichaCom, linhas, faixa,
-    espetosPorUnidade, contem, usosDoInsumo, usosDoItem, vendavel, snapshot, diferencas, paraAlvo,
+    espetosPorUnidade, contem, usosDoInsumo, usosDoItem, vendavel, snapshot, diferencas, paraAlvo, consumo,
     unidadeQtd, divisor,
     componentesDe: itemId => (idx().comps.get(itemId) || []).slice(),
     precoVelho: ins => P.Dia.diasDesde(ins.atualizado_em) > cfgFichas().dias_preco_velho,

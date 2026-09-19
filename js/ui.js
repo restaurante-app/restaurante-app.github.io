@@ -59,6 +59,21 @@
     sair: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
     sino: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
     busca: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    compras: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+    mais_grade: '<rect width="7" height="7" x="3" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="3" rx="1.5"/><rect width="7" height="7" x="14" y="14" rx="1.5"/><rect width="7" height="7" x="3" y="14" rx="1.5"/>',
+    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+    caixa: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+    relatorio: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+    dinheiro: '<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+    pix: '<path d="m12 2 4.2 4.2-4.2 4.2-4.2-4.2Z"/><path d="m12 13.6 4.2 4.2L12 22l-4.2-4.2Z"/><path d="m6.2 7.8 4.2 4.2-4.2 4.2L2 12Z"/><path d="m17.8 7.8 4.2 4.2-4.2 4.2-4.2-4.2Z"/>',
+    cartao: '<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/>',
+    fiado: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+    prazo: '<rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    custos: '<path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/>',
+    relogio: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+    nuvem: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>',
+    usuario: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    fogo: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
   };
   function icone(nome, cls) {
     const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -84,7 +99,7 @@
     }
     const atual = document.documentElement.dataset.theme || 'dark';
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', atual === 'light' ? '#f3f6f4' : '#0e1311');
+    if (meta) meta.setAttribute('content', atual === 'light' ? '#f2f5f3' : '#080b0a');
     return atual;
   }
 
@@ -325,17 +340,17 @@
   }
   const TABS = {
     DONO: [
-      { id: 'mesas', rota: 'mesas', rotulo: 'Mesas', icone: 'mesas' },
-      { id: 'fluxo', rota: 'fluxo', rotulo: 'Fluxo', icone: 'fluxo' },
-      { id: 'fichas', rota: 'fichas', rotulo: 'Fichas', icone: 'fichas' },
       { id: 'painel', rota: 'painel', rotulo: 'Painel', icone: 'painel' },
-      { id: 'ajustes', rota: 'ajustes', rotulo: 'Ajustes', icone: 'ajustes' },
+      { id: 'mesas', rota: 'mesas', rotulo: 'Mesas', icone: 'mesas' },
+      { id: 'compras', rota: 'compras', rotulo: 'Compras', icone: 'compras' },
+      { id: 'fichas', rota: 'fichas', rotulo: 'Fichas', icone: 'fichas' },
+      { id: 'mais', rota: 'mais', rotulo: 'Mais', icone: 'mais_grade' },
     ],
     OPERADOR: [
       { id: 'mesas', rota: 'mesas', rotulo: 'Mesas', icone: 'mesas' },
+      { id: 'compras', rota: 'compras', rotulo: 'Compras', icone: 'compras' },
       { id: 'fluxo', rota: 'fluxo', rotulo: 'Fluxo', icone: 'fluxo' },
-      { id: 'precos', rota: 'precos', rotulo: 'Preços', icone: 'preco' },
-      { id: 'ajustes', rota: 'ajustes', rotulo: 'Conta', icone: 'ajustes' },
+      { id: 'mais', rota: 'mais', rotulo: 'Mais', icone: 'mais_grade' },
     ],
   };
 
@@ -367,7 +382,7 @@
     let r = null;
     try { r = m.def.render(view, m.params) || {}; } catch (e) {
       console.error(e);
-      view.appendChild(h('div', { class: 'vazio' }, 'Erro ao abrir a tela: ' + e.message));
+      view.appendChild(vazio('Erro ao abrir a tela: ' + e.message, 'alerta'));
       r = {};
     }
     atual = { def: m.def, cleanup: r.cleanup, onDados: r.onDados };
@@ -379,12 +394,22 @@
     atualizarBadges();
   });
 
+  const iniciais = nome => String(nome || '?').trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase();
   function montarTopo(def, params) {
     const u = P.Auth.usuario();
     $('#top-titulo').textContent = typeof def.titulo === 'function' ? def.titulo(params) : (def.titulo || '');
-    $('#top-user').textContent = u ? u.nome : '';
+    const av = $('#top-user');
+    av.textContent = u ? iniciais(u.nome) : '';
+    av.className = 'avatar' + (u && u.papel === 'DONO' ? ' dono' : '');
+    av.setAttribute('aria-label', u ? u.nome + ' — conta e mais opções' : 'Conta');
+    atualizarSubtitulo();
     atualizarPilula();
   }
+  function atualizarSubtitulo() {
+    const el = $('#top-sub');
+    if (el) el.textContent = P.Dia.rotulo(P.Dia.hoje()) + ' · ' + P.Dia.hora();
+  }
+  setInterval(atualizarSubtitulo, 20000);
   function montarTabbar(def) {
     const nav = $('#tabbar');
     const papel = P.Auth.isDono() ? 'DONO' : 'OPERADOR';
@@ -393,16 +418,26 @@
     TABS[papel].forEach(t => {
       nav.appendChild(h('a', { href: '#/' + t.rota, class: t.id === ativo ? 'ativo' : '', 'data-tab': t.id },
         h('span', { class: 'tab-ic' }, icone(t.icone), h('span', { class: 'badge', hidden: true })),
-        h('span', null, t.rotulo)));
+        h('span', { class: 'tab-rot' }, t.rotulo)));
     });
     atualizarBadges();
   }
+  function marcar(tab, n, tipo) {
+    const b = $('#tabbar [data-tab="' + tab + '"] .badge');
+    if (!b) return;
+    b.hidden = !n;
+    b.textContent = n;
+    b.className = 'badge' + (tipo ? ' ' + tipo : '');
+  }
   function atualizarBadges() {
-    const nav = $('#tabbar');
-    if (!nav || !P.Auth.usuario()) return;
+    if (!$('#tabbar') || !P.Auth.usuario()) return;
     const velhos = P.Store.all('insumos').filter(P.Calc.precoVelho).length;
-    const alvo = nav.querySelector('[data-tab="' + (P.Auth.isDono() ? 'fichas' : 'precos') + '"] .badge');
-    if (alvo) { alvo.hidden = !velhos; alvo.textContent = velhos; }
+    const abertas = P.Store.all('comandas').filter(c => c.status === 'ABERTA' && P.Mesas && P.Mesas.linhas(c.id).length).length;
+    const aPagar = P.Compras ? P.Compras.aPagar().length : 0;
+    marcar('mesas', abertas, 'info');
+    marcar('compras', aPagar, 'aviso');
+    if (P.Auth.isDono()) marcar('fichas', velhos, 'aviso');
+    else marcar('mais', velhos, 'aviso');
   }
 
   // Pílula de status: online / offline / N pendentes
@@ -411,28 +446,26 @@
     if (!el) return;
     const n = P.Store.pendentes();
     let cls, txt;
-    if (!P.Sync.configurado()) { cls = 'local'; txt = 'sem nuvem'; }
-    else if (P.Sync.estado === 'offline') { cls = 'off'; txt = n ? 'offline · ' + n + ' pend.' : 'offline'; }
-    else if (P.Sync.estado === 'erro') { cls = 'off'; txt = 'erro de sync' + (n ? ' · ' + n : ''); }
+    if (!P.Sync.configurado()) { cls = 'local'; txt = 'no aparelho'; }
+    else if (P.Sync.estado === 'offline') { cls = 'off'; txt = n ? 'offline · ' + n : 'offline'; }
+    else if (P.Sync.estado === 'erro') { cls = 'off'; txt = 'erro' + (n ? ' · ' + n : ''); }
     else if (n) { cls = 'pend'; txt = n + (n === 1 ? ' pendente' : ' pendentes'); }
-    else if (P.Sync.estado === 'sincronizando') { cls = 'pend'; txt = 'sincronizando'; }
+    else if (P.Sync.estado === 'sincronizando') { cls = 'pend'; txt = 'enviando'; }
     else { cls = 'on'; txt = 'online'; }
     el.className = 'pilula ' + cls;
     el.textContent = txt;
+    el.title = !P.Sync.configurado() ? 'Dados guardados só neste aparelho' : 'Sincronização';
   }
   P.on('sync', atualizarPilula);
   P.on('pendentes', atualizarPilula);
 
   function montarCasca() {
-    const btnTema = h('button', { id: 'top-tema', type: 'button', class: 'top-ic', 'aria-label': 'Alternar tema claro/escuro', onClick: () => {
-      tema(tema() === 'dark' ? 'light' : 'dark');
-      btnTema.replaceChildren(icone(tema() === 'dark' ? 'sol' : 'lua'));
-    } }, icone(tema() === 'dark' ? 'sol' : 'lua'));
     $('#topbar').replaceChildren(
-      h('div', { id: 'top-titulo', class: 'top-titulo' }),
+      h('a', { class: 'top-marca', href: '#/', 'aria-label': 'Início', onClick: e => { e.preventDefault(); location.hash = P.Auth.isDono() ? '#/painel' : '#/mesas'; } },
+        h('img', { src: 'icons/icon-192.png', alt: '' })),
+      h('div', { class: 'top-tit' }, h('div', { id: 'top-titulo', class: 'top-titulo' }), h('div', { id: 'top-sub', class: 'top-sub' })),
       h('button', { id: 'top-sync', type: 'button', class: 'pilula', onClick: () => { P.Sync.agendar(0); if (P.Auth.usuario()) location.hash = '#/ajustes'; } }),
-      btnTema,
-      h('button', { id: 'top-user', type: 'button', class: 'top-user', onClick: () => { if (P.Auth.usuario()) location.hash = '#/ajustes'; } }));
+      h('button', { id: 'top-user', type: 'button', class: 'avatar', onClick: () => { if (P.Auth.usuario()) location.hash = '#/mais'; } }));
     window.addEventListener('hashchange', render);
   }
 
@@ -442,10 +475,12 @@
       h('a', { href: '#/' + i.rota, class: i.id === ativo ? 'on' : '' }, i.rotulo,
         i.badge ? h('span', { class: 'badge-in' }, i.badge) : null)));
   }
+  function vazio(msg, ic) {
+    return h('div', { class: 'vazio' }, h('div', { class: 'vazio-ic' }, icone(ic || 'info')), h('p', null, msg));
+  }
 
   P.UI = {
     h, icone, tema, toast, sheet, fecharSheets, confirmar, numpad, pedirNumero, stepper, seg, escolher, baixar,
-    rota, render, subnav, montarCasca, atualizarPilula, semAcento,
-    vazio: msg => h('div', { class: 'vazio' }, msg),
+    rota, render, subnav, montarCasca, atualizarPilula, semAcento, iniciais, vazio,
   };
 })();
