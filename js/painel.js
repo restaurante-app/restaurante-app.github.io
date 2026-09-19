@@ -90,24 +90,35 @@
   }
 
   // ---------------------------------------------------------------
-  //  PAINEL (dono) — cabe numa tela de celular, sem rolar
+  //  PAINEL (dono) — cabe numa tela de celular, sem rolar.
+  //  Um número principal por card, um selo de status (ícone + texto),
+  //  um gráfico pequeno de apoio. Canais em ordem fixa: salão → espeto → marmita.
   // ---------------------------------------------------------------
   function subnavPainel(ativo) {
     return P.UI.subnav([{ id: 'painel', rota: 'painel', rotulo: 'Painel' }, { id: 'relatorio', rota: 'relatorio', rotulo: 'Relatório detalhado' }], ativo);
   }
+  const ST = { verde: 'bom', amarelo: 'atencao', vermelho: 'critico', cinza: 'neutro' };
   function telaPainel(view) {
     view.className = 'v-painel';
     let dia = P.Dia.hoje();
     const wrap = h('div', { class: 'pn' });
 
-    const luz = cor => h('span', { class: 'luz ' + cor });
-    const mini = (rot, val, cor) => h('div', { class: 'pn-mini' }, h('small', null, rot), h('b', { class: cor ? 't-' + cor : null }, val));
-    const hero = (num, cor, rot, sub) => h('div', { class: 'pn-hero' },
-      h('div', { class: 'pn-num t-' + cor }, num),
-      h('div', { class: 'pn-hero-l' }, h('div', { class: 'pn-rot' }, rot), sub ? h('div', { class: 'pn-meta' }, sub) : null));
+    const mini = (rot, val, cor, extra) => h('div', { class: 'pn-mini' }, h('small', null, rot), h('b', { class: cor ? 't-' + cor : null }, val, extra ? h('em', null, extra) : null));
     const valorCor = (v, cor) => h('b', { class: cor ? 't-' + cor : null }, v);
     const corMax = (v, max) => (v == null ? null : v <= max ? 'verde' : v <= max * 1.08 ? 'amarelo' : 'vermelho');
     const corMin = (v, min) => (v == null ? null : v >= min ? 'verde' : v >= min * 0.85 ? 'amarelo' : 'vermelho');
+    const numero = (valor, fmt, neg) => P.UI.contar(h('div', { class: 'pn-num' + (neg ? ' neg' : '') }), valor, fmt);
+    const pctFmt = v => P.num(v, 0) + '%';
+    const centroPct = (frac, sub) => [h('b', null, Math.max(0, Math.round((frac || 0) * 100)) + '%'), h('small', null, sub)];
+    const mil = v => 'R$ ' + (Math.abs(v) >= 1000 ? P.num(v / 1000, 1).replace(/,0$/, '') + ' mil' : Math.round(v).toLocaleString('pt-BR'));
+
+    function cab(titulo, sub, st, rotSt, navegar) {
+      return h('div', { class: 'pn-cab' },
+        navegar ? h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Dia anterior', onClick: () => { dia = P.Dia.anterior(dia); desenhar(); } }, P.UI.icone('voltar')) : null,
+        h('div', { class: 'pn-tit' }, h('span', null, titulo), h('small', null, sub)),
+        navegar ? h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo dia', disabled: dia >= P.Dia.hoje(), onClick: () => { dia = P.Dia.seguinte(dia); desenhar(); } }, P.UI.icone('avancar')) : null,
+        P.UI.statusPill(st, rotSt));
+    }
 
     function desenhar() {
       wrap.innerHTML = '';
@@ -115,7 +126,8 @@
       const D = diasMes();
       const fixoM = fixoMensal();
       const fixoDia = fixoM / D;
-      const metaDia = (+metas.lucro_mensal || 0) / D;
+      const metaMes = +metas.lucro_mensal || 0;
+      const metaDia = metaMes / D;
       const hoje = P.Dia.hoje();
 
       // ---------- DIA ----------
@@ -125,25 +137,33 @@
       const semDia = !res.temMovimento ? 'cinza' : lucroDia >= metaDia ? 'verde' : lucroDia >= 0 ? 'amarelo' : 'vermelho';
       const dif = lucroDia - metaDia;
       const saldoCx = res.entrou - res.saiu;
+      const fracDia = metaDia > 0 ? lucroDia / metaDia : 0;
       wrap.appendChild(h('section', { class: 'pn-card pn-dia s-' + semDia },
-        h('div', { class: 'pn-cab' },
-          h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Dia anterior', onClick: () => { dia = P.Dia.anterior(dia); desenhar(); } }, P.UI.icone('voltar')),
-          h('div', { class: 'pn-tit' }, dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), h('small', null, P.Dia.rotuloCurto(dia) + (dia === hoje ? ' · ao vivo' : ''))),
-          h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo dia', disabled: dia >= hoje, onClick: () => { dia = P.Dia.seguinte(dia); desenhar(); } }, P.UI.icone('avancar')),
-          luz(semDia)),
+        cab(dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), P.Dia.rotuloCurto(dia) + (dia === hoje ? ' · ao vivo' : ''), ST[semDia],
+          { verde: 'meta batida', amarelo: 'no azul', vermelho: 'no vermelho', cinza: 'sem movimento' }[semDia], true),
         res.temMovimento ? [
-          hero(P.brl0(lucroDia), semDia, lucroDia >= 0 ? 'Lucro do dia' : 'Prejuízo do dia',
-            ['meta ' + P.brl0(metaDia) + ' · ', valorCor((dif >= 0 ? '+' : '−') + 'R$ ' + Math.round(Math.abs(dif)).toLocaleString('pt-BR'), dif >= 0 ? 'verde' : 'vermelho')]),
+          h('div', { class: 'pn-hero' },
+            h('div', { class: 'pn-hero-l' },
+              h('div', { class: 'pn-rot' }, lucroDia >= 0 ? 'Lucro do dia' : 'Prejuízo do dia'),
+              numero(lucroDia, P.brl0, lucroDia < 0),
+              h('div', { class: 'pn-meta' }, dif >= 0
+                ? ['meta de ' + P.brl0(metaDia) + ' · ', valorCor('+' + P.brl0(dif), 'verde')]
+                : ['faltam ', h('b', null, P.brl0(-dif)), ' para a meta de ' + P.brl0(metaDia)])),
+            P.UI.anel(fracDia, ST[semDia], centroPct(fracDia, 'da meta'), 'Lucro do dia: ' + Math.round(Math.max(0, fracDia) * 100) + '% da meta diária')),
+          P.UI.pilha([
+            { rotulo: 'Salão', valor: rd.canal.SALAO.fat, serie: 'salao' },
+            { rotulo: 'Espeto', valor: rd.canal.ESPETO.fat, serie: 'espeto' },
+            { rotulo: 'Marmita', valor: rd.canal.MARMITA.fat, serie: 'marmita' }], P.brl0),
           h('div', { class: 'pn-linha' },
             mini('Vendas', P.brl0(rd.fat)),
-            mini('Custo vendido', P.brl0(rd.cmv) + ' · ' + P.pct(rd.fat ? rd.cmv / rd.fat * 100 : null, 0)),
-            mini('Despesas + fixo', P.brl0(res.outras + res.fixo))),
-          h('div', { class: 'pn-linha' }, CANAIS.map(c => mini(NOME_CANAL[c], P.brl0(rd.canal[c].fat)))),
-          h('a', { class: 'pn-txt pn-caixa', href: '#/compras' }, 'Caixa: entrou ', h('b', null, P.brl0(res.entrou)), ' · saiu ', h('b', null, P.brl0(res.saiu)),
-            ' · saldo ', valorCor(P.brl0(saldoCx), saldoCx >= 0 ? 'verde' : 'vermelho'), res.compras ? ' · compras ' + P.brl0(res.compras) : ''),
-        ] : h('div', { class: 'pn-vazio' }, 'Nada lançado neste dia.', h('a', { href: '#/mesas', class: 'btn mini primario' }, 'Ir para Mesas'))));
+            mini('Custo vendido', P.brl0(rd.cmv), null, P.pct(rd.fat ? rd.cmv / rd.fat * 100 : null, 0)),
+            mini('Desp. + fixo', P.brl0(res.outras + res.fixo))),
+          h('a', { class: 'pn-caixa', href: '#/compras' }, P.UI.icone('caixa'),
+            h('span', null, 'Caixa ', h('b', null, P.brl0(res.entrou)), ' entrou · ', h('b', null, P.brl0(res.saiu)), ' saiu'),
+            valorCor(P.brl0(saldoCx), saldoCx >= 0 ? 'verde' : 'vermelho')),
+        ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado neste dia.'), h('a', { href: '#/mesas', class: 'btn mini primario' }, 'Abrir mesas'))));
 
-      // ---------- SEMANA (últimos 6 dias operacionais = 1 semana do mercado) ----------
+      // ---------- SEMANA (6 dias operacionais = 1 semana do mercado) ----------
       const diasSem = P.Dia.ultimos(6, dia);
       const rs = agregar(diasSem);
       const nS = rs.dias.size;
@@ -153,24 +173,34 @@
       const fcFicha = rs.fat > 0 ? rs.cmv / rs.fat * 100 : null;
       const fcReal = rs.fat > 0 && rs.mercadoria > 0 ? rs.mercadoria / rs.fat * 100 : null;
       const semS = nS ? corMax(prime, +metas.prime_cost_max) : 'cinza';
+      const porDia = diasSem.slice().reverse().map(d => {
+        const a = agregar([d]);
+        const mov = a.dias.size > 0 || a.outras > 0;
+        return { rotulo: P.Dia.rotulo(d), curto: P.Dia.nomeSemana(d), atual: d === dia, valor: mov ? a.fat - a.cmv - a.outras - fixoDia : null };
+      });
       wrap.appendChild(h('section', { class: 'pn-card s-' + semS },
-        h('div', { class: 'pn-cab' },
-          h('div', { class: 'pn-tit' }, 'Semana', h('small', null, nS + ' de ' + diasSem.length + ' dias com venda')), luz(semS)),
+        cab('Semana', nS + '/' + diasSem.length + ' dias', ST[semS],
+          { verde: 'custo sob controle', amarelo: 'no limite', vermelho: 'custo alto', cinza: 'sem vendas' }[semS]),
         nS ? [
-          hero(P.pct(prime, 0), semS, 'Prime cost', 'CMV' + (rs.mercadoria > 0 ? ' real' : ' ficha') + ' + folha · meta ≤' + metas.prime_cost_max + '%'),
+          h('div', { class: 'pn-hero' },
+            h('div', { class: 'pn-hero-l' },
+              h('div', { class: 'pn-rot' }, 'Prime cost'),
+              numero(prime, pctFmt),
+              h('div', { class: 'pn-meta' }, 'CMV' + (rs.mercadoria > 0 ? ' real' : ' ficha') + ' + folha · meta ≤ ' + metas.prime_cost_max + '%')),
+            h('div', { class: 'pn-spark' }, h('small', null, 'Lucro por dia'),
+              P.UI.colunas(porDia, P.brl0, { aria: 'Lucro por dia na semana: ' + porDia.map(p => p.curto + ' ' + (p.valor == null ? 'sem movimento' : P.brl0(p.valor))).join(', ') }))),
           h('div', { class: 'pn-linha' },
             mini('Espetos/dia', P.num(rs.espetos / nS, 0), corMin(rs.espetos / nS, +metas.espeto_empate_dia)),
             mini('Pratos/dia', P.num(rs.canal.SALAO.pratos / nS, 0)),
             mini('Marmitas/dia', P.num(rs.canal.MARMITA.pratos / nS, 0))),
-          h('div', { class: 'pn-linha' },
-            mini('Food cost ficha', P.pct(fcFicha, 0), corMax(fcFicha, +metas.food_cost_max)),
-            mini('Food cost real', fcReal == null ? 'lance compras' : P.pct(fcReal, 0), corMax(fcReal, +metas.food_cost_max)),
-            mini('Perda escondida', fcReal == null || fcFicha == null ? '—' : (fcReal - fcFicha >= 0 ? '+' : '') + P.num(fcReal - fcFicha, 0) + ' pts', fcReal == null ? null : fcReal - fcFicha > 3 ? 'vermelho' : 'verde')),
-          h('div', { class: 'pn-txt' }, 'Bebida junto: espeto ',
+          h('div', { class: 'pn-txt' }, 'Food cost · ficha ', valorCor(P.pct(fcFicha, 0), corMax(fcFicha, +metas.food_cost_max)),
+            ' · real ', fcReal == null ? h('b', null, 'sem compras') : valorCor(P.pct(fcReal, 0), corMax(fcReal, +metas.food_cost_max)),
+            fcReal != null && fcFicha != null ? [' · perda oculta ', valorCor((fcReal - fcFicha >= 0 ? '+' : '') + P.num(fcReal - fcFicha, 0) + ' pts', fcReal - fcFicha > 3 ? 'vermelho' : 'verde')] : null),
+          h('div', { class: 'pn-txt' }, 'Bebida junto · espeto ',
             valorCor(P.pct(rs.anexacao.ESPETO, 0), corMin(rs.anexacao.ESPETO, +metas.anexacao_espeto)), ' · salão ',
             valorCor(P.pct(rs.anexacao.SALAO, 0), corMin(rs.anexacao.SALAO, +metas.anexacao_salao)), ' · marmita ',
             valorCor(P.pct(rs.anexacao.MARMITA, 0), corMin(rs.anexacao.MARMITA, +metas.anexacao_marmita))),
-        ] : h('div', { class: 'pn-vazio' }, 'Nenhum dia com venda nesta semana.')));
+        ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nenhum dia com venda nesta semana.'))));
 
       // ---------- MÊS ----------
       const mes = P.Dia.mes(dia);
@@ -180,19 +210,24 @@
       const projFat = nM ? rm.fat / nM * D : 0;
       const projLucro = nM ? (rm.fat - rm.cmv - rm.outras) / nM * D - fixoM : 0;
       const margem = rm.fat > 0 ? lucroM / rm.fat * 100 : null;
-      const semM = !nM ? 'cinza' : projLucro >= (+metas.lucro_mensal || 0) ? 'verde' : projLucro >= 0 ? 'amarelo' : 'vermelho';
+      const semM = !nM ? 'cinza' : projLucro >= metaMes ? 'verde' : projLucro >= 0 ? 'amarelo' : 'vermelho';
+      const fracMes = metaMes > 0 ? projLucro / metaMes : 0;
       wrap.appendChild(h('section', { class: 'pn-card s-' + semM },
-        h('div', { class: 'pn-cab' },
-          h('div', { class: 'pn-tit' }, P.Dia.rotuloMes(mes), h('small', null, nM + ' de ' + D + ' dias com venda')), luz(semM)),
+        cab(P.Dia.rotuloMes(mes), nM + '/' + D + ' dias', ST[semM],
+          { verde: 'meta à vista', amarelo: 'abaixo da meta', vermelho: 'projeção negativa', cinza: 'sem vendas' }[semM]),
         nM ? [
-          hero(P.brl0(lucroM), lucroM >= 0 ? 'verde' : 'vermelho', 'Lucro acumulado',
-            ['projeção no mês ', valorCor(P.brl0(projLucro), projLucro >= 0 ? 'verde' : 'vermelho')]),
+          h('div', { class: 'pn-hero' },
+            h('div', { class: 'pn-hero-l' },
+              h('div', { class: 'pn-rot' }, lucroM >= 0 ? 'Lucro acumulado' : 'Prejuízo acumulado'),
+              numero(lucroM, P.brl0, lucroM < 0),
+              h('div', { class: 'pn-meta' }, 'projeção ', valorCor(P.brl0(projLucro), projLucro >= 0 ? 'verde' : 'vermelho'), ' · meta ' + mil(metaMes))),
+            P.UI.anel(fracMes, ST[semM], centroPct(fracMes, 'projetado'), 'Projeção do mês: ' + Math.round(Math.max(0, fracMes) * 100) + '% da meta')),
           h('div', { class: 'pn-linha' },
             mini('Faturamento', P.brl0(rm.fat)),
             mini('Projeção fat.', P.brl0(projFat)),
             mini('Margem líq.', P.pct(margem, 1), margem == null ? null : margem >= 0 ? 'verde' : 'vermelho')),
           escada(rm.espetos / nM),
-        ] : h('div', { class: 'pn-vazio' }, 'Nenhum dia com venda neste mês.')));
+        ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nenhum dia com venda neste mês.'))));
     }
 
     function escada(media) {
@@ -202,15 +237,14 @@
       let atual = null, prox = null;
       deg.forEach(d => { if (media >= d.espetos) atual = d; else if (!prox) prox = d; });
       const txt = d => (d.lucro > 0 ? 'R$ ' + (d.lucro % 1000 === 0 ? d.lucro / 1000 + ' mil' : d.lucro.toLocaleString('pt-BR')) + '/mês' : 'empata');
+      const st = !atual ? 'critico' : atual.lucro > 0 ? 'bom' : 'atencao';
       return h('div', { class: 'pn-escada' },
         h('div', { class: 'pn-esc-t' }, h('b', null, P.num(media, 0) + ' espetos/dia'), ' · ', atual ? txt(atual) : 'abaixo do empate',
           prox ? ' · próx. ' + prox.espetos + ' → ' + txt(prox) : ' · topo da escada'),
-        h('div', { class: 'pn-esc-bar' },
-          h('span', { class: 'pn-esc-fill', style: { width: Math.min(100, media / max * 100) + '%' } }),
-          deg.map(d => h('span', { class: 'pn-esc-tick' + (media >= d.espetos ? ' ok' : ''), style: { left: (d.espetos / max * 100) + '%' }, title: d.espetos + '/dia' }))));
+        P.UI.medidor(media / max, st, deg.map(d => d.espetos / max)));
     }
 
-    view.append(subnavPainel('painel'), wrap);
+    view.append(wrap);
     desenhar();
     if (P.Sync.configurado()) P.Sync.agendar(0);
     return { onDados: desenhar };
@@ -418,7 +452,7 @@
     return { cleanup: off };
   }
 
-  P.UI.rota('painel', { titulo: 'Painel', tab: 'painel', dono: true, render: telaPainel });
+  P.UI.rota('painel', { titulo: 'Painel', tab: 'painel', dono: true, render: telaPainel, acao: { icone: 'relatorio', href: '#/relatorio', rotulo: 'Relatório' } });
   P.UI.rota('ajustes', { titulo: 'Ajustes', tab: 'mais', render: telaAjustes });
 
   P.Painel = { agregar, resultadoDia, fixoMensal, diasMes, subnavPainel, CANAIS, NOME_CANAL };

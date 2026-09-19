@@ -99,7 +99,7 @@
     }
     const atual = document.documentElement.dataset.theme || 'dark';
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', atual === 'light' ? '#f2f5f3' : '#080b0a');
+    if (meta) meta.setAttribute('content', atual === 'light' ? '#f6f1ea' : '#0c0a09');
     return atual;
   }
 
@@ -379,6 +379,11 @@
       if (hash !== 'mesas') location.replace('#/mesas');
       return;
     }
+    // entrada suave (só na troca de tela; atualizações ao vivo não re-animam).
+    // Atributo e não classe: cada tela redefine o className do #view.
+    clearTimeout(render._t);
+    view.setAttribute('data-entra', '');
+    render._t = setTimeout(() => view.removeAttribute('data-entra'), 900);
     let r = null;
     try { r = m.def.render(view, m.params) || {}; } catch (e) {
       console.error(e);
@@ -398,6 +403,10 @@
   function montarTopo(def, params) {
     const u = P.Auth.usuario();
     $('#top-titulo').textContent = typeof def.titulo === 'function' ? def.titulo(params) : (def.titulo || '');
+    // ação da tela no topo (ex.: Painel → Relatório)
+    const slot = $('#top-acao');
+    slot.replaceChildren();
+    if (def.acao) slot.appendChild(h('a', { class: 'top-acao', href: def.acao.href, 'aria-label': def.acao.rotulo, title: def.acao.rotulo }, icone(def.acao.icone), h('span', null, def.acao.rotulo)));
     const av = $('#top-user');
     av.textContent = u ? iniciais(u.nome) : '';
     av.className = 'avatar' + (u && u.papel === 'DONO' ? ' dono' : '');
@@ -414,14 +423,28 @@
     const nav = $('#tabbar');
     const papel = P.Auth.isDono() ? 'DONO' : 'OPERADOR';
     const ativo = typeof def.tab === 'function' ? def.tab() : def.tab;
-    nav.innerHTML = '';
+    const ind = nav.querySelector('.tab-ind') || h('span', { class: 'tab-ind', 'aria-hidden': 'true' });
+    nav.replaceChildren(ind);
     TABS[papel].forEach(t => {
-      nav.appendChild(h('a', { href: '#/' + t.rota, class: t.id === ativo ? 'ativo' : '', 'data-tab': t.id },
+      nav.appendChild(h('a', { href: '#/' + t.rota, class: t.id === ativo ? 'ativo' : '', 'data-tab': t.id, 'aria-current': t.id === ativo ? 'page' : null },
         h('span', { class: 'tab-ic' }, icone(t.icone), h('span', { class: 'badge', hidden: true })),
         h('span', { class: 'tab-rot' }, t.rotulo)));
     });
+    posicionarIndicador();
     atualizarBadges();
   }
+  // pílula de brasa que desliza até a aba ativa
+  function posicionarIndicador() {
+    const nav = $('#tabbar');
+    const ind = nav && nav.querySelector('.tab-ind');
+    const a = nav && nav.querySelector('a.ativo');
+    if (!ind) return;
+    if (!a) { ind.style.opacity = '0'; return; }
+    ind.style.opacity = '1';
+    ind.style.width = a.offsetWidth + 'px';
+    ind.style.transform = 'translateX(' + a.offsetLeft + 'px)';
+  }
+  window.addEventListener('resize', posicionarIndicador);
   function marcar(tab, n, tipo) {
     const b = $('#tabbar [data-tab="' + tab + '"] .badge');
     if (!b) return;
@@ -463,8 +486,9 @@
   function montarCasca() {
     $('#topbar').replaceChildren(
       h('a', { class: 'top-marca', href: '#/', 'aria-label': 'Início', onClick: e => { e.preventDefault(); location.hash = P.Auth.isDono() ? '#/painel' : '#/mesas'; } },
-        h('img', { src: 'icons/icon-192.png', alt: '' })),
+        marca(38)),
       h('div', { class: 'top-tit' }, h('div', { id: 'top-titulo', class: 'top-titulo' }), h('div', { id: 'top-sub', class: 'top-sub' })),
+      h('span', { id: 'top-acao' }),
       h('button', { id: 'top-sync', type: 'button', class: 'pilula', onClick: async () => {
         if (!P.Auth.usuario()) return;
         if (P.Sync.configurado() && !P.Sync.conectado()) { await P.Auth.conectarNuvem(); atualizarPilula(); return; }
@@ -485,8 +509,138 @@
     return h('div', { class: 'vazio' }, h('div', { class: 'vazio-ic' }, icone(ic || 'info')), h('p', null, msg));
   }
 
+  // ---------------------------------------------------------------
+  //  Marca (espeto na brasa) — SVG, nítido em qualquer tamanho
+  // ---------------------------------------------------------------
+  let nMarca = 0;
+  function marca(tam, cls) {
+    const id = 'mk' + (++nMarca);
+    const w = document.createElement('span');
+    w.className = 'marca' + (cls ? ' ' + cls : '');
+    w.style.setProperty('--t', (tam || 36) + 'px');
+    w.innerHTML = '<svg viewBox="0 0 48 48" aria-hidden="true">' +
+      '<defs><linearGradient id="' + id + 'b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffc063"/><stop offset=".5" stop-color="#ff6b2c"/><stop offset="1" stop-color="#d4331a"/></linearGradient>' +
+      '<radialGradient id="' + id + 'f" cx=".3" cy=".15" r="1.05"><stop offset="0" stop-color="#3a2519"/><stop offset=".55" stop-color="#1a120e"/><stop offset="1" stop-color="#0d0908"/></radialGradient>' +
+      '<radialGradient id="' + id + 'g" cx=".5" cy=".62" r=".5"><stop offset="0" stop-color="#ff6b2c" stop-opacity=".55"/><stop offset="1" stop-color="#ff6b2c" stop-opacity="0"/></radialGradient></defs>' +
+      '<rect width="48" height="48" rx="13" fill="url(#' + id + 'f)"/>' +
+      '<ellipse cx="24" cy="30" rx="20" ry="15" fill="url(#' + id + 'g)"/>' +
+      '<rect x=".5" y=".5" width="47" height="47" rx="12.5" fill="none" stroke="#ffd2ad" stroke-opacity=".16"/>' +
+      '<g transform="rotate(-42 24 24)"><line x1="6" y1="24" x2="42" y2="24" stroke="#f3dcc2" stroke-width="1.9" stroke-linecap="round"/>' +
+      '<rect x="10.5" y="18" width="7.5" height="12" rx="3.2" fill="url(#' + id + 'b)"/>' +
+      '<rect x="20.3" y="18" width="7.5" height="12" rx="3.2" fill="#f6ede3"/>' +
+      '<rect x="30.1" y="18" width="7.5" height="12" rx="3.2" fill="url(#' + id + 'b)"/></g>' +
+      '<circle cx="37" cy="37.5" r="1.5" fill="#ffb049"/><circle cx="32.5" cy="41" r="1" fill="#ff8a3c" opacity=".8"/><circle cx="40.5" cy="32" r=".9" fill="#ffc063" opacity=".7"/>' +
+      '</svg>';
+    return w;
+  }
+
+  // ---------------------------------------------------------------
+  //  Visualizações pequenas. Regras: status sempre com ícone + texto;
+  //  cor de série só na marca (nunca no texto); canais em ordem fixa
+  //  salão → espeto → marmita (paleta validada p/ daltonismo, ver CSS).
+  // ---------------------------------------------------------------
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function svg(tag, attrs) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+  const entrando = () => { const v = $('#view'); return !!(v && v.hasAttribute('data-entra')); };
+  const semMovimento = () => window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // status: 'bom' | 'atencao' | 'critico' | 'neutro'
+  const ST_ICONE = { bom: 'check', atencao: 'alerta', critico: 'alerta', neutro: 'info' };
+  function statusPill(st, rotulo) {
+    return h('span', { class: 'st-pill st-' + st }, icone(ST_ICONE[st] || 'info'), rotulo);
+  }
+
+  // Anel: fração (0..1) de uma meta; o preenchimento carrega o status
+  function anel(frac, st, centro, rotuloAria) {
+    const r = 29, circ = 2 * Math.PI * r;
+    const f = Math.max(0, Math.min(1, +frac || 0));
+    const s = svg('svg', { viewBox: '0 0 72 72', 'aria-hidden': 'true' });
+    s.appendChild(svg('circle', { cx: 36, cy: 36, r, class: 'anel-trilho' }));
+    const arco = svg('circle', { cx: 36, cy: 36, r, class: 'anel-arco', 'stroke-dasharray': circ.toFixed(2), transform: 'rotate(-90 36 36)' });
+    const alvo = (circ * (1 - f)).toFixed(2);
+    if (entrando() && !semMovimento()) {
+      arco.setAttribute('stroke-dashoffset', circ.toFixed(2));
+      requestAnimationFrame(() => requestAnimationFrame(() => arco.setAttribute('stroke-dashoffset', alvo)));
+    } else arco.setAttribute('stroke-dashoffset', alvo);
+    s.appendChild(arco);
+    return h('div', { class: 'anel st-' + st, role: 'img', 'aria-label': rotuloAria || '' }, s, h('div', { class: 'anel-c' }, centro));
+  }
+
+  // Barra empilhada (parte do todo) + legenda com valores sempre visíveis
+  function pilha(partes, fmt) {
+    const total = partes.reduce((s, p) => s + Math.max(0, +p.valor || 0), 0);
+    const barra = h('div', { class: 'pilha-b' + (total ? '' : ' vazia'), role: 'img',
+      'aria-label': partes.map(p => p.rotulo + ' ' + fmt(p.valor)).join(', ') });
+    if (total) partes.forEach(p => {
+      if (!(p.valor > 0)) return;
+      barra.appendChild(h('span', { class: 'pilha-s serie-' + p.serie, style: { flexGrow: String(p.valor) }, title: p.rotulo + ': ' + fmt(p.valor) }));
+    });
+    const leg = h('div', { class: 'pilha-leg' }, partes.map(p => h('span', { class: 'leg-i' },
+      h('i', { class: 'leg-dot serie-' + p.serie }), h('span', null, p.rotulo), h('b', null, fmt(p.valor)),
+      total && p.valor > 0 ? h('small', null, Math.round(p.valor / total * 100) + '%') : null)));
+    return h('div', { class: 'pilha' }, barra, leg);
+  }
+
+  // Colunas pequenas (uma série; o dia atual em destaque, os outros apagados)
+  function barraPath(x, y0, w, v, raio) {
+    const up = v >= 0, hgt = Math.abs(v), r = Math.min(raio, hgt, w / 2);
+    if (hgt < 0.5) return '';
+    if (up) {
+      const top = y0 - hgt;
+      return 'M' + x + ',' + y0 + 'V' + (top + r) + 'Q' + x + ',' + top + ' ' + (x + r) + ',' + top + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + top + ' ' + (x + w) + ',' + (top + r) + 'V' + y0 + 'Z';
+    }
+    const bot = y0 + hgt;
+    return 'M' + x + ',' + y0 + 'V' + (bot - r) + 'Q' + x + ',' + bot + ' ' + (x + r) + ',' + bot + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + bot + ' ' + (x + w) + ',' + (bot - r) + 'V' + y0 + 'Z';
+  }
+  function colunas(itens, fmt, o) {
+    o = o || {};
+    const W = o.largura || 128, H = o.altura || 44, n = itens.length || 1;
+    const vals = itens.map(i => (i.valor == null ? 0 : +i.valor));
+    const maxP = Math.max(0, ...vals), maxN = Math.max(0, ...vals.map(v => -v));
+    const escala = (H - 6) / Math.max(1, maxP + maxN);
+    const y0 = 3 + maxP * escala;
+    const passo = W / n, bw = Math.min(14, passo * 0.62);
+    const s = svg('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, class: 'cols', 'aria-hidden': 'true' });
+    s.appendChild(svg('line', { x1: 0, x2: W, y1: y0, y2: y0, class: 'cols-base' }));
+    itens.forEach((it, i) => {
+      const x = i * passo + (passo - bw) / 2;
+      const g = svg('g', { class: 'cols-g' + (it.atual ? ' atual' : '') + (it.valor == null ? ' nulo' : '') });
+      const t = svg('title', {}); t.textContent = it.rotulo + ': ' + (it.valor == null ? 'sem movimento' : fmt(it.valor)); g.appendChild(t);
+      g.appendChild(svg('rect', { x: i * passo, y: 0, width: passo, height: H, class: 'cols-hit' }));
+      if (it.valor == null) g.appendChild(svg('circle', { cx: x + bw / 2, cy: y0, r: 1.6, class: 'cols-nulo' }));
+      else { const d = barraPath(x, y0, bw, it.valor * escala, 3); if (d) g.appendChild(svg('path', { d, class: 'cols-b' })); }
+      s.appendChild(g);
+    });
+    return h('div', { class: 'cols-w', role: 'img', 'aria-label': o.aria || '' }, s,
+      h('div', { class: 'cols-x' }, itens.map(it => h('span', { class: it.atual ? 'atual' : null }, it.curto))));
+  }
+
+  // Medidor horizontal com marcas de referência (limites/metas)
+  function medidor(frac, st, marcas) {
+    const f = Math.max(0, Math.min(1, +frac || 0));
+    const fill = h('span', { class: 'med-f', style: { width: (entrando() && !semMovimento() ? 0 : f * 100) + '%' } });
+    if (entrando() && !semMovimento()) requestAnimationFrame(() => requestAnimationFrame(() => { fill.style.width = f * 100 + '%'; }));
+    return h('div', { class: 'med st-' + st }, h('span', { class: 'med-t' }, fill,
+      (marcas || []).map(m => h('i', { class: 'med-m', style: { left: Math.max(0, Math.min(100, m * 100)) + '%' } }))));
+  }
+
+  // Número que "conta" até o valor quando a tela abre
+  function contar(el, alvo, fmt) {
+    if (!entrando() || semMovimento() || !isFinite(alvo)) { el.textContent = fmt(alvo); return el; }
+    const t0 = performance.now(), dur = 650;
+    el.textContent = fmt(0);
+    const passo = t => {
+      const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmt(alvo * e);
+      if (p < 1) requestAnimationFrame(passo);
+    };
+    requestAnimationFrame(passo);
+    return el;
+  }
+
   P.UI = {
     h, icone, tema, toast, sheet, fecharSheets, confirmar, numpad, pedirNumero, stepper, seg, escolher, baixar,
     rota, render, subnav, montarCasca, atualizarPilula, semAcento, iniciais, vazio,
+    marca, statusPill, anel, pilha, colunas, medidor, contar,
   };
 })();

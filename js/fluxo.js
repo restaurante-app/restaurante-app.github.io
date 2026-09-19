@@ -149,6 +149,11 @@
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       e.preventDefault();
       tocar(+1);
+      // onda a partir do dedo
+      const r = btnMais.getBoundingClientRect();
+      const onda = h('span', { class: 'onda', style: { left: (e.clientX - r.left) + 'px', top: (e.clientY - r.top) + 'px' } });
+      btnMais.appendChild(onda);
+      setTimeout(() => onda.remove(), 600);
     });
     btnMais.addEventListener('contextmenu', e => e.preventDefault());
     btnMenos.addEventListener('click', () => tocar(-1));
