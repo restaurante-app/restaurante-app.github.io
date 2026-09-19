@@ -59,7 +59,9 @@
           h('span', { class: 'tile-t' }, temaAtual === 'dark' ? 'Tema claro' : 'Tema escuro'),
           h('span', { class: 'tile-s' }, 'para usar de dia ou de noite')),
         tile('ajustes', 'ajustes', 'cinza', dono ? 'Ajustes' : 'Conta', dono ? 'custos fixos, metas, pessoas, backup' : 'tema e sincronização'),
-        tile('ajustes', 'nuvem', 'cinza', 'Sincronização', !P.Sync.configurado() ? 'dados só neste aparelho' : P.Store.pendentes() ? P.Store.pendentes() + ' pendentes' : P.Sync.estado)));
+        tile('ajustes', 'nuvem', 'cinza', 'Nuvem', !P.Sync.configurado() ? 'dados só neste aparelho' : !P.Sync.conectado() ? 'toque para conectar este aparelho'
+          : P.Store.pendentes() ? P.Store.pendentes() + ' pendentes' : ({ online: 'sincronizado', offline: 'sem internet agora', erro: 'erro — ver ajustes', sincronizando: 'sincronizando…' }[P.Sync.estado] || P.Sync.estado),
+        !P.Sync.conectado() && P.Sync.configurado() ? 't-amarelo' : null)));
 
       corpo.appendChild(h('div', { class: 'aj-rodape' }, 'Pátio do Pari · Restaurante · v' + P.VERSAO + ' · dia operacional vira às 03:00'));
     }

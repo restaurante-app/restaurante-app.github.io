@@ -102,12 +102,20 @@ Para o painel do dono enxergar o que a equipe registra em outros celulares:
 
 1. Crie um **projeto novo** no Supabase (separado do ERP).
 2. SQL Editor → cole e rode o arquivo `schema.sql`.
-3. Project Settings → API → copie a URL e a chave pública (anon/publishable).
-4. Cole em `js/config.js` (`SUPABASE_URL` e `SUPABASE_ANON_KEY`).
-5. Aumente a versão em `sw.js` (ex.: `pari-v3` → `pari-v4`) e publique de novo.
+3. Authentication → Users → **Add user → Create new user**: e-mail e senha da nuvem,
+   marcando **Auto Confirm User**. Essa senha é só sua; não vai para o código.
+4. Authentication → Sign In / Providers → **desligue "Allow new users to sign up"**
+   (ninguém mais consegue criar conta).
+5. Project Settings → API → copie a URL e a chave pública (publishable/anon) e cole em
+   `js/config.js`. Aumente a versão em `sw.js` e publique de novo.
+6. Em cada aparelho, uma vez: **Conectar à nuvem** (no topo, em Mais → Nuvem ou em
+   Ajustes) com o e-mail e a senha do passo 3. Aparelho novo: na tela do PIN, toque em
+   "Já uso em outro aparelho — conectar à nuvem" **antes** de criar PIN.
 
-A pílula passa a mostrar **online / offline / N pendentes**.
-Conflito entre aparelhos: vence a alteração mais recente.
+Segurança: os dados só abrem para quem fez login (as tabelas recusam a chave pública
+sozinha). A pílula no topo mostra **conectar nuvem / online / offline / N pendentes**.
+Conflito entre aparelhos: vence a alteração mais recente. Sincroniza a cada 30 s com o
+app aberto, logo depois de cada lançamento e ao voltar para o app.
 
 ## Backup
 

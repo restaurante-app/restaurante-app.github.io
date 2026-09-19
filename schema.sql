@@ -9,6 +9,11 @@
 --    excluido        → exclusão "suave" (para sincronizar a exclusão)
 --    sincronizado_em → hora em que chegou no servidor (cursor de download)
 --  Sem chaves estrangeiras de propósito: os registros chegam fora de ordem.
+--
+--  SEGURANÇA: o site e a chave pública ficam à vista de qualquer um, então
+--  os dados só abrem para usuário LOGADO (Authentication → Users). Depois de
+--  criar o seu usuário, DESLIGUE "Allow new users to sign up" (Authentication
+--  → Sign In / Providers) para ninguém criar conta sozinho.
 -- =====================================================================
 
 create or replace function pari_lww() returns trigger language plpgsql as $$
@@ -214,9 +219,11 @@ begin
     execute format('create index if not exists idx_%1$s_sync on %1$s (sincronizado_em)', t);
     execute format('alter table %1$s enable row level security', t);
     execute format('drop policy if exists %1$s_app on %1$s', t);
-    execute format('create policy %1$s_app on %1$s for all to anon, authenticated using (true) with check (true)', t);
+    -- só usuário logado (o app faz login com o e-mail e a senha da nuvem)
+    execute format('create policy %1$s_app on %1$s for all to authenticated using (true) with check (true)', t);
+    execute format('revoke all on %1$s from anon', t);
     -- sem DELETE: o app só marca como excluído
-    execute format('grant select, insert, update on %1$s to anon, authenticated', t);
+    execute format('grant select, insert, update on %1$s to authenticated', t);
   end loop;
 end $$;
 

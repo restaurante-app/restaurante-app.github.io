@@ -1,14 +1,14 @@
 // ============================================================
-//  CONFIGURAÇÃO DE SINCRONIZAÇÃO (Supabase)
+//  CONFIGURAÇÃO DA NUVEM (Supabase)
 //
-//  Deixe em branco para usar só neste aparelho: tudo funciona
-//  offline, os dados ficam guardados no celular.
+//  Em branco: tudo funciona offline e fica só neste aparelho.
 //
-//  Para juntar os dados de vários celulares (e o painel do dono
-//  enxergar a contagem feita no celular da equipe), crie um
-//  projeto NOVO no Supabase, rode o arquivo schema.sql no
-//  SQL Editor e cole aqui os dois valores de
-//  Project Settings → API.
+//  Para juntar computador e celulares: projeto NOVO no Supabase,
+//  rodar o schema.sql no SQL Editor, criar o usuário da nuvem em
+//  Authentication → Users e colar aqui os dois valores de
+//  Project Settings → API (URL do projeto e a chave pública
+//  "publishable"/"anon"). A chave pública pode ficar no código:
+//  sem o e-mail e a senha da nuvem ela não abre nenhum dado.
 // ============================================================
 window.P = window.P || {};
 P.CONFIG = {

@@ -264,6 +264,8 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 .pin-pad .np-k { min-height: 66px; border-radius: 50%; aspect-ratio: 1; width: 76px; margin: 0 auto; background: var(--card); font-size: 1.7rem; }
 .pin-pad .np-k.np-fn { background: transparent; border-color: transparent; }
 .pin-aviso { max-width: 330px; font-size: .78rem; color: var(--tx2); text-align: center; }
+.pin-nuvem { width: 100%; max-width: 330px; display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.pin-nuvem .btn { margin-top: 0; font-size: .86rem; }
 
 /* ---------- Cartões genéricos ---------- */
 .ms-lista, .mg-lista, .cad-lista { display: flex; flex-direction: column; gap: 8px; }

@@ -447,6 +447,7 @@
     const n = P.Store.pendentes();
     let cls, txt;
     if (!P.Sync.configurado()) { cls = 'local'; txt = 'no aparelho'; }
+    else if (!P.Sync.conectado()) { cls = 'pend'; txt = 'conectar nuvem'; }
     else if (P.Sync.estado === 'offline') { cls = 'off'; txt = n ? 'offline · ' + n : 'offline'; }
     else if (P.Sync.estado === 'erro') { cls = 'off'; txt = 'erro' + (n ? ' · ' + n : ''); }
     else if (n) { cls = 'pend'; txt = n + (n === 1 ? ' pendente' : ' pendentes'); }
@@ -454,7 +455,7 @@
     else { cls = 'on'; txt = 'online'; }
     el.className = 'pilula ' + cls;
     el.textContent = txt;
-    el.title = !P.Sync.configurado() ? 'Dados guardados só neste aparelho' : 'Sincronização';
+    el.title = !P.Sync.configurado() ? 'Dados guardados só neste aparelho' : !P.Sync.conectado() ? 'Toque para conectar este aparelho à nuvem' : 'Sincronização';
   }
   P.on('sync', atualizarPilula);
   P.on('pendentes', atualizarPilula);
@@ -464,7 +465,12 @@
       h('a', { class: 'top-marca', href: '#/', 'aria-label': 'Início', onClick: e => { e.preventDefault(); location.hash = P.Auth.isDono() ? '#/painel' : '#/mesas'; } },
         h('img', { src: 'icons/icon-192.png', alt: '' })),
       h('div', { class: 'top-tit' }, h('div', { id: 'top-titulo', class: 'top-titulo' }), h('div', { id: 'top-sub', class: 'top-sub' })),
-      h('button', { id: 'top-sync', type: 'button', class: 'pilula', onClick: () => { P.Sync.agendar(0); if (P.Auth.usuario()) location.hash = '#/ajustes'; } }),
+      h('button', { id: 'top-sync', type: 'button', class: 'pilula', onClick: async () => {
+        if (!P.Auth.usuario()) return;
+        if (P.Sync.configurado() && !P.Sync.conectado()) { await P.Auth.conectarNuvem(); atualizarPilula(); return; }
+        P.Sync.agendar(0);
+        location.hash = '#/ajustes';
+      } }),
       h('button', { id: 'top-user', type: 'button', class: 'avatar', onClick: () => { if (P.Auth.usuario()) location.hash = '#/mais'; } }));
     window.addEventListener('hashchange', render);
   }

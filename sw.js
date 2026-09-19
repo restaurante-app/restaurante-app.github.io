@@ -5,7 +5,7 @@
    Publicado em endereço próprio (restaurante-app.github.io). Mesmo assim, por
    garantia: só apaga cache com o prefixo deste app e refaz o cache se sumir. */
 const PREFIXO = 'pari-';
-const CACHE = PREFIXO + 'v3';
+const CACHE = PREFIXO + 'v4';
 const FONTES = PREFIXO + 'fontes'; // fonte Inter (Google Fonts): guardada na 1ª abertura com internet
 const ARQUIVOS = [
   './', './index.html', './manifest.webmanifest', './css/app.css',

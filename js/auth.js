@@ -155,8 +155,13 @@
     };
     document.addEventListener('keydown', teclasPin);
 
-    const aviso = (primeiro && P.Sync.configurado())
-      ? h('div', { class: 'pin-aviso' }, 'Se o dono já cadastrou em outro celular, conecte à internet e reabra o app para baixar os usuários.')
+    // Aparelho novo: primeiro baixa os dados da nuvem (PINs, fichas, vendas) em vez de começar do zero
+    const aviso = (primeiro && P.Sync.configurado() && !P.Sync.conectado())
+      ? h('div', { class: 'pin-nuvem' },
+        h('button', { type: 'button', class: 'btn primario bloco', onClick: async () => {
+          if (await conectarNuvem()) P.UI.render();
+        } }, P.UI.icone('nuvem'), 'Já uso em outro aparelho — conectar à nuvem'),
+        h('div', { class: 'pin-aviso' }, 'Use o e-mail e a senha da nuvem. Os dados e os PINs do outro aparelho aparecem aqui. Primeira vez de todas? Crie o PIN acima.'))
       : null;
     view.append(
       h('div', { class: 'pin-marca' },
@@ -167,5 +172,46 @@
     desenhar();
   }
 
-  P.Auth = { usuario, isDono, sair, telaPin, criarUsuario, trocarPin, removerUsuario, pinEmUso, pedirPin, travarSeExpirou, hash };
+  // Folha para conectar este aparelho à nuvem → Promise<boolean>
+  function conectarNuvem() {
+    return new Promise(resolve => {
+      let feito = false;
+      const email = h('input', { class: 'campo', type: 'email', placeholder: 'E-mail da nuvem', autocomplete: 'username', inputmode: 'email' });
+      const senha = h('input', { class: 'campo', type: 'password', placeholder: 'Senha da nuvem', autocomplete: 'current-password' });
+      const msg = h('div', { class: 'pin-msg' });
+      const btn = h('button', { type: 'button', class: 'btn primario grow' }, 'Conectar');
+      async function ir() {
+        if (!email.value.trim() || !senha.value) { msg.textContent = 'Preencha e-mail e senha.'; return; }
+        btn.disabled = true;
+        btn.textContent = 'Conectando…';
+        msg.textContent = '';
+        try {
+          await P.Sync.entrar(email.value, senha.value);
+          feito = true;
+          P.vibrar([20, 40, 20]);
+          resolve(true);
+          sh.fechar();
+          P.UI.toast(P.Sync.estado === 'online' ? 'Conectado à nuvem — dados sincronizados'
+            : P.Sync.estado === 'erro' ? 'Conectado, mas a nuvem recusou os dados: ' + P.Sync.ultimoErro
+              : 'Conectado. Os dados sincronizam quando houver internet.', { tipo: P.Sync.estado === 'erro' ? 'perigo' : '', ms: 6000 });
+        } catch (e) {
+          const t = String(e.message || e);
+          msg.textContent = /invalid/i.test(t) ? 'E-mail ou senha errados.' : /confirm/i.test(t) ? 'Esse usuário ainda não foi confirmado no Supabase.' : navigator.onLine === false ? 'Sem internet agora. Tente de novo com rede.' : 'Não deu para conectar: ' + t;
+          btn.disabled = false;
+          btn.textContent = 'Conectar';
+          P.vibrar([60, 50, 60]);
+        }
+      }
+      btn.addEventListener('click', ir);
+      senha.addEventListener('keydown', e => { if (e.key === 'Enter') ir(); });
+      const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
+        h('div', { class: 'np-sub' }, 'Uma vez por aparelho. Depois tudo que for lançado aqui aparece nos outros aparelhos conectados, e vice-versa.'),
+        email, senha, msg,
+        h('div', { class: 'row gap' }, h('button', { type: 'button', class: 'btn', onClick: () => sh.fechar() }, 'Cancelar'), btn)),
+      { titulo: 'Conectar à nuvem', onFechar: () => { if (!feito) resolve(false); } });
+      setTimeout(() => email.focus(), 80);
+    });
+  }
+
+  P.Auth = { usuario, isDono, sair, telaPin, criarUsuario, trocarPin, removerUsuario, pinEmUso, pedirPin, travarSeExpirou, hash, conectarNuvem };
 })();

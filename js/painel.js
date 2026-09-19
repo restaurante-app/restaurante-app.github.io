@@ -278,15 +278,30 @@
         h('button', { type: 'button', class: 'btn bloco', onClick: () => P.Auth.sair() }, P.UI.icone('sair'), 'Trocar usuário / bloquear')));
 
       const n = P.Store.pendentes();
-      const st = P.Sync.configurado()
-        ? [
-          linha('Situação', { online: 'online', offline: 'sem internet', sincronizando: 'sincronizando…', erro: 'erro', local: '—' }[P.Sync.estado] || P.Sync.estado),
+      let st;
+      if (!P.Sync.configurado()) {
+        st = [h('div', { class: 'aj-info' }, 'Os dados estão guardados só neste aparelho (funciona 100% offline). Para juntar vários aparelhos, a nuvem (Supabase) precisa ser configurada — veja o LEIAME.')];
+      } else if (!P.Sync.conectado()) {
+        st = [
+          h('div', { class: 'aj-info' }, 'Este aparelho ainda não está conectado à nuvem. Conecte para os dados aparecerem nos outros aparelhos (e os deles aqui). ' +
+            (n ? n + ' registros deste aparelho serão enviados.' : '')),
+          h('button', { type: 'button', class: 'btn primario bloco', onClick: async () => { if (await P.Auth.conectarNuvem()) desenhar(); } }, P.UI.icone('nuvem'), 'Conectar à nuvem'),
+        ];
+      } else {
+        st = [
+          linha('Conectado como', P.Sync.email() || '—'),
+          linha('Situação', { online: 'online', offline: 'sem internet', sincronizando: 'sincronizando…', erro: 'erro', login: 'desconectado', local: '—' }[P.Sync.estado] || P.Sync.estado),
           linha('Pendentes de envio', String(n)),
           linha('Última sincronização', P.Sync.ultimoSync ? P.Dia.hora(P.Sync.ultimoSync) : '—'),
           P.Sync.ultimoErro ? h('div', { class: 'aj-erro' }, P.Sync.ultimoErro) : null,
           h('button', { type: 'button', class: 'btn bloco', onClick: async () => { const ok = await P.Sync.rodar(); P.UI.toast(ok ? 'Sincronizado' : 'Não deu agora — os dados continuam salvos no aparelho', { tipo: ok ? '' : 'perigo' }); desenhar(); } }, P.UI.icone('refresh'), 'Sincronizar agora'),
-        ]
-        : [h('div', { class: 'aj-info' }, 'Os dados estão guardados só neste aparelho (funciona 100% offline). Para juntar vários celulares e o painel enxergar tudo, configure o Supabase no arquivo js/config.js — veja o LEIAME.')];
+          dono ? h('button', { type: 'button', class: 'btn perigo bloco', onClick: async () => {
+            if (!(await P.UI.confirmar('Desconectar este aparelho da nuvem? Os dados continuam aqui, mas param de sincronizar até conectar de novo.' + (n ? ' Há ' + n + ' registros ainda não enviados.' : ''), { ok: 'Desconectar', perigo: true }))) return;
+            P.Sync.sair();
+            desenhar();
+          } }, 'Desconectar este aparelho') : null,
+        ];
+      }
       corpo.appendChild(secao('Sincronização', st, P.Store.persistente ? null : h('div', { class: 'aj-erro' }, 'Este navegador não permitiu guardar dados (modo anônimo?). Nada será mantido ao fechar.')));
 
       if (!dono) return;

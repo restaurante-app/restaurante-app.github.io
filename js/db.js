@@ -221,17 +221,67 @@
 
   function cfg() { return P.CONFIG || {}; }
   function configurado() { return !!(cfg().SUPABASE_URL && cfg().SUPABASE_ANON_KEY); }
+  const baseUrl = () => cfg().SUPABASE_URL.replace(/\/+$/, '');
+
+  // ---------------------------------------------------------------
+  //  Login na nuvem (Supabase Auth). Os dados só abrem com o e-mail e a
+  //  senha da nuvem, que NÃO ficam no código (o site é público). O login
+  //  fica guardado neste aparelho; o dono digita uma vez em cada celular.
+  // ---------------------------------------------------------------
+  const LS_NUVEM = 'pari.nuvem';
+  let sessao = lerSessao();
+  function lerSessao() { try { return JSON.parse(localStorage.getItem(LS_NUVEM)); } catch (e) { return null; } }
+  function gravarSessao(s) {
+    sessao = s;
+    try { if (s) localStorage.setItem(LS_NUVEM, JSON.stringify(s)); else localStorage.removeItem(LS_NUVEM); } catch (e) { /* ok */ }
+  }
+  async function authPost(path, body) {
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), 20000);
+    try {
+      const res = await fetch(baseUrl() + '/auth/v1/' + path, {
+        method: 'POST', headers: { apikey: cfg().SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body), signal: ctl.signal, cache: 'no-store',
+      });
+      const txt = await res.text();
+      let j = null;
+      try { j = txt ? JSON.parse(txt) : null; } catch (e) { /* ok */ }
+      if (!res.ok) {
+        const err = new Error((j && (j.error_description || j.msg || j.message || j.error)) || ('HTTP ' + res.status));
+        err.http = res.status;
+        throw err;
+      }
+      return j;
+    } finally { clearTimeout(to); }
+  }
+  function guardarSessao(j, email) {
+    gravarSessao({
+      email: (j.user && j.user.email) || email, access_token: j.access_token, refresh_token: j.refresh_token,
+      expira: Date.now() + (+j.expires_in || 3600) * 1000,
+    });
+  }
+  let renovando = null;
+  async function token() {
+    if (!sessao) { const e = new Error('Aparelho não conectado à nuvem'); e.login = true; throw e; }
+    if (Date.now() < sessao.expira - 60000) return sessao.access_token;
+    if (!renovando) {
+      const s = sessao;
+      renovando = authPost('token?grant_type=refresh_token', { refresh_token: s.refresh_token })
+        .then(j => { guardarSessao(j, s.email); return sessao.access_token; })
+        .catch(e => { if (e.http >= 400 && e.http < 500) { gravarSessao(null); e.login = true; } throw e; })
+        .finally(() => { renovando = null; });
+    }
+    return renovando;
+  }
 
   async function rest(method, path, body, prefer) {
-    const base = cfg().SUPABASE_URL.replace(/\/+$/, '');
     const key = cfg().SUPABASE_ANON_KEY;
-    const headers = { apikey: key, 'Content-Type': 'application/json' };
-    if (/^eyJ/.test(key)) headers.Authorization = 'Bearer ' + key; // chave "anon" antiga (JWT)
+    const headers = { apikey: key, 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() };
     if (prefer) headers.Prefer = prefer;
     const ctl = new AbortController();
     const to = setTimeout(() => ctl.abort(), 20000);
     try {
-      const res = await fetch(base + '/rest/v1/' + path, {
+      const res = await fetch(baseUrl() + '/rest/v1/' + path, {
         method, headers, body: body ? JSON.stringify(body) : undefined, signal: ctl.signal, cache: 'no-store',
       });
       if (!res.ok) {
@@ -328,18 +378,22 @@
     P.emit('sync', { estado: e, pendentes: outbox.size });
   }
 
+  let tentou401 = false;
   const Sync = P.Sync = {
-    estado: 'local',     // local | online | offline | sincronizando | erro
+    estado: 'local',     // local | login | online | offline | sincronizando | erro
     ultimoErro: null,
     ultimoSync: null,
     configurado,
+    conectado: () => !!sessao,
+    email: () => (sessao ? sessao.email : null),
     agendar(ms) {
-      if (!configurado()) return;
+      if (!configurado() || !sessao) return;
       clearTimeout(timer);
       timer = setTimeout(() => Sync.rodar(), ms == null ? 1500 : ms);
     },
     async rodar() {
       if (!configurado()) { setEstado('local'); return false; }
+      if (!sessao) { setEstado('login'); return false; }
       if (rodando) { deNovo = true; return false; }
       if (navigator.onLine === false) { setEstado('offline'); return false; }
       rodando = true;
@@ -350,24 +404,38 @@
         await receber();
         Sync.ultimoSync = new Date();
         Sync.ultimoErro = null;
+        tentou401 = false;
         ok = true;
         setEstado('online');
       } catch (e) {
         Sync.ultimoErro = String((e && e.message) || e);
-        setEstado(e && e.http ? 'erro' : 'offline');
+        if (e && e.login) setEstado('login');
+        else if (e && e.http === 401 && sessao && !tentou401) { tentou401 = true; sessao.expira = 0; deNovo = true; setEstado('sincronizando'); }
+        else setEstado(e && e.http ? 'erro' : 'offline');
       } finally {
         rodando = false;
         if (deNovo) { deNovo = false; Sync.agendar(400); }
       }
       return ok;
     },
+    // Conecta este aparelho à nuvem (e-mail e senha criados no Supabase)
+    async entrar(email, senha) {
+      const j = await authPost('token?grant_type=password', { email: String(email || '').trim(), password: senha });
+      guardarSessao(j, email);
+      tentou401 = false;
+      return Sync.rodar();
+    },
+    sair() {
+      gravarSessao(null);
+      setEstado(configurado() ? 'login' : 'local');
+    },
     iniciar() {
       if (!configurado()) { setEstado('local'); return; }
       window.addEventListener('online', () => Sync.agendar(200));
       window.addEventListener('offline', () => setEstado('offline'));
       document.addEventListener('visibilitychange', () => { if (!document.hidden) Sync.agendar(300); });
-      setInterval(() => Sync.rodar(), 45000);
-      setEstado(navigator.onLine === false ? 'offline' : 'online');
+      setInterval(() => { if (!document.hidden) Sync.rodar(); }, 30000);
+      setEstado(!sessao ? 'login' : navigator.onLine === false ? 'offline' : 'online');
     },
   };
 
