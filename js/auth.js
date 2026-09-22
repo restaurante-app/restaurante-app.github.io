@@ -176,8 +176,8 @@
   function conectarNuvem() {
     return new Promise(resolve => {
       let feito = false;
-      const email = h('input', { class: 'campo', type: 'email', placeholder: 'E-mail da nuvem', autocomplete: 'username', inputmode: 'email' });
-      const senha = h('input', { class: 'campo', type: 'password', placeholder: 'Senha da nuvem', autocomplete: 'current-password' });
+      const email = h('input', { class: 'campo', type: 'email', placeholder: 'E-mail da nuvem', autocomplete: 'username', inputmode: 'email', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false' });
+      const senha = h('input', { class: 'campo', type: 'password', placeholder: 'Senha da nuvem', autocomplete: 'current-password', autocapitalize: 'none', autocorrect: 'off', spellcheck: 'false' });
       const msg = h('div', { class: 'pin-msg' });
       const btn = h('button', { type: 'button', class: 'btn primario grow' }, 'Conectar');
       async function ir() {

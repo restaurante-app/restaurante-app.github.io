@@ -420,7 +420,7 @@
     },
     // Conecta este aparelho à nuvem (e-mail e senha criados no Supabase)
     async entrar(email, senha) {
-      const j = await authPost('token?grant_type=password', { email: String(email || '').trim(), password: senha });
+      const j = await authPost('token?grant_type=password', { email: String(email || '').trim().toLowerCase(), password: senha });
       guardarSessao(j, email);
       tentou401 = false;
       return Sync.rodar();
