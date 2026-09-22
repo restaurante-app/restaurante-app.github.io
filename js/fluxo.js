@@ -404,7 +404,7 @@
   }
 
   P.UI.rota('fluxo', { titulo: 'Fluxo', tab: () => (P.Auth.isDono() ? 'mais' : 'fluxo'), render: telaContar });
-  P.UI.rota('fluxo/analise', { titulo: 'Fluxo · análise', tab: 'mais', dono: true, render: telaAnalise });
+  P.UI.rota('fluxo/analise', { titulo: 'Análise do fluxo', tab: 'mais', dono: true, render: telaAnalise });
 
   P.Fluxo = { reconciliar, calcular, totais, compras, _blocos: () => blocos };
 })();

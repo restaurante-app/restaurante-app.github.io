@@ -122,6 +122,23 @@ svg { width: 1.2em; height: 1.2em; flex: 0 0 auto; }
 .top-tit { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .top-titulo { font-weight: 800; font-size: 1.22rem; letter-spacing: -.035em; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .top-sub { font-size: .66rem; color: var(--tx3); font-weight: 600; letter-spacing: .01em; text-transform: capitalize; margin-top: 1px; }
+#top-acao:empty { display: none; }
+.top-acao {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px 0 10px;
+  border-radius: 999px; border: 1px solid rgba(255, 138, 76, .32); color: var(--brasa-tx); font-size: .7rem; font-weight: 700;
+  background: linear-gradient(180deg, rgba(255, 107, 44, .16), rgba(255, 107, 44, .06)); box-shadow: inset 0 1px 0 var(--brilho);
+  transition: transform .12s var(--ease), filter .15s;
+}
+.top-acao svg { width: 17px; height: 17px; }
+.top-acao:active { transform: scale(.95); filter: brightness(1.15); }
+@media (max-width: 400px) {
+  .top-acao { width: 34px; padding: 0; justify-content: center; }
+  .top-acao span { display: none; }
+  /* estado tranquilo vira só o ponto; aviso (offline, pendente, conectar) continua com texto */
+  .pilula.local, .pilula.on { width: 30px; padding: 0; font-size: 0; }
+  .pilula.local::before, .pilula.on::before { left: 50%; margin-left: -3.5px; }
+  .top-titulo { font-size: 1.14rem; }
+}
 .pilula {
   flex: 0 0 auto; border: 1px solid var(--borda); border-radius: 999px; padding: 0 11px 0 23px; min-height: 30px;
   font-size: .64rem; font-weight: 700; position: relative; background: var(--s1); color: var(--tx2); letter-spacing: .01em;
@@ -446,7 +463,7 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 .pn-escada { margin-top: 9px; }
 .pn-esc-t { font-size: .68rem; color: var(--tx2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
 .pn-esc-t b { color: var(--tx); }
-@media (max-height: 780px) {
+@media (max-height: 900px) {
   .pn-num { font-size: 2rem; }
   .anel { width: 72px; height: 72px; }
   .pn-card { padding: 8px 12px 10px; }
@@ -486,6 +503,16 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
   .pilha-leg { font-size: .64rem; }
   .pn-txt, .pn-meta { font-size: .64rem; }
   .cols-x { display: none; }
+  /* telefone pequeno: detalhes da semana ficam no Relatório */
+  .pn-txt, .pn-vol, .pn-spark > small { display: none; }
+  #topbar { min-height: 48px; padding-top: calc(env(safe-area-inset-top) + 4px); padding-bottom: 2px; }
+  .pn-cab { min-height: 26px; }
+  .pn-nav { height: 26px; width: 32px; }
+  .pn-caixa { margin-top: 5px; padding-top: 5px; }
+  .pn-escada { margin-top: 5px; }
+  .pn-esc-t { margin-bottom: 4px; }
+  .pilha { margin-top: 5px; }
+  .pilha-leg { margin-top: 3px; }
 }
 
 /* ---------- Resultado ao vivo (compras, mesas) ---------- */
@@ -961,3 +988,15 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
   #view { overflow: visible; padding: 0; }
   body { background: #fff; color: #000; }
 }
+
+/* ---------- Relatório: gráficos ---------- */
+.rl-cols { margin: 2px 0 12px; }
+.rl-cols .cols-w { display: flex; width: 100%; }
+.rl-cols .cols { width: 100%; height: auto; }
+.rl-cols .cols-x { font-size: .56rem; }
+.rl-pico { font-size: .72rem; color: var(--tx2); margin-top: 6px; }
+.rl-pico b { color: var(--tx); }
+.rl-sec .pilha { margin: 2px 0 12px; }
+.rl-tr.rl-tr4 { grid-template-columns: minmax(0, .8fr) 1.3fr .8fr 1fr; }
+.rl-tr.pico span:first-child { color: var(--brasa-tx); }
+.rl-tr .leg-dot { margin-right: 7px; vertical-align: 1px; }

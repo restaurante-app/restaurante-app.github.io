@@ -189,7 +189,7 @@
               h('div', { class: 'pn-meta' }, 'CMV' + (rs.mercadoria > 0 ? ' real' : ' ficha') + ' + folha · meta ≤ ' + metas.prime_cost_max + '%')),
             h('div', { class: 'pn-spark' }, h('small', null, 'Lucro por dia'),
               P.UI.colunas(porDia, P.brl0, { aria: 'Lucro por dia na semana: ' + porDia.map(p => p.curto + ' ' + (p.valor == null ? 'sem movimento' : P.brl0(p.valor))).join(', ') }))),
-          h('div', { class: 'pn-linha' },
+          h('div', { class: 'pn-linha pn-vol' },
             mini('Espetos/dia', P.num(rs.espetos / nS, 0), corMin(rs.espetos / nS, +metas.espeto_empate_dia)),
             mini('Pratos/dia', P.num(rs.canal.SALAO.pratos / nS, 0)),
             mini('Marmitas/dia', P.num(rs.canal.MARMITA.pratos / nS, 0))),

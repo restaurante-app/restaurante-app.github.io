@@ -655,7 +655,7 @@
   //  Rotas
   // ---------------------------------------------------------------
   const tabPrecos = () => (P.Auth.isDono() ? 'fichas' : 'mais');
-  P.UI.rota('fichas', { titulo: 'Fichas · margem', tab: 'fichas', dono: true, render: telaMargem });
+  P.UI.rota('fichas', { titulo: 'Fichas', tab: 'fichas', dono: true, render: telaMargem });
   P.UI.rota('fichas/item/:id', { titulo: 'Ficha técnica', tab: 'fichas', dono: true, render: telaItem });
   P.UI.rota('fichas/simular', { titulo: 'Simulação', tab: 'fichas', dono: true, render: telaSimular });
   P.UI.rota('fichas/simular/:id', { titulo: 'Simulação', tab: 'fichas', dono: true, render: telaSimular });

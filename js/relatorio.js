@@ -181,20 +181,27 @@
         r.comprasAPrazo ? linhaV('Comprado a prazo neste período (a pagar)', P.brl(r.comprasAPrazo), 'aviso') : null));
 
       corpo.appendChild(secao('Por canal',
+        P.UI.pilha(['SALAO', 'ESPETO', 'MARMITA'].map(k => ({ rotulo: NOME_CANAL[k], valor: r.porCanal[k].fat, serie: k.toLowerCase() })), P.brl0),
         h('div', { class: 'rl-tab' },
           h('div', { class: 'rl-tr th' }, h('span', null, 'Canal'), h('span', null, 'Faturamento'), h('span', null, 'CMV'), h('span', null, 'Contas'), h('span', null, 'Ticket')),
-          CANAIS.map(k => { const c = r.porCanal[k]; return h('div', { class: 'rl-tr' },
-            h('span', null, NOME_CANAL[k]), h('span', null, P.brl0(c.fat)), h('span', null, P.pct(c.fat ? c.cmv / c.fat * 100 : null, 0)),
+          ['SALAO', 'ESPETO', 'MARMITA'].map(k => { const c = r.porCanal[k]; return h('div', { class: 'rl-tr' },
+            h('span', null, h('i', { class: 'leg-dot serie-' + k.toLowerCase() }), NOME_CANAL[k]), h('span', null, P.brl0(c.fat)), h('span', null, P.pct(c.fat ? c.cmv / c.fat * 100 : null, 0)),
             h('span', null, c.contas), h('span', null, c.contas ? P.brl(c.totContas / c.contas) : '—')); }))));
 
       if (r.porHora.size) {
         const horas = [...r.porHora.keys()].sort((a, b) => P.Dia.ordemFaixa(a) - P.Dia.ordemFaixa(b));
-        const max = Math.max(...horas.map(x => r.porHora.get(x).fat), 1);
+        const pico = horas.reduce((a, x) => (r.porHora.get(x).fat > r.porHora.get(a).fat ? x : a), horas[0]);
+        const hh = x => String(x).padStart(2, '0') + 'h';
         corpo.appendChild(secao('Vendas por hora (quando o item foi pedido)',
-          h('div', { class: 'an-graf' }, horas.map(x => { const v = r.porHora.get(x); return h('div', { class: 'an-lin' },
-            h('div', { class: 'an-fx' }, String(x).padStart(2, '0') + 'h'),
-            h('div', { class: 'an-barras' }, h('div', { class: 'an-b an-c' }, h('span', { class: 'an-bar', style: { width: Math.max(2, v.fat / max * 100) + '%' } }), h('span', { class: 'an-bv' }, P.brl0(v.fat)))),
-            h('div', { class: 'an-conv' }, P.num(v.q) + ' it.')); }))));
+          h('div', { class: 'rl-cols' },
+            P.UI.colunas(horas.map(x => ({ rotulo: hh(x), curto: hh(x), valor: r.porHora.get(x).fat, atual: x === pico })), P.brl0,
+              { largura: 320, altura: 84, aria: 'Vendas por hora: ' + horas.map(x => hh(x) + ' ' + P.brl0(r.porHora.get(x).fat)).join(', ') }),
+            h('div', { class: 'rl-pico' }, 'Pico às ', h('b', null, hh(pico)), ' · ', h('b', null, P.brl0(r.porHora.get(pico).fat)), ' · ' + P.num(r.porHora.get(pico).q) + ' itens')),
+          h('div', { class: 'rl-tab' },
+            h('div', { class: 'rl-tr rl-tr4 th' }, h('span', null, 'Hora'), h('span', null, 'Faturamento'), h('span', null, 'Itens'), h('span', null, '% do total')),
+            horas.map(x => { const v = r.porHora.get(x); return h('div', { class: 'rl-tr rl-tr4' + (x === pico ? ' pico' : '') },
+              h('span', null, hh(x)), h('span', null, P.brl0(v.fat)), h('span', null, P.num(v.q)),
+              h('span', null, P.pct(r.fatBruto ? v.fat / r.fatBruto * 100 : null, 0))); }))));
       }
 
       const itens = [...r.porItem.values()].map(g => Object.assign(g, { margem: g.fat - g.cmv, fc: g.fat ? g.cmv / g.fat * 100 : null }));
@@ -277,6 +284,6 @@
     return { onDados: desenhar };
   }
 
-  P.UI.rota('relatorio', { titulo: 'Relatório detalhado', tab: 'painel', dono: true, render: telaRelatorio });
+  P.UI.rota('relatorio', { titulo: 'Relatório', tab: 'painel', dono: true, render: telaRelatorio });
   P.Relatorio = { montar, diasDoPeriodo };
 })();
