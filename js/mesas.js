@@ -216,8 +216,11 @@
         if (!cs.length) livres.push(i);
         const tot = cs.reduce((s, c) => s + totalDe(c), 0);
         const min = cs.length ? (Date.now() - Date.parse(cs[0].aberta_em)) / 60000 : 0;
-        grade.appendChild(h('button', { type: 'button', class: 'ms-mesa' + (cs.length ? ' ocupada' : '') + (min > 60 ? ' demorada' : ''), onClick: () => abrirMesa(i) },
-          h('span', { class: 'ms-topo' }, h('span', { class: 'ms-n' }, i), cs.length ? h('span', { class: 'ms-tempo' }, P.UI.icone('relogio'), tempo(cs[0].aberta_em)) : null),
+        grade.appendChild(h('button', { type: 'button', class: 'ms-mesa' + (cs.length ? ' ocupada' : '') + (min > 60 ? ' demorada' : ''), onClick: () => abrirMesa(i),
+          'aria-label': 'Mesa ' + i + (cs.length ? ', ' + cs.map(c => c.cliente || 'sem nome').join(', ') + ', ' + P.brl(tot) + ', aberta há ' + tempo(cs[0].aberta_em) : ', livre') },
+          h('span', { class: 'ms-topo' }, h('span', { class: 'ms-n' }, String(i).padStart(2, '0')),
+            cs.length ? h('span', { class: 'ms-tempo' },
+              h('i', { class: 'ms-rel', style: { '--p': Math.min(1, min / 60) } }), tempo(cs[0].aberta_em)) : null),
           cs.length ? [
             h('span', { class: 'ms-cli' }, cs.map(c => c.cliente || 'sem nome').join(', ')),
             h('span', { class: 'ms-tot' }, P.brl(tot)),
@@ -278,8 +281,10 @@
     }
     function desenharCab() {
       c = P.Store.get('comandas', c.id) || c;
+      const selo = /^\d+$/.test(c.mesa || '') ? String(c.mesa).padStart(2, '0') : c.mesa === 'Marmita' ? 'M' : c.mesa === 'Balcão' ? 'B' : '•';
       elCab.replaceChildren(
         h('a', { class: 'cm-voltar', href: '#/mesas', 'aria-label': 'Voltar às mesas' }, P.UI.icone('voltar')),
+        h('span', { class: 'cm-selo k-' + (c.canal || 'SALAO').toLowerCase(), 'aria-hidden': 'true' }, selo),
         h('button', { type: 'button', class: 'cm-tit', onClick: renomear },
           h('b', null, nomeLocal(c)), h('span', null, c.cliente || 'toque para pôr o nome', P.UI.icone('lapis'))),
         h('div', { class: 'cm-dir' },
@@ -294,7 +299,14 @@
     }
     function desenharCats() {
       const presentes = new Set(vendaveis().map(i => i.categoria));
-      elCats.replaceChildren(P.UI.seg((ORDEM[c.canal] || ORDEM.SALAO).filter(k => presentes.has(k)).map(k => ({ v: k, rotulo: ROT_CAT[k] })), cat, v => { cat = v; desenharGrade(); }, 'seg-p'));
+      const porCat = {};
+      const I = P.Calc.idx();
+      linhas(c.id).forEach(l => { const it = I.itens.get(l.item_id); if (it) porCat[it.categoria] = (porCat[it.categoria] || 0) + (+l.quantidade || 0); });
+      elCats.replaceChildren(...(ORDEM[c.canal] || ORDEM.SALAO).filter(k => presentes.has(k)).map(k =>
+        h('button', { type: 'button', class: 'cm-cat k-' + k.toLowerCase() + (k === cat ? ' on' : ''), 'aria-pressed': k === cat ? 'true' : 'false', onClick: () => {
+          if (cat === k) return;
+          cat = k; P.vibrar(10); desenharCats(); desenharGrade();
+        } }, h('i', { class: 'cm-cat-dot' }), ROT_CAT[k], porCat[k] ? h('b', null, porCat[k]) : null)));
     }
     function desenharGrade() {
       const q = qtdPorItem();
@@ -332,7 +344,7 @@
         h('button', { type: 'button', class: 'lc-b mais', 'aria-label': 'Mais um', onClick: () => { const it = P.Store.get('itens', itemId); if (it) { adicionar(c, it); P.vibrar(15); atualizar(); } } }, P.UI.icone('mais')))));
       elConsumo.appendChild(h('button', { type: 'button', class: 'btn perigo bloco', onClick: cancelarComanda }, P.UI.icone('x'), 'Cancelar comanda'));
     }
-    function atualizar() { desenharTotal(); desenharGrade(); desenharConsumo(); }
+    function atualizar() { desenharTotal(); desenharCats(); desenharGrade(); desenharConsumo(); }
     async function renomear() {
       const nome = await pedirTexto('Nome do cliente', c.cliente || '', 'Ex.: João do box 40', clientesRecentes());
       if (nome == null) return;
@@ -428,10 +440,12 @@
     function desenhar() {
       elTopo.replaceChildren(
         h('div', { class: 'pg-rot' }, rotulo(c)),
+        h('div', { class: 'pg-cap' }, 'Total a receber'),
         h('div', { class: 'pg-total' }, P.brl(total())),
         h('div', { class: 'pg-sub' }, qtdItens(c.id) + ' itens · subtotal ' + P.brl(subtotal(c.id)),
           h('button', { type: 'button', class: 'btn mini', onClick: pedirDesconto }, desconto ? 'desconto ' + P.brl(desconto) : '+ desconto')));
-      elFormas.replaceChildren(...FORMAS.map(f => h('button', { type: 'button', class: 'pg-forma f-' + f.v.toLowerCase(), onClick: () => escolher(f.v) }, P.UI.icone(ICONE_FORMA[f.v]), f.rotulo)));
+      elFormas.replaceChildren(...FORMAS.map(f => h('button', { type: 'button', class: 'pg-forma f-' + f.v.toLowerCase(), onClick: () => escolher(f.v) },
+        h('span', { class: 'pg-ic' }, P.UI.icone(ICONE_FORMA[f.v])), f.rotulo)));
       elPags.innerHTML = '';
       pags.forEach((p, i) => {
         const troco = p.forma === 'DINHEIRO' && p.recebido > p.valor ? P.round(p.recebido - p.valor, 2) : 0;
@@ -689,7 +703,7 @@
           P.UI.toast(g.nome + ': ' + P.brl(g.total) + ' recebido (' + f.rotulo + ')', {
             acao: { rotulo: 'Desfazer', fn: () => g.pags.forEach(p => P.Store.put('pagamentos', Object.assign({}, p, { recebido_em: null, recebido_dia: null, recebido_forma: null }))) },
           });
-        } }, P.UI.icone(ICONE_FORMA[f.v]), f.rotulo)))),
+        } }, h('span', { class: 'pg-ic' }, P.UI.icone(ICONE_FORMA[f.v])), f.rotulo)))),
       { titulo: 'Fiado de ' + g.nome });
     }
     view.append(subnavMesas('fiado'), corpo);

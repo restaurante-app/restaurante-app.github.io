@@ -149,6 +149,11 @@
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       e.preventDefault();
       tocar(+1);
+      // onda a partir do dedo
+      const r = btnMais.getBoundingClientRect();
+      const onda = h('span', { class: 'onda', style: { left: (e.clientX - r.left) + 'px', top: (e.clientY - r.top) + 'px' } });
+      btnMais.appendChild(onda);
+      setTimeout(() => onda.remove(), 600);
     });
     btnMais.addEventListener('contextmenu', e => e.preventDefault());
     btnMenos.addEventListener('click', () => tocar(-1));
@@ -399,7 +404,7 @@
   }
 
   P.UI.rota('fluxo', { titulo: 'Fluxo', tab: () => (P.Auth.isDono() ? 'mais' : 'fluxo'), render: telaContar });
-  P.UI.rota('fluxo/analise', { titulo: 'Fluxo · análise', tab: 'mais', dono: true, render: telaAnalise });
+  P.UI.rota('fluxo/analise', { titulo: 'Análise do fluxo', tab: 'mais', dono: true, render: telaAnalise });
 
   P.Fluxo = { reconciliar, calcular, totais, compras, _blocos: () => blocos };
 })();

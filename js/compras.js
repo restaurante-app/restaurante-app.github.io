@@ -175,6 +175,7 @@
       if (!cs.length) { corpo.appendChild(P.UI.vazio('Nenhuma compra neste dia. Cada compra atualiza o preço dos insumos e o custo dos pratos na hora.', 'compras')); return; }
       corpo.appendChild(h('div', { class: 'secao' }, 'Compras'));
       corpo.appendChild(h('div', { class: 'ms-lista' }, cs.map(c => h('a', { class: 'ms-card', href: '#/compras/c/' + c.id },
+        h('span', { class: 'av-f', 'aria-hidden': 'true' }, c.fornecedor ? P.UI.iniciais(c.fornecedor.replace(/[—–-].*$/, '').replace(/box/i, '').trim() || c.fornecedor) : P.UI.icone('compras')),
         h('div', { class: 'ms-card-n' }, nomeCompra(c), h('small', null, P.Dia.hora(c.criado_em) + ' · ' + resumoItens(c))),
         h('div', { class: 'ms-card-d' }, h('b', null, P.brl(c.total)), chipForma(c))))));
     }
@@ -441,7 +442,7 @@
         P.vibrar([20, 40, 20]);
         sh.fechar();
         P.UI.toast(nome + ': ' + P.brl(tot) + ' pago (' + f.rotulo + ')', { acao: { rotulo: 'Desfazer', fn: () => antes.forEach(c => P.Store.put('compras', c)) } });
-      } }, P.UI.icone(P.Mesas.ICONE_FORMA[f.v]), f.rotulo)))),
+      } }, h('span', { class: 'pg-ic' }, P.UI.icone(P.Mesas.ICONE_FORMA[f.v])), f.rotulo)))),
     { titulo: 'Pagar ' + nome });
   }
   function telaPagar(view) {

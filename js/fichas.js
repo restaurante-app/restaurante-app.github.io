@@ -113,18 +113,24 @@
       }
       const cont = { verde: 0, amarelo: 0, vermelho: 0 };
       vend.forEach(f => { cont[f.faixa] = (cont[f.faixa] || 0) + 1; });
+      const ST_F = { verde: 'bom', amarelo: 'atencao', vermelho: 'critico' };
+      const semaf = (faixa, ic, rot) => h('div', { class: 'semaf-c st-' + ST_F[faixa] },
+        h('span', { class: 'semaf-t' }, P.UI.icone(ic), rot), h('b', null, cont[faixa]), h('small', null, cont[faixa] === 1 ? 'item' : 'itens'));
       corpo.appendChild(h('div', { class: 'semaf' },
-        h('div', { class: 'semaf-c verde' }, h('b', null, cont.verde), h('span', null, 'até ' + cfg.verde_ate + '%')),
-        h('div', { class: 'semaf-c amarelo' }, h('b', null, cont.amarelo), h('span', null, cfg.verde_ate + '–' + cfg.vermelho_acima + '%')),
-        h('div', { class: 'semaf-c vermelho' }, h('b', null, cont.vermelho), h('span', null, '+' + cfg.vermelho_acima + '%'))));
+        semaf('verde', 'check', 'até ' + cfg.verde_ate + '%'),
+        semaf('amarelo', 'alerta', cfg.verde_ate + '–' + cfg.vermelho_acima + '%'),
+        semaf('vermelho', 'alerta', 'acima de ' + cfg.vermelho_acima + '%')));
       corpo.appendChild(P.UI.seg([
         { v: 'TODOS', rotulo: 'Todos' }, { v: 'ESPETO', rotulo: 'Espetos' }, { v: 'PRATO', rotulo: 'Pratos' }, { v: 'BEBIDA', rotulo: 'Bebidas' },
       ], cat, v => { cat = v; desenhar(); }, 'seg-p'));
       const lista = h('div', { class: 'mg-lista' });
+      // medidor de food cost em escala 0–60%, com marcas nos limites do semáforo
+      const ESC = 60;
       vend.filter(f => cat === 'TODOS' || f.item.categoria === cat).forEach(f => lista.appendChild(
-        h('a', { href: '#/fichas/item/' + f.item.id, class: 'mg-lin f-' + f.faixa },
-          h('div', { class: 'mg-nome' }, f.item.nome),
-          h('div', { class: 'mg-fc' }, P.pct(f.fc)),
+        h('a', { href: '#/fichas/item/' + f.item.id, class: 'mg-lin f-' + f.faixa, 'aria-label': f.item.nome + ': food cost ' + P.pct(f.fc) + ', margem ' + P.brl(f.margem) },
+          h('div', { class: 'mg-nome' }, f.item.nome, h('small', null, CAT[f.item.categoria] || '')),
+          h('div', { class: 'mg-fc' }, P.pct(f.fc), h('small', null, 'food cost')),
+          P.UI.medidor(f.fc / ESC, ST_F[f.faixa] || 'neutro', [cfg.verde_ate / ESC, cfg.vermelho_acima / ESC]),
           h('div', { class: 'mg-det' },
             h('span', null, 'CMV ', h('b', null, P.brl(f.cmv))),
             h('span', null, 'Preço ', h('b', null, P.brl(f.preco))),
@@ -649,7 +655,7 @@
   //  Rotas
   // ---------------------------------------------------------------
   const tabPrecos = () => (P.Auth.isDono() ? 'fichas' : 'mais');
-  P.UI.rota('fichas', { titulo: 'Fichas · margem', tab: 'fichas', dono: true, render: telaMargem });
+  P.UI.rota('fichas', { titulo: 'Fichas', tab: 'fichas', dono: true, render: telaMargem });
   P.UI.rota('fichas/item/:id', { titulo: 'Ficha técnica', tab: 'fichas', dono: true, render: telaItem });
   P.UI.rota('fichas/simular', { titulo: 'Simulação', tab: 'fichas', dono: true, render: telaSimular });
   P.UI.rota('fichas/simular/:id', { titulo: 'Simulação', tab: 'fichas', dono: true, render: telaSimular });
