@@ -12,6 +12,6 @@
 // ============================================================
 window.P = window.P || {};
 P.CONFIG = {
-  SUPABASE_URL: '',
-  SUPABASE_ANON_KEY: '',
+  SUPABASE_URL: 'https://ivwuqvdwidstatnkbeii.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_ishVA02KBO3Dc6gidxjgqg_BZrazZqS',
 };
