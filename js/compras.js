@@ -161,7 +161,7 @@
   //  Nada é salvo sozinho: os itens entram no formulário para conferir.
   //  O app lembra qual insumo é cada produto da nota para a próxima vez.
   // ---------------------------------------------------------------
-  let fotoPendente = null; // foto tirada na lista de compras, lida ao abrir "Lançar compra"
+  let fotoPendente = null; // da lista de compras: foto da galeria, ou 'leitor' (abrir a câmera) ao abrir "Lançar compra"
   function escolherFoto(galeria, onFoto) {
     const inp = h('input', { type: 'file', accept: 'image/*', style: { display: 'none' } });
     if (!galeria) inp.setAttribute('capture', 'environment');
@@ -183,6 +183,89 @@
     }
     return jsQRCarga;
   }
+  const cvQR = document.createElement('canvas');
+  // procura o QR num pedaço da imagem/vídeo (reduzido a no máximo "max" px) → texto ou null
+  function lerQRCanvas(fonte, x, y, w, hh, max) {
+    const esc = Math.min(1, max / Math.max(w, hh));
+    cvQR.width = Math.round(w * esc);
+    cvQR.height = Math.round(hh * esc);
+    const cx = cvQR.getContext('2d', { willReadFrequently: true });
+    cx.drawImage(fonte, x, y, w, hh, 0, 0, cvQR.width, cvQR.height);
+    const r = window.jsQR(cx.getImageData(0, 0, cvQR.width, cvQR.height).data, cvQR.width, cvQR.height, { inversionAttempts: 'attemptBoth' });
+    return r && r.data ? r.data : null;
+  }
+  // Leitor ao vivo: câmera aberta, lê sozinho quando o QR entra em foco.
+  // → { qr } | { foto } (preferiu tirar foto) | null (cancelou)
+  function escanearQR() {
+    return new Promise(resolve => {
+      let fim = false, stream = null, timer = null, n = 0;
+      const video = h('video', { class: 'qr-video', playsinline: true, autoplay: true, muted: true });
+      video.muted = true;
+      const status = h('small', { class: 'qr-status' }, 'Abrindo a câmera…');
+      const extras = h('div', { class: 'row gap' });
+      function acabar(v) {
+        if (fim) return;
+        fim = true;
+        clearTimeout(timer);
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        resolve(v);
+        sh.fechar();
+      }
+      const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
+        h('div', { class: 'qr-caixa' }, video, h('div', { class: 'qr-mira' })),
+        status, extras,
+        h('div', { class: 'row gap' },
+          h('button', { type: 'button', class: 'btn', onClick: () => acabar(null) }, 'Cancelar'),
+          h('button', { type: 'button', class: 'btn grow', onClick: () => escolherFoto(false, f => acabar({ foto: f })) }, P.UI.icone('camera'), 'Tirar foto'))),
+      { titulo: 'Aponte para o QR Code do cupom', cls: 'sheet-qr', onFechar: () => acabar(null) });
+      let det = null;
+      if ('BarcodeDetector' in window) { try { det = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { det = null; } }
+      const inicio = Date.now();
+      async function tique() {
+        if (fim) return;
+        const vw = video.videoWidth, vh = video.videoHeight;
+        if (video.readyState >= 2 && vw) {
+          try {
+            let r = null;
+            if (det) { const a = await det.detect(video); if (a.length) r = a[0].rawValue; }
+            if (!r) {
+              // alterna o quadrado da mira (centro) e o quadro inteiro
+              const lado = Math.min(vw, vh) * (n++ % 3 === 2 ? 1 : 0.75);
+              r = lerQRCanvas(video, (vw - lado) / 2, (vh - lado) / 2, lado, lado, 720);
+            }
+            if (r) { P.vibrar(40); acabar({ qr: r }); return; }
+          } catch (e) { /* quadro ruim: tenta o próximo */ }
+          if (Date.now() - inicio > 12000) status.textContent = 'Ainda não leu? Chegue mais perto ou mais longe devagar, com o cupom esticado e com luz. Se não der, use "Tirar foto".';
+        }
+        timer = setTimeout(tique, 90);
+      }
+      (async () => {
+        try {
+          await carregarJsQR();
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('sem câmera');
+          stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+          if (fim) { stream.getTracks().forEach(t => t.stop()); return; }
+          video.srcObject = stream;
+          await video.play().catch(() => {});
+          status.textContent = 'Deixe o QR Code dentro do quadrado. Lê sozinho.';
+          const track = stream.getVideoTracks()[0];
+          const cap = track && track.getCapabilities ? track.getCapabilities() : {};
+          if (cap.focusMode && cap.focusMode.includes('continuous')) track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+          if (cap.torch) {
+            let luz = false;
+            extras.appendChild(h('button', { type: 'button', class: 'btn grow', onClick: e => {
+              luz = !luz;
+              track.applyConstraints({ advanced: [{ torch: luz }] }).catch(() => {});
+              e.currentTarget.textContent = luz ? 'Apagar lanterna' : 'Acender lanterna';
+            } }, 'Acender lanterna'));
+          }
+          tique();
+        } catch (e) {
+          status.textContent = 'Não deu para abrir a câmera aqui (permita o acesso à câmera). Use "Tirar foto".';
+        }
+      })();
+    });
+  }
   // → texto do QR Code da foto, ou null
   async function acharQR(arq) {
     const url = URL.createObjectURL(arq);
@@ -194,19 +277,14 @@
           if (achados.length) return achados[0].rawValue;
         } catch (e) { /* sem suporte a qr_code: usa o jsQR */ }
       }
-      const jsQR = await carregarJsQR();
-      const lado = Math.max(img.naturalWidth, img.naturalHeight);
-      // o QR é pequeno na foto do cupom: tenta de resoluções menores (rápido) para maiores
-      for (const max of [1200, 2000, 3000]) {
-        const esc = Math.min(1, max / lado);
-        const cv = document.createElement('canvas');
-        cv.width = Math.round(img.naturalWidth * esc);
-        cv.height = Math.round(img.naturalHeight * esc);
-        const cx = cv.getContext('2d', { willReadFrequently: true });
-        cx.drawImage(img, 0, 0, cv.width, cv.height);
-        const r = jsQR(cx.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height, { inversionAttempts: 'attemptBoth' });
-        if (r && r.data) return r.data;
-        if (esc === 1) break;
+      await carregarJsQR();
+      const W = img.naturalWidth, H = img.naturalHeight;
+      // a foto inteira e depois pedaços (o QR é pequeno na foto do cupom)
+      const janelas = [[0, 0, W, H]];
+      for (const fy of [0, 0.25, 0.5]) for (const fx of [0, 0.25, 0.5]) janelas.push([W * fx, H * fy, W / 2, H / 2]);
+      for (const [x, y, w, hh] of janelas) {
+        const r = lerQRCanvas(img, x, y, w, hh, 1200);
+        if (r) return r;
       }
       return null;
     } finally { URL.revokeObjectURL(url); }
@@ -283,7 +361,7 @@
     return linhas;
   }
   // foto → dados da nota, ou null (cancelou/erro, já avisado)
-  async function lerNotaFoto(arq) {
+  async function lerNota(entrada) {
     let cancelado = false;
     const ctl = new AbortController();
     const passo = h('b', null, 'Procurando o QR Code…');
@@ -294,9 +372,9 @@
     { titulo: 'Foto da nota', onFechar: () => { cancelado = true; ctl.abort(); } });
     const falhar = async msg => { if (cancelado) return null; sh.fechar(); await P.UI.confirmar(msg, { ok: 'Ok', titulo: 'Foto da nota' }); return null; };
     try {
-      const qr = await acharQR(arq);
+      const qr = entrada.qr || await acharQR(entrada.foto);
       if (cancelado) return null;
-      if (!qr) return falhar('Não achei o QR Code nesta foto. Tire de novo mais perto do QR Code (o quadradinho no fim do cupom), reto e com boa luz. Nota sem QR Code (feira, açougue) tem que ser digitada.');
+      if (!qr) return falhar('Não consegui ler o QR Code nesta foto. Use "Ler nota" e aponte a câmera bem perto do QR Code (o quadradinho no fim do cupom), com o papel esticado e com luz. Nota sem QR Code (feira, açougue) tem que ser digitada.');
       if (!/^https?:\/\/[^/?#]*\.gov\.br[/?#]/i.test(qr)) return falhar('Esse QR Code não é de cupom fiscal (NFC-e). Nota sem QR Code de cupom fiscal tem que ser digitada.');
       if (!P.Sync.configurado() || !P.Sync.conectado()) return falhar('Para buscar os itens na Sefaz, conecte o aparelho à nuvem (Mais → Nuvem).');
       passo.textContent = 'Buscando os itens na Sefaz…';
@@ -329,11 +407,10 @@
       corpo.appendChild(h('div', { class: 'fx-resumo' },
         h('div', { class: 'fx-tot' }, h('small', null, 'Comprado · ' + cs.length + (cs.length === 1 ? ' compra' : ' compras')), h('b', null, P.brl(total))),
         devendo ? h('a', { class: 'fx-formas link', href: '#/compras/pagar' }, h('span', { class: 'fx-f' }, 'A pagar a fornecedores ', h('b', { class: 't-amarelo' }, P.brl(devendo))), P.UI.icone('avancar')) : null));
-      const irComFoto = galeria => escolherFoto(galeria, f => { fotoPendente = f; location.hash = '#/compras/nova'; });
       corpo.appendChild(h('div', { class: 'row gap cp-novas' },
-        h('button', { type: 'button', class: 'btn primario grow cp-nova', onClick: () => irComFoto(false) }, P.UI.icone('camera'), 'Foto da nota'),
+        h('button', { type: 'button', class: 'btn primario grow cp-nova', onClick: () => { fotoPendente = 'leitor'; location.hash = '#/compras/nova'; } }, P.UI.icone('camera'), 'Ler nota'),
         h('a', { class: 'btn grow cp-nova', href: '#/compras/nova' }, P.UI.icone('mais'), 'Digitar')));
-      corpo.appendChild(h('button', { type: 'button', class: 'cp-galeria', onClick: () => irComFoto(true) }, 'ou escolher foto da galeria'));
+      corpo.appendChild(h('button', { type: 'button', class: 'cp-galeria', onClick: () => escolherFoto(true, f => { fotoPendente = f; location.hash = '#/compras/nova'; }) }, 'ou escolher foto da galeria'));
       if (!cs.length) { corpo.appendChild(P.UI.vazio('Nenhuma compra neste dia. Cada compra atualiza o preço dos insumos e o custo dos pratos na hora.', 'compras')); return; }
       corpo.appendChild(h('div', { class: 'secao' }, 'Compras'));
       corpo.appendChild(h('div', { class: 'ms-lista' }, cs.map(c => h('a', { class: 'ms-card', href: '#/compras/c/' + c.id },
@@ -543,8 +620,12 @@
       P.vibrar(15);
       desenharLinhas();
     }
-    async function usarFoto(arq) {
-      const nota = await lerNotaFoto(arq);
+    async function usarLeitor() {
+      const e = await escanearQR();
+      if (e) usarNota(e);
+    }
+    async function usarNota(entrada) {
+      const nota = await lerNota(entrada);
       if (!nota) return;
       const ja = nota.chave && P.Store.all('compras').find(c => c.obs && c.obs.includes(nota.chave) && c.id !== (ant && ant.id));
       if (ja && !(await P.UI.confirmar('Essa nota já foi lançada em ' + P.Dia.rotuloCurto(ja.dia_operacional) + ' (' + P.brl(ja.total) + '). Lançar de novo?', { ok: 'Lançar de novo' }))) return;
@@ -583,8 +664,8 @@
       h('div', { class: 'form' },
         h('div', { class: 'form-tit' }, ant ? 'Editar compra' : 'Lançar compra', h('small', null, ant ? P.Dia.rotulo(ant.dia_operacional) : P.Dia.rotulo(P.Dia.hoje()))),
         ant ? null : h('div', { class: 'row gap cp-novas' },
-          h('button', { type: 'button', class: 'btn grow', onClick: () => escolherFoto(false, usarFoto) }, P.UI.icone('camera'), 'Foto da nota'),
-          h('button', { type: 'button', class: 'btn grow', onClick: () => escolherFoto(true, usarFoto) }, 'Da galeria')),
+          h('button', { type: 'button', class: 'btn grow', onClick: usarLeitor }, P.UI.icone('camera'), 'Ler nota'),
+          h('button', { type: 'button', class: 'btn grow', onClick: () => escolherFoto(true, f => usarNota({ foto: f })) }, 'Da galeria')),
         elAviso,
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'De quem'), inForn, chipsForn),
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'Itens'), elLinhas,
@@ -594,7 +675,7 @@
           h('small', { class: 'campo-d' }, '"A prazo" fica em Compras → A pagar até você marcar como pago.'))),
       elBarra);
     desenharLinhas();
-    if (!ant && fotoPendente) { const f = fotoPendente; fotoPendente = null; usarFoto(f); }
+    if (!ant && fotoPendente) { const f = fotoPendente; fotoPendente = null; if (f === 'leitor') usarLeitor(); else usarNota({ foto: f }); }
     else if (!ant) setTimeout(() => { if (!d.linhas.length && location.hash === '#/compras/nova') adicionar(); }, 250);
     return {};
   }

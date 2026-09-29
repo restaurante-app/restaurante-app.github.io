@@ -47,8 +47,9 @@ o total pago) e como pagou (Dinheiro, Pix, Cartão ou **A prazo**). Cada item de
 **atualiza o preço da ficha técnica** e o app mostra na hora o efeito nos pratos
 ("Filé de frango saiu de 37% para 39%"). Item sem ficha (gelo, sacola) entra só no gasto.
 Ao editar uma compra antiga, o preço não passa por cima de uma compra mais nova.
-**Foto da nota** (grátis): em Compras, toque em *Foto da nota* e fotografe o cupom fiscal
-(ou escolha da galeria). O app acha o **QR Code** do cupom (NFC-e) na foto e busca os itens
+**Ler nota** (grátis): em Compras, toque em *Ler nota* e aponte a câmera para o **QR Code**
+do cupom fiscal (NFC-e) — lê sozinho, como app de banco. Se preferir, *Tirar foto* ou
+escolher da galeria (foto de longe costuma sair borrada; chegue perto do QR). O app busca os itens
 na página pública da Sefaz: fornecedor, forma de pagamento, itens com quantidade e valor.
 Produtos que batem com um insumo vêm ligados à ficha (marcados **confira**); os outros vêm
 com **ligar à ficha** — toque, escolha o insumo (ou "nenhum") e o app **lembra** para as
