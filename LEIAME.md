@@ -48,7 +48,9 @@ o total pago) e como pagou (Dinheiro, Pix, Cartão ou **A prazo**). Cada item de
 ("Filé de frango saiu de 37% para 39%"). Item sem ficha (gelo, sacola) entra só no gasto.
 Ao editar uma compra antiga, o preço não passa por cima de uma compra mais nova.
 **Ler nota** (grátis): em Compras, toque em *Ler nota* e aponte a câmera para o **QR Code**
-do cupom fiscal (NFC-e) — lê sozinho, como app de banco. Se preferir, *Tirar foto* ou
+do cupom fiscal (NFC-e) — lê sozinho, como app de banco (leitor ZXing em WebAssembly,
+`js/vendor/zxing`, baixado só na primeira leitura). Se o QR apontar para o portal de outro
+estado (erro de alguns sistemas de caixa), o app usa o portal do estado da chave (SP). Se preferir, *Tirar foto* ou
 escolher da galeria (foto de longe costuma sair borrada; chegue perto do QR). O app busca os itens
 na página pública da Sefaz: fornecedor, forma de pagamento, itens com quantidade e valor.
 Fardo, caixa, pacote e dúzia viram **unidades** pela descrição ("2 FD" de "12X350ML" = 24 un,

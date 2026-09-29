@@ -169,30 +169,40 @@
     document.body.appendChild(inp);
     inp.click();
   }
-  let jsQRCarga = null;
-  function carregarJsQR() {
-    if (window.jsQR) return Promise.resolve(window.jsQR);
-    if (!jsQRCarga) {
-      jsQRCarga = new Promise((ok, erro) => {
+  // Leitor de QR: ZXing (WebAssembly, em js/vendor/zxing), carregado só quando precisa.
+  // Bem mais forte que leitores em JavaScript puro em cupom térmico fotografado.
+  let zxCarga = null;
+  function carregarLeitor() {
+    if (!zxCarga) {
+      zxCarga = new Promise((ok, erro) => {
         const sc = document.createElement('script');
-        sc.src = 'js/vendor/jsQR.min.js';
-        sc.onload = () => ok(window.jsQR);
-        sc.onerror = () => { jsQRCarga = null; erro(new Error('Não deu para carregar o leitor de QR Code.')); };
+        sc.src = 'js/vendor/zxing/zxing-reader.js';
+        sc.onload = () => {
+          const Z = window.ZXingWASM;
+          Z.prepareZXingModule({
+            overrides: { locateFile: (path, prefix) => (path.endsWith('.wasm') ? new URL('js/vendor/zxing/' + path, location.href).href : prefix + path) },
+            fireImmediately: true,
+          }).then(() => ok(Z), erro);
+        };
+        sc.onerror = () => erro(new Error('Não deu para carregar o leitor de QR Code.'));
         document.head.appendChild(sc);
-      });
+      }).catch(e => { zxCarga = null; throw e; });
     }
-    return jsQRCarga;
+    return zxCarga;
   }
+  const OPCOES_QR = { formats: ['QRCode'], tryHarder: true, tryRotate: true, tryInvert: true, tryDownscale: true, maxNumberOfSymbols: 1 };
   const cvQR = document.createElement('canvas');
   // procura o QR num pedaço da imagem/vídeo (reduzido a no máximo "max" px) → texto ou null
-  function lerQRCanvas(fonte, x, y, w, hh, max) {
+  async function lerQRCanvas(fonte, x, y, w, hh, max) {
     const esc = Math.min(1, max / Math.max(w, hh));
     cvQR.width = Math.round(w * esc);
     cvQR.height = Math.round(hh * esc);
     const cx = cvQR.getContext('2d', { willReadFrequently: true });
     cx.drawImage(fonte, x, y, w, hh, 0, 0, cvQR.width, cvQR.height);
-    const r = window.jsQR(cx.getImageData(0, 0, cvQR.width, cvQR.height).data, cvQR.width, cvQR.height, { inversionAttempts: 'attemptBoth' });
-    return r && r.data ? r.data : null;
+    const Z = await carregarLeitor();
+    const r = await Z.readBarcodes(cx.getImageData(0, 0, cvQR.width, cvQR.height), OPCOES_QR);
+    const ok = r.find(b => b.text && b.isValid !== false);
+    return ok ? ok.text : null;
   }
   // Leitor ao vivo: câmera aberta, lê sozinho quando o QR entra em foco.
   // → { qr } | { foto } (preferiu tirar foto) | null (cancelou)
@@ -231,7 +241,7 @@
             if (!r) {
               // alterna o quadrado da mira (centro) e o quadro inteiro
               const lado = Math.min(vw, vh) * (n++ % 3 === 2 ? 1 : 0.75);
-              r = lerQRCanvas(video, (vw - lado) / 2, (vh - lado) / 2, lado, lado, 720);
+              r = await lerQRCanvas(video, (vw - lado) / 2, (vh - lado) / 2, lado, lado, 1000);
             }
             if (r) { P.vibrar(40); acabar({ qr: r }); return; }
           } catch (e) { /* quadro ruim: tenta o próximo */ }
@@ -241,7 +251,7 @@
       }
       (async () => {
         try {
-          await carregarJsQR();
+          await carregarLeitor();
           if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('sem câmera');
           stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
           if (fim) { stream.getTracks().forEach(t => t.stop()); return; }
@@ -275,19 +285,28 @@
         try {
           const achados = await new window.BarcodeDetector({ formats: ['qr_code'] }).detect(img);
           if (achados.length) return achados[0].rawValue;
-        } catch (e) { /* sem suporte a qr_code: usa o jsQR */ }
+        } catch (e) { /* sem suporte a qr_code: usa o ZXing */ }
       }
-      await carregarJsQR();
       const W = img.naturalWidth, H = img.naturalHeight;
-      // a foto inteira e depois pedaços (o QR é pequeno na foto do cupom)
-      const janelas = [[0, 0, W, H]];
-      for (const fy of [0, 0.25, 0.5]) for (const fx of [0, 0.25, 0.5]) janelas.push([W * fx, H * fy, W / 2, H / 2]);
-      for (const [x, y, w, hh] of janelas) {
-        const r = lerQRCanvas(img, x, y, w, hh, 1200);
+      // a foto inteira (em dois tamanhos) e depois pedaços (o QR é pequeno na foto do cupom)
+      const janelas = [[0, 0, W, H, 2000], [0, 0, W, H, 1200]];
+      for (const fy of [0, 0.25, 0.5]) for (const fx of [0, 0.25, 0.5]) janelas.push([W * fx, H * fy, W / 2, H / 2, 1200]);
+      for (const [x, y, w, hh, max] of janelas) {
+        const r = await lerQRCanvas(img, x, y, w, hh, max);
         if (r) return r;
       }
       return null;
     } finally { URL.revokeObjectURL(url); }
+  }
+  // Alguns sistemas de caixa imprimem o QR com o portal de outro estado (ex.: nota de SP
+  // apontando para Sergipe). O estado vem nos 2 primeiros dígitos da chave: usa o portal certo.
+  const PORTAL_QR = { 35: 'https://www.nfce.fazenda.sp.gov.br/qrcode?p=' };
+  function urlConsulta(qr) {
+    const m = String(qr).match(/[?&]p=((\d{2})\d{42}[^&#\s]*)/);
+    const base = m && PORTAL_QR[m[2]];
+    if (!base) return qr;
+    try { if (new URL(qr).hostname === new URL(base).hostname) return qr; } catch (e) { /* QR estranho: usa o portal */ }
+    return base + m[1];
   }
   // Lê a página da NFC-e (modelo padrão das Sefaz: tabela #tabResult)
   function lerPaginaNfce(html, urlQR) {
@@ -396,8 +415,9 @@
     { titulo: 'Foto da nota', onFechar: () => { cancelado = true; ctl.abort(); } });
     const falhar = async msg => { if (cancelado) return null; sh.fechar(); await P.UI.confirmar(msg, { ok: 'Ok', titulo: 'Foto da nota' }); return null; };
     try {
-      const qr = entrada.qr || await acharQR(entrada.foto);
+      const lido = entrada.qr || await acharQR(entrada.foto);
       if (cancelado) return null;
+      const qr = lido && urlConsulta(lido);
       if (!qr) return falhar('Não consegui ler o QR Code nesta foto. Use "Ler nota" e aponte a câmera bem perto do QR Code (o quadradinho no fim do cupom), com o papel esticado e com luz. Nota sem QR Code (feira, açougue) tem que ser digitada.');
       if (!/^https?:\/\/[^/?#]*\.gov\.br[/?#]/i.test(qr)) return falhar('Esse QR Code não é de cupom fiscal (NFC-e). Nota sem QR Code de cupom fiscal tem que ser digitada.');
       if (!P.Sync.configurado() || !P.Sync.conectado()) return falhar('Para buscar os itens na Sefaz, conecte o aparelho à nuvem (Mais → Nuvem).');
