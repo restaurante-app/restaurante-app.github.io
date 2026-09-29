@@ -47,12 +47,14 @@ o total pago) e como pagou (Dinheiro, Pix, Cartão ou **A prazo**). Cada item de
 **atualiza o preço da ficha técnica** e o app mostra na hora o efeito nos pratos
 ("Filé de frango saiu de 37% para 39%"). Item sem ficha (gelo, sacola) entra só no gasto.
 Ao editar uma compra antiga, o preço não passa por cima de uma compra mais nova.
-**Foto da nota**: em Compras, toque em *Foto da nota* e fotografe o cupom/nota (ou escolha
-da galeria). O app lê fornecedor, forma de pagamento e os itens, já ligando cada item ao
-insumo da ficha (convertendo g → kg etc.), e abre o formulário preenchido com a etiqueta
-**confira** em cada item. Nada é salvo sem você tocar em *Salvar compra*. Se a soma dos
-itens não bate com o total da nota, aparece um aviso. Precisa de internet e da nuvem
-conectada (a leitura é feita pela função `ler-nota` do Supabase — veja abaixo).
+**Foto da nota** (grátis): em Compras, toque em *Foto da nota* e fotografe o cupom fiscal
+(ou escolha da galeria). O app acha o **QR Code** do cupom (NFC-e) na foto e busca os itens
+na página pública da Sefaz: fornecedor, forma de pagamento, itens com quantidade e valor.
+Produtos que batem com um insumo vêm ligados à ficha (marcados **confira**); os outros vêm
+com **ligar à ficha** — toque, escolha o insumo (ou "nenhum") e o app **lembra** para as
+próximas notas. Nada é salvo sem tocar em *Salvar compra*; a mesma nota lançada duas vezes
+dá aviso. Nota sem QR Code (feira, açougue, escrita à mão) continua sendo digitada.
+Precisa de internet e da nuvem conectada (função `ler-qr` do Supabase — veja abaixo).
 **A pagar**: compras a prazo por fornecedor, com "Paguei em…".
 **Resultado do dia ao vivo** (dono):
 
@@ -123,22 +125,19 @@ sozinha). A pílula no topo mostra **conectar nuvem / online / offline / N pende
 Conflito entre aparelhos: vence a alteração mais recente. Sincroniza a cada 30 s com o
 app aberto, logo depois de cada lançamento e ao voltar para o app.
 
-## Leitura da foto da nota (função `ler-nota`)
+## Leitura do cupom fiscal (função `ler-qr`) — grátis
 
-A foto é lida pelo Claude (Anthropic) através de uma Edge Function do Supabase, para a
-chave da Anthropic nunca ficar no site. Configurar uma vez:
+O navegador não pode abrir o site da Sefaz direto, então uma Edge Function do Supabase
+só busca a página do QR Code e devolve para o app. Não usa nenhuma API paga (cabe no
+plano grátis do Supabase). Publicar uma vez:
 
-1. console.anthropic.com → **API Keys → Create Key** (e coloque créditos em *Billing*).
-   Custo aproximado: US$ 0,03 a 0,06 por nota.
-2. Supabase → **Edge Functions → Secrets** → *Add new secret*: nome `ANTHROPIC_API_KEY`,
-   valor = a chave do passo 1.
-3. Supabase → **Edge Functions → Deploy a new function → Via Editor**: nome `ler-nota`,
-   apague o exemplo, cole o conteúdo de `supabase/functions/ler-nota/index.ts` e *Deploy*.
-   (Com a CLI: `supabase functions deploy ler-nota --no-verify-jwt`.)
-4. Na função `ler-nota` → **Details** → desligue *Verify JWT with legacy secret*
+1. Supabase → **Edge Functions → Deploy a new function → Via Editor**: nome `ler-qr`,
+   apague o exemplo, cole o conteúdo de `supabase/functions/ler-qr/index.ts` e *Deploy*.
+   (Com a CLI: `supabase functions deploy ler-qr --no-verify-jwt`.)
+2. Na função `ler-qr` → **Details** → desligue *Verify JWT with legacy secret*
    (a própria função confere o login da nuvem do app).
 
-Sem isso, o botão avisa "Função "ler-nota" não publicada no Supabase".
+Sem isso, o botão avisa "Função "ler-qr" não publicada no Supabase".
 
 ## Backup
 

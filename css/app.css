@@ -727,7 +727,7 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 .cp-vazio { color: var(--tx3); font-size: .8rem; padding: 16px; border: 1.5px dashed var(--borda2); border-radius: 18px; text-align: center; }
 .cp-lin { display: flex; align-items: center; gap: 8px; border-radius: 18px; padding: 4px 4px 4px 14px; }
 .cp-lin-main { flex: 1 1 auto; min-width: 0; border: 0; background: transparent; text-align: left; display: flex; flex-direction: column; padding: 6px 0; min-height: 50px; justify-content: center; }
-.cp-lin-n { font-weight: 700; font-size: .88rem; display: flex; align-items: center; gap: 6px; }
+.cp-lin-n { font-weight: 700; font-size: .88rem; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .cp-lin-q { font-size: .72rem; color: var(--tx2); margin-top: 1px; }
 .cp-lin-q em { font-style: normal; font-weight: 800; }
 .cp-lin-v { white-space: nowrap; font-size: .95rem; letter-spacing: -.02em; }
