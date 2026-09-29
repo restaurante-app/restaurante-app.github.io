@@ -425,7 +425,7 @@
       tentou401 = false;
       return Sync.rodar();
     },
-    // Chama uma Edge Function do Supabase (ex.: 'ler-nota') com o login da nuvem
+    // Chama uma Edge Function do Supabase (ex.: 'ler-qr') com o login da nuvem
     async funcao(nome, body, o) {
       o = o || {};
       if (!configurado()) throw new Error('Nuvem não configurada neste app.');

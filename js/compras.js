@@ -155,11 +155,13 @@
   }
 
   // ---------------------------------------------------------------
-  //  FOTO DA NOTA — a foto vai para a função "ler-nota" do Supabase, que
-  //  devolve fornecedor, forma e itens já ligados aos insumos das fichas.
+  //  FOTO DA NOTA (grátis) — o app acha o QR Code do cupom fiscal (NFC-e)
+  //  na foto e busca os itens na página pública da Sefaz, pela função
+  //  "ler-qr" do Supabase (o navegador não pode abrir a Sefaz direto).
   //  Nada é salvo sozinho: os itens entram no formulário para conferir.
+  //  O app lembra qual insumo é cada produto da nota para a próxima vez.
   // ---------------------------------------------------------------
-  let fotoPendente = null; // foto tirada na lista de compras, lida ao abrir "Lançar compra"
+  let fotoPendente = null; // da lista de compras: foto da galeria, ou 'leitor' (abrir a câmera) ao abrir "Lançar compra"
   function escolherFoto(galeria, onFoto) {
     const inp = h('input', { type: 'file', accept: 'image/*', style: { display: 'none' } });
     if (!galeria) inp.setAttribute('capture', 'environment');
@@ -167,64 +169,225 @@
     document.body.appendChild(inp);
     inp.click();
   }
-  // reduz a foto (celular tira 12 MP) para enviar rápido e barato, sem perder a leitura
-  async function prepararFoto(arq) {
+  let jsQRCarga = null;
+  function carregarJsQR() {
+    if (window.jsQR) return Promise.resolve(window.jsQR);
+    if (!jsQRCarga) {
+      jsQRCarga = new Promise((ok, erro) => {
+        const sc = document.createElement('script');
+        sc.src = 'js/vendor/jsQR.min.js';
+        sc.onload = () => ok(window.jsQR);
+        sc.onerror = () => { jsQRCarga = null; erro(new Error('Não deu para carregar o leitor de QR Code.')); };
+        document.head.appendChild(sc);
+      });
+    }
+    return jsQRCarga;
+  }
+  const cvQR = document.createElement('canvas');
+  // procura o QR num pedaço da imagem/vídeo (reduzido a no máximo "max" px) → texto ou null
+  function lerQRCanvas(fonte, x, y, w, hh, max) {
+    const esc = Math.min(1, max / Math.max(w, hh));
+    cvQR.width = Math.round(w * esc);
+    cvQR.height = Math.round(hh * esc);
+    const cx = cvQR.getContext('2d', { willReadFrequently: true });
+    cx.drawImage(fonte, x, y, w, hh, 0, 0, cvQR.width, cvQR.height);
+    const r = window.jsQR(cx.getImageData(0, 0, cvQR.width, cvQR.height).data, cvQR.width, cvQR.height, { inversionAttempts: 'attemptBoth' });
+    return r && r.data ? r.data : null;
+  }
+  // Leitor ao vivo: câmera aberta, lê sozinho quando o QR entra em foco.
+  // → { qr } | { foto } (preferiu tirar foto) | null (cancelou)
+  function escanearQR() {
+    return new Promise(resolve => {
+      let fim = false, stream = null, timer = null, n = 0;
+      const video = h('video', { class: 'qr-video', playsinline: true, autoplay: true, muted: true });
+      video.muted = true;
+      const status = h('small', { class: 'qr-status' }, 'Abrindo a câmera…');
+      const extras = h('div', { class: 'row gap' });
+      function acabar(v) {
+        if (fim) return;
+        fim = true;
+        clearTimeout(timer);
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        resolve(v);
+        sh.fechar();
+      }
+      const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
+        h('div', { class: 'qr-caixa' }, video, h('div', { class: 'qr-mira' })),
+        status, extras,
+        h('div', { class: 'row gap' },
+          h('button', { type: 'button', class: 'btn', onClick: () => acabar(null) }, 'Cancelar'),
+          h('button', { type: 'button', class: 'btn grow', onClick: () => escolherFoto(false, f => acabar({ foto: f })) }, P.UI.icone('camera'), 'Tirar foto'))),
+      { titulo: 'Aponte para o QR Code do cupom', cls: 'sheet-qr', onFechar: () => acabar(null) });
+      let det = null;
+      if ('BarcodeDetector' in window) { try { det = new window.BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { det = null; } }
+      const inicio = Date.now();
+      async function tique() {
+        if (fim) return;
+        const vw = video.videoWidth, vh = video.videoHeight;
+        if (video.readyState >= 2 && vw) {
+          try {
+            let r = null;
+            if (det) { const a = await det.detect(video); if (a.length) r = a[0].rawValue; }
+            if (!r) {
+              // alterna o quadrado da mira (centro) e o quadro inteiro
+              const lado = Math.min(vw, vh) * (n++ % 3 === 2 ? 1 : 0.75);
+              r = lerQRCanvas(video, (vw - lado) / 2, (vh - lado) / 2, lado, lado, 720);
+            }
+            if (r) { P.vibrar(40); acabar({ qr: r }); return; }
+          } catch (e) { /* quadro ruim: tenta o próximo */ }
+          if (Date.now() - inicio > 12000) status.textContent = 'Ainda não leu? Chegue mais perto ou mais longe devagar, com o cupom esticado e com luz. Se não der, use "Tirar foto".';
+        }
+        timer = setTimeout(tique, 90);
+      }
+      (async () => {
+        try {
+          await carregarJsQR();
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('sem câmera');
+          stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+          if (fim) { stream.getTracks().forEach(t => t.stop()); return; }
+          video.srcObject = stream;
+          await video.play().catch(() => {});
+          status.textContent = 'Deixe o QR Code dentro do quadrado. Lê sozinho.';
+          const track = stream.getVideoTracks()[0];
+          const cap = track && track.getCapabilities ? track.getCapabilities() : {};
+          if (cap.focusMode && cap.focusMode.includes('continuous')) track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+          if (cap.torch) {
+            let luz = false;
+            extras.appendChild(h('button', { type: 'button', class: 'btn grow', onClick: e => {
+              luz = !luz;
+              track.applyConstraints({ advanced: [{ torch: luz }] }).catch(() => {});
+              e.currentTarget.textContent = luz ? 'Apagar lanterna' : 'Acender lanterna';
+            } }, 'Acender lanterna'));
+          }
+          tique();
+        } catch (e) {
+          status.textContent = 'Não deu para abrir a câmera aqui (permita o acesso à câmera). Use "Tirar foto".';
+        }
+      })();
+    });
+  }
+  // → texto do QR Code da foto, ou null
+  async function acharQR(arq) {
     const url = URL.createObjectURL(arq);
     try {
       const img = await new Promise((ok, erro) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => erro(new Error('Não deu para abrir a foto.')); i.src = url; });
-      const MAX = 2000;
-      const esc = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
-      const cv = document.createElement('canvas');
-      cv.width = Math.round(img.naturalWidth * esc);
-      cv.height = Math.round(img.naturalHeight * esc);
-      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-      return { tipo: 'image/jpeg', imagem: cv.toDataURL('image/jpeg', 0.85).split(',')[1] };
+      if ('BarcodeDetector' in window) {
+        try {
+          const achados = await new window.BarcodeDetector({ formats: ['qr_code'] }).detect(img);
+          if (achados.length) return achados[0].rawValue;
+        } catch (e) { /* sem suporte a qr_code: usa o jsQR */ }
+      }
+      await carregarJsQR();
+      const W = img.naturalWidth, H = img.naturalHeight;
+      // a foto inteira e depois pedaços (o QR é pequeno na foto do cupom)
+      const janelas = [[0, 0, W, H]];
+      for (const fy of [0, 0.25, 0.5]) for (const fx of [0, 0.25, 0.5]) janelas.push([W * fx, H * fy, W / 2, H / 2]);
+      for (const [x, y, w, hh] of janelas) {
+        const r = lerQRCanvas(img, x, y, w, hh, 1200);
+        if (r) return r;
+      }
+      return null;
     } finally { URL.revokeObjectURL(url); }
   }
-  // → resultado da leitura, ou null (cancelou/erro, já avisado)
-  async function lerNota(arq) {
-    if (!P.Sync.configurado() || !P.Sync.conectado()) {
-      P.UI.toast('Para ler a foto, conecte o aparelho à nuvem (Mais → Nuvem).', { tipo: 'perigo', ms: 5000 });
-      return null;
+  // Lê a página da NFC-e (modelo padrão das Sefaz: tabela #tabResult)
+  function lerPaginaNfce(html, urlQR) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const txt = el => (el ? el.textContent : '').replace(/\s+/g, ' ').trim();
+    const num = t => { const m = String(t || '').replace(/\./g, '').match(/-?\d+(,\d+)?/); return m ? +m[0].replace(',', '.') : 0; };
+    const itens = [...doc.querySelectorAll('#tabResult tr')].map(tr => ({
+      descricao: txt(tr.querySelector('.txtTit')),
+      quantidade: num(txt(tr.querySelector('.Rqtd')).replace(/qtde\.?:?/i, '')),
+      un: txt(tr.querySelector('.RUN')).replace(/^UN:?/i, '').trim().toUpperCase(),
+      valor: num(txt(tr.querySelector('.valor'))),
+    })).filter(it => it.descricao && it.valor);
+    let total = 0, desconto = 0, forma = '';
+    doc.querySelectorAll('#totalNota label').forEach(lb => {
+      const rot = txt(lb);
+      const v = num(txt(lb.parentElement && lb.parentElement.querySelector('.totalNumb')));
+      if (/valor a pagar/i.test(rot)) total = v;
+      else if (/desconto/i.test(rot)) desconto = v;
+      else if (lb.classList.contains('tx') && !forma) {
+        if (/pix/i.test(rot)) forma = 'PIX';
+        else if (/dinheiro/i.test(rot)) forma = 'DINHEIRO';
+        else if (/cart|d[eé]bito|cr[eé]dito/i.test(rot)) forma = 'CARTAO';
+      }
+    });
+    const chaveTxt = txt(doc.querySelector('.chave')).replace(/\D/g, '');
+    const chaveUrl = (String(urlQR).match(/[?&]p=(\d{44})/) || [])[1];
+    return { fornecedor: txt(doc.querySelector('#u20')) || txt(doc.querySelector('.txtTopo')), itens, total, desconto, forma, chave: chaveTxt.length === 44 ? chaveTxt : chaveUrl || null };
+  }
+  // unidade da nota → unidade do app (kg, L, un), convertendo g e ml
+  function unidadeNota(q, un) {
+    if (/^(KG|KGS|KILO|QUILO)/.test(un)) return { q, un: 'kg' };
+    if (/^(G|GR|GRS|GRAMA)/.test(un)) return { q: q / 1000, un: 'kg' };
+    if (/^(L|LT|LTS|LITRO)$/.test(un)) return { q, un: 'L' };
+    if (/^ML/.test(un)) return { q: q / 1000, un: 'L' };
+    return { q, un: 'un' };
+  }
+  // qual insumo é cada produto da nota: primeiro o que o app já aprendeu, depois pelo nome
+  const chaveProduto = desc => P.UI.semAcento(desc).replace(/[^a-z0-9]+/g, ' ').trim();
+  const mapaNota = () => P.cfg('nota_insumos');
+  function sugerirInsumo(desc) {
+    // guardado como "insumo" ou "insumo|fator" (fator = unidades da ficha por unidade da nota, ex.: 1 garrafa = 0,9 kg)
+    const [lembrado, fator] = String(mapaNota()[chaveProduto(desc)] || '').split('|');
+    if (lembrado) {
+      if (lembrado === '_nenhum') return { nenhum: true };
+      const ins = P.Store.get('insumos', lembrado);
+      if (ins) return { ins, lembrado: true, fator: +fator || null };
     }
-    const ctl = new AbortController();
+    const toks = chaveProduto(desc).split(' ').filter(t => t.length >= 3);
+    const casa = (a, b) => a.startsWith(b) || b.startsWith(a);
+    let melhor = null, n = 0;
+    P.Store.all('insumos').forEach(ins => {
+      const nt = chaveProduto(ins.nome).split(' ').filter(t => t.length >= 3 && !['com', 'sem', 'para'].includes(t));
+      if (!nt.length || !nt.every(t => toks.some(x => casa(x, t)))) return;
+      if (nt.length > n) { melhor = ins; n = nt.length; }
+    });
+    return melhor ? { ins: melhor } : {};
+  }
+  function linhasDaNota(nota) {
+    const linhas = nota.itens.map(it => {
+      const valor = P.round(it.valor, 2);
+      const c = unidadeNota(it.quantidade, it.un);
+      const s = sugerirInsumo(it.descricao);
+      const base = { lido: it.descricao, nota: { q: c.q, un: c.un, txt: P.numAuto(it.quantidade) + ' ' + (it.un || 'UN') }, valor };
+      const q = s.ins && (s.ins.unidade === c.un ? c.q : s.fator ? P.round(c.q * s.fator, 3) : 0);
+      if (s.ins && q > 0) {
+        return Object.assign(base, { insumo_id: s.ins.id, descricao: s.ins.nome, unidade: s.ins.unidade, quantidade: q, preco_unit: valor / q, foto: !s.lembrado, fator: s.ins.unidade === c.un ? null : s.fator });
+      }
+      return Object.assign(base, { insumo_id: null, descricao: it.descricao, unidade: 'un', quantidade: 1, preco_unit: valor, ligar: !s.nenhum });
+    });
+    if (nota.desconto > 0) linhas.push({ insumo_id: null, descricao: 'Desconto', unidade: 'un', quantidade: 1, preco_unit: -nota.desconto, valor: -P.round(nota.desconto, 2) });
+    return linhas;
+  }
+  // foto → dados da nota, ou null (cancelou/erro, já avisado)
+  async function lerNota(entrada) {
     let cancelado = false;
+    const ctl = new AbortController();
+    const passo = h('b', null, 'Procurando o QR Code…');
     const sh = P.UI.sheet(h('div', { class: 'np-sheet cp-lendo' },
-      h('div', { class: 'cp-lendo-ic' }, P.UI.icone('camera')),
-      h('b', null, 'Lendo a nota…'),
-      h('small', null, 'Leva uns segundos. Depois é só conferir os itens.'),
+      h('div', { class: 'cp-lendo-ic' }, P.UI.icone('camera')), passo,
+      h('small', null, 'Depois é só conferir os itens.'),
       h('button', { type: 'button', class: 'btn bloco', onClick: () => sh.fechar() }, 'Cancelar')),
     { titulo: 'Foto da nota', onFechar: () => { cancelado = true; ctl.abort(); } });
+    const falhar = async msg => { if (cancelado) return null; sh.fechar(); await P.UI.confirmar(msg, { ok: 'Ok', titulo: 'Foto da nota' }); return null; };
     try {
-      const foto = await prepararFoto(arq);
-      foto.insumos = P.Store.all('insumos').map(i => ({ id: i.id, nome: i.nome, unidade: i.unidade }));
-      const r = await P.Sync.funcao('ler-nota', foto, { signal: ctl.signal });
+      const qr = entrada.qr || await acharQR(entrada.foto);
       if (cancelado) return null;
+      if (!qr) return falhar('Não consegui ler o QR Code nesta foto. Use "Ler nota" e aponte a câmera bem perto do QR Code (o quadradinho no fim do cupom), com o papel esticado e com luz. Nota sem QR Code (feira, açougue) tem que ser digitada.');
+      if (!/^https?:\/\/[^/?#]*\.gov\.br[/?#]/i.test(qr)) return falhar('Esse QR Code não é de cupom fiscal (NFC-e). Nota sem QR Code de cupom fiscal tem que ser digitada.');
+      if (!P.Sync.configurado() || !P.Sync.conectado()) return falhar('Para buscar os itens na Sefaz, conecte o aparelho à nuvem (Mais → Nuvem).');
+      passo.textContent = 'Buscando os itens na Sefaz…';
+      const r = await P.Sync.funcao('ler-qr', { url: qr }, { signal: ctl.signal, timeout: 40000 });
+      if (cancelado) return null;
+      const nota = lerPaginaNfce(r.html || '', qr);
+      if (!nota.itens.length) return falhar('A Sefaz não mostrou os itens desta nota. Se ela foi emitida agora, tente de novo em alguns minutos.');
       sh.fechar();
-      if (!r || r.legivel === false || !Array.isArray(r.itens) || !r.itens.length) {
-        await P.UI.confirmar('Não consegui ler os itens desta foto. Tire outra com a nota inteira, reta e com boa luz.' + (r && r.observacao ? ' (' + r.observacao + ')' : ''), { ok: 'Ok', titulo: 'Foto da nota' });
-        return null;
-      }
-      return r;
+      return nota;
     } catch (e) {
       if (cancelado) return null;
-      sh.fechar();
-      P.UI.toast(e && e.name === 'AbortError' ? 'A leitura demorou demais. Tente de novo.' : 'Não deu para ler a foto: ' + ((e && e.message) || e), { tipo: 'perigo', ms: 6000 });
-      return null;
+      return falhar(e && e.name === 'AbortError' ? 'A Sefaz demorou demais para responder. Tente de novo.' : 'Não deu para ler a nota: ' + ((e && e.message) || e));
     }
-  }
-  // Converte a leitura em linhas do formulário (só confia em insumo que existe aqui)
-  function linhasDaLeitura(r) {
-    return r.itens.map(it => {
-      const valor = P.round(+it.valor || 0, 2);
-      const q = +it.quantidade || 0;
-      const ins = it.insumo_id ? P.Store.get('insumos', it.insumo_id) : null;
-      const desc = String(it.descricao || '').trim() || 'Item da nota';
-      if (ins && q > 0) return { insumo_id: ins.id, descricao: ins.nome, unidade: ins.unidade, quantidade: q, preco_unit: valor / q, valor, foto: true, lido: desc };
-      // sem ficha entra como valor único; a quantidade da nota fica na descrição
-      const qtd = q > 0 && !(q === 1 && it.unidade === 'un') ? ' (' + P.numAuto(q) + ' ' + (UN[it.unidade] || it.unidade || 'un') + ')' : '';
-      return { insumo_id: null, descricao: desc + qtd, unidade: 'un', quantidade: 1, preco_unit: valor, valor, foto: true };
-    }).filter(l => l.valor !== 0);
   }
 
   // ---------------------------------------------------------------
@@ -244,11 +407,10 @@
       corpo.appendChild(h('div', { class: 'fx-resumo' },
         h('div', { class: 'fx-tot' }, h('small', null, 'Comprado · ' + cs.length + (cs.length === 1 ? ' compra' : ' compras')), h('b', null, P.brl(total))),
         devendo ? h('a', { class: 'fx-formas link', href: '#/compras/pagar' }, h('span', { class: 'fx-f' }, 'A pagar a fornecedores ', h('b', { class: 't-amarelo' }, P.brl(devendo))), P.UI.icone('avancar')) : null));
-      const irComFoto = galeria => escolherFoto(galeria, f => { fotoPendente = f; location.hash = '#/compras/nova'; });
       corpo.appendChild(h('div', { class: 'row gap cp-novas' },
-        h('button', { type: 'button', class: 'btn primario grow cp-nova', onClick: () => irComFoto(false) }, P.UI.icone('camera'), 'Foto da nota'),
+        h('button', { type: 'button', class: 'btn primario grow cp-nova', onClick: () => { fotoPendente = 'leitor'; location.hash = '#/compras/nova'; } }, P.UI.icone('camera'), 'Ler nota'),
         h('a', { class: 'btn grow cp-nova', href: '#/compras/nova' }, P.UI.icone('mais'), 'Digitar')));
-      corpo.appendChild(h('button', { type: 'button', class: 'cp-galeria', onClick: () => irComFoto(true) }, 'ou escolher foto da galeria'));
+      corpo.appendChild(h('button', { type: 'button', class: 'cp-galeria', onClick: () => escolherFoto(true, f => { fotoPendente = f; location.hash = '#/compras/nova'; }) }, 'ou escolher foto da galeria'));
       if (!cs.length) { corpo.appendChild(P.UI.vazio('Nenhuma compra neste dia. Cada compra atualiza o preço dos insumos e o custo dos pratos na hora.', 'compras')); return; }
       corpo.appendChild(h('div', { class: 'secao' }, 'Compras'));
       corpo.appendChild(h('div', { class: 'ms-lista' }, cs.map(c => h('a', { class: 'ms-card', href: '#/compras/c/' + c.id },
@@ -268,8 +430,8 @@
     return new Promise(resolve => {
       let feito = false;
       let campo = o.qtd ? 'preco' : 'qtd';
-      let modo = 'unit'; // unit = preço por kg/L/un ; total = total pago
-      const v = { qtd: o.qtd || null, preco: o.preco != null ? o.preco : null, total: null };
+      let modo = o.total != null ? 'total' : 'unit'; // unit = preço por kg/L/un ; total = total pago
+      const v = { qtd: o.qtd || null, preco: o.preco != null ? o.preco : null, total: o.total != null ? o.total : null };
       const un = UN[o.unidade] || o.unidade;
       const bQtd = h('button', { type: 'button', class: 'qp-campo' });
       const bPreco = h('button', { type: 'button', class: 'qp-campo' });
@@ -354,6 +516,7 @@
     const d = {
       fornecedor: ant ? ant.fornecedor || '' : '',
       forma: ant ? ant.forma : 'DINHEIRO',
+      obs: ant ? ant.obs || null : null,
       linhas: ant ? itensDe(ant.id).map(l => ({ insumo_id: l.insumo_id, descricao: l.descricao, quantidade: +l.quantidade, unidade: l.unidade, preco_unit: +l.preco_unit, valor: +l.valor })) : [],
     };
     const inForn = h('input', { class: 'campo', type: 'text', value: d.fornecedor, placeholder: 'Fornecedor (ex.: Box 12 — Seu Zé)', autocomplete: 'off' });
@@ -362,7 +525,7 @@
     const elLinhas = h('div', { class: 'cp-linhas' });
     const elBarra = h('div', { class: 'barra-acao' });
     const elAviso = h('div');
-    let totalNota = null, obsNota = '';
+    let totalNota = null;
     const mkSegForma = () => P.UI.seg(FORMAS, d.forma, v => { d.forma = v; }, 'seg-p');
     let segForma = mkSegForma();
 
@@ -375,9 +538,11 @@
         const dif = ins && !ant && +ins.preco > 0 ? (l.preco_unit / ins.preco - 1) * 100 : null;
         elLinhas.appendChild(h('div', { class: 'cp-lin' },
           h('button', { type: 'button', class: 'cp-lin-main', onClick: () => editarLinha(i) },
-            h('span', { class: 'cp-lin-n' }, l.descricao, !l.insumo_id ? h('small', { class: 'tag neutra' }, 'sem ficha') : null, l.foto ? h('small', { class: 'tag aviso' }, 'confira') : null),
+            h('span', { class: 'cp-lin-n' }, l.descricao,
+              l.ligar ? h('small', { class: 'tag aviso' }, 'ligar à ficha') : !l.insumo_id ? h('small', { class: 'tag neutra' }, 'sem ficha') : null,
+              l.foto ? h('small', { class: 'tag aviso' }, 'confira') : null),
             lido,
-            h('span', { class: 'cp-lin-q' }, P.numAuto(l.quantidade) + ' ' + (UN[l.unidade] || l.unidade) + ' × ' + P.Fichas.precoFmt(l.preco_unit),
+            h('span', { class: 'cp-lin-q' }, !l.insumo_id && l.nota ? l.nota.txt + ' na nota' : P.numAuto(l.quantidade) + ' ' + (UN[l.unidade] || l.unidade) + ' × ' + P.Fichas.precoFmt(l.preco_unit),
               dif != null && Math.abs(dif) >= 0.5 ? h('em', { class: dif > 0 ? 't-vermelho' : 't-verde' }, (dif > 0 ? ' ▲' : ' ▼') + P.num(Math.abs(dif), 0) + '%') : null)),
           h('b', { class: 'cp-lin-v' }, P.brl(l.valor)),
           h('button', { type: 'button', class: 'btn ic', 'aria-label': 'Remover', onClick: () => { d.linhas.splice(i, 1); P.vibrar(10); desenharLinhas(); } }, P.UI.icone('x'))));
@@ -385,9 +550,9 @@
       const total = d.linhas.reduce((s, l) => s + (+l.valor || 0), 0);
       const avisos = [];
       if (totalNota > 0 && Math.abs(totalNota - total) >= 0.05) avisos.push('Total da nota ' + P.brl(totalNota) + ', soma dos itens ' + P.brl(total) + ' — confira os itens.');
-      if (obsNota) avisos.push(obsNota);
-      if (d.linhas.some(l => l.foto)) avisos.unshift('Itens lidos da foto: toque em cada um para conferir quantidade e preço antes de salvar.');
-      elAviso.replaceChildren(...avisos.map((t, i) => h('div', { class: 'banner ' + (i === 0 && d.linhas.some(l => l.foto) ? 'ok' : 'aviso') }, P.UI.icone(i === 0 && d.linhas.some(l => l.foto) ? 'camera' : 'alerta'), h('span', null, t))));
+      const daNota = d.linhas.some(l => l.foto || l.ligar);
+      if (daNota) avisos.unshift('Itens do cupom fiscal. Toque nos marcados "ligar à ficha" para dizer qual insumo é (o app lembra da próxima vez) e confira os marcados "confira".');
+      elAviso.replaceChildren(...avisos.map((t, i) => h('div', { class: 'banner ' + (i === 0 && daNota ? 'ok' : 'aviso') }, P.UI.icone(i === 0 && daNota ? 'camera' : 'alerta'), h('span', null, t))));
       elBarra.replaceChildren(
         h('div', { class: 'barra-tot' }, h('small', null, d.linhas.length + (d.linhas.length === 1 ? ' item' : ' itens')), h('b', null, P.brl(total))),
         h('button', { type: 'button', class: 'btn primario barra-btn', disabled: !d.linhas.length, onClick: salvarCompra }, P.UI.icone('check'), ant ? 'Salvar alterações' : 'Salvar compra'));
@@ -419,6 +584,7 @@
     }
     async function editarLinha(idx) {
       const l = d.linhas[idx];
+      if (!l.insumo_id && l.lido) { await ligarLinha(l); return; }
       if (!l.insumo_id) {
         const val = await P.UI.pedirNumero({ titulo: l.descricao + ' — valor pago', valor: l.valor, decimais: 2, prefixo: 'R$ ' });
         if (val == null) return;
@@ -428,25 +594,63 @@
         const r = await pedirQtdPreco({ titulo: l.descricao, unidade: l.unidade, qtd: l.quantidade, preco: l.preco_unit, precoAtual: ins && !ant ? +ins.preco : null, editar: true });
         if (!r) return;
         Object.assign(l, r);
+        if (l.nota && l.nota.un !== l.unidade && l.nota.q > 0) l.fator = r.quantidade / l.nota.q;
       }
       l.foto = false;
       desenharLinhas();
     }
-    async function usarFoto(arq) {
-      const r = await lerNota(arq);
+    // item da nota sem ficha: escolher o insumo (ou deixar só no gasto)
+    async function ligarLinha(l) {
+      const freq = frequencia();
+      const ins = P.Store.all('insumos').sort((a, b) => ((freq.get(b.id) || 0) - (freq.get(a.id) || 0)) || a.nome.localeCompare(b.nome, 'pt-BR'));
+      const id = await P.UI.escolher({
+        titulo: 'Qual insumo é "' + l.lido + '"?',
+        opcoes: [{ v: '_nenhum', rotulo: 'Nenhum — deixar sem ficha', sub: 'entra no gasto (sacola, limpeza…); o app lembra' }]
+          .concat(ins.map(i => ({ v: i.id, rotulo: i.nome, sub: 'último ' + P.Fichas.precoUnit(i) }))),
+      });
+      if (!id) return;
+      if (id === '_nenhum') { l.ligar = false; l.esquecer = true; desenharLinhas(); return; }
+      const i = P.Store.get('insumos', id);
+      const q = l.nota && l.nota.un === i.unidade && l.nota.q > 0 ? l.nota.q : null;
+      const r = await pedirQtdPreco({ titulo: i.nome, unidade: i.unidade, qtd: q, preco: q ? l.valor / q : +i.preco, total: q ? null : l.valor, precoAtual: +i.preco,
+        sub: 'Na nota: ' + l.lido + ' · ' + (l.nota ? l.nota.txt + ' · ' : '') + P.brl(l.valor) });
       if (!r) return;
-      const novas = linhasDaLeitura(r);
-      if (!novas.length) { P.UI.toast('Nenhum item com valor na foto.', { tipo: 'perigo' }); return; }
-      if (r.fornecedor && !d.fornecedor.trim()) { d.fornecedor = r.fornecedor.trim(); inForn.value = d.fornecedor; }
-      if (FORMAS.some(f => f.v === r.forma) && r.forma !== d.forma) { d.forma = r.forma; const s2 = mkSegForma(); segForma.replaceWith(s2); segForma = s2; }
-      d.linhas = d.linhas.concat(novas);
-      totalNota = +r.total_nota > 0 ? (totalNota || 0) + +r.total_nota : totalNota;
-      obsNota = [obsNota, r.observacao].filter(Boolean).join(' ');
+      const fator = l.nota && l.nota.un !== i.unidade && l.nota.q > 0 ? r.quantidade / l.nota.q : null;
+      Object.assign(l, { insumo_id: i.id, descricao: i.nome, unidade: i.unidade, ligar: false, esquecer: false, foto: false, fator }, r);
+      P.vibrar(15);
+      desenharLinhas();
+    }
+    async function usarLeitor() {
+      const e = await escanearQR();
+      if (e) usarNota(e);
+    }
+    async function usarNota(entrada) {
+      const nota = await lerNota(entrada);
+      if (!nota) return;
+      const ja = nota.chave && P.Store.all('compras').find(c => c.obs && c.obs.includes(nota.chave) && c.id !== (ant && ant.id));
+      if (ja && !(await P.UI.confirmar('Essa nota já foi lançada em ' + P.Dia.rotuloCurto(ja.dia_operacional) + ' (' + P.brl(ja.total) + '). Lançar de novo?', { ok: 'Lançar de novo' }))) return;
+      if (nota.fornecedor && !d.fornecedor.trim()) { d.fornecedor = nota.fornecedor; inForn.value = d.fornecedor; }
+      if (nota.forma && nota.forma !== d.forma) { d.forma = nota.forma; const s2 = mkSegForma(); segForma.replaceWith(s2); segForma = s2; }
+      if (nota.chave) d.obs = [d.obs, 'NFC-e ' + nota.chave].filter(Boolean).join(' · ');
+      d.linhas = d.linhas.concat(linhasDaNota(nota));
+      totalNota = nota.total > 0 ? (totalNota || 0) + nota.total : totalNota;
       P.vibrar([20, 40, 20]);
       desenharLinhas();
     }
+    // o app lembra qual insumo é cada produto da nota (vale para todos os aparelhos)
+    function lembrarProdutos() {
+      const mapa = mapaNota();
+      let mudou = false;
+      d.linhas.forEach(l => {
+        if (!l.lido) return;
+        const v = l.insumo_id ? l.insumo_id + (l.fator ? '|' + P.round(l.fator, 4) : '') : l.esquecer ? '_nenhum' : null;
+        if (v && mapa[chaveProduto(l.lido)] !== v) { mapa[chaveProduto(l.lido)] = v; mudou = true; }
+      });
+      if (mudou) P.salvarCfg('nota_insumos', mapa);
+    }
     function salvarCompra() {
       if (!d.linhas.length) return;
+      lembrarProdutos();
       const r = salvar(d, ant && ant.id);
       P.vibrar([20, 40, 20]);
       // mostra o resultado depois que a lista de compras abrir (trocar de tela fecha as folhas)
@@ -460,8 +664,8 @@
       h('div', { class: 'form' },
         h('div', { class: 'form-tit' }, ant ? 'Editar compra' : 'Lançar compra', h('small', null, ant ? P.Dia.rotulo(ant.dia_operacional) : P.Dia.rotulo(P.Dia.hoje()))),
         ant ? null : h('div', { class: 'row gap cp-novas' },
-          h('button', { type: 'button', class: 'btn grow', onClick: () => escolherFoto(false, usarFoto) }, P.UI.icone('camera'), 'Foto da nota'),
-          h('button', { type: 'button', class: 'btn grow', onClick: () => escolherFoto(true, usarFoto) }, 'Da galeria')),
+          h('button', { type: 'button', class: 'btn grow', onClick: usarLeitor }, P.UI.icone('camera'), 'Ler nota'),
+          h('button', { type: 'button', class: 'btn grow', onClick: () => escolherFoto(true, f => usarNota({ foto: f })) }, 'Da galeria')),
         elAviso,
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'De quem'), inForn, chipsForn),
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'Itens'), elLinhas,
@@ -471,7 +675,7 @@
           h('small', { class: 'campo-d' }, '"A prazo" fica em Compras → A pagar até você marcar como pago.'))),
       elBarra);
     desenharLinhas();
-    if (!ant && fotoPendente) { const f = fotoPendente; fotoPendente = null; usarFoto(f); }
+    if (!ant && fotoPendente) { const f = fotoPendente; fotoPendente = null; if (f === 'leitor') usarLeitor(); else usarNota({ foto: f }); }
     else if (!ant) setTimeout(() => { if (!d.linhas.length && location.hash === '#/compras/nova') adicionar(); }, 250);
     return {};
   }
