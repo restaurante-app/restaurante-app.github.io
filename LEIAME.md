@@ -51,6 +51,10 @@ Ao editar uma compra antiga, o preço não passa por cima de uma compra mais nov
 do cupom fiscal (NFC-e) — lê sozinho, como app de banco. Se preferir, *Tirar foto* ou
 escolher da galeria (foto de longe costuma sair borrada; chegue perto do QR). O app busca os itens
 na página pública da Sefaz: fornecedor, forma de pagamento, itens com quantidade e valor.
+Fardo, caixa, pacote e dúzia viram **unidades** pela descrição ("2 FD" de "12X350ML" = 24 un,
+"C 15" = 15, "DZ" = 12), então cada item mostra o **custo por unidade** (lata, garrafa).
+Lata casa sozinha com "Cerveja lata" (pela marca) ou "Refrigerante lata"; long neck com
+"Long neck" — o preço desses insumos vira a média paga por unidade.
 Produtos que batem com um insumo vêm ligados à ficha (marcados **confira**); os outros vêm
 com **ligar à ficha** — toque, escolha o insumo (ou "nenhum") e o app **lembra** para as
 próximas notas. Nada é salvo sem tocar em *Salvar compra*; a mesma nota lançada duas vezes

@@ -316,12 +316,25 @@
     const chaveUrl = (String(urlQR).match(/[?&]p=(\d{44})/) || [])[1];
     return { fornecedor: txt(doc.querySelector('#u20')) || txt(doc.querySelector('.txtTopo')), itens, total, desconto, forma, chave: chaveTxt.length === 44 ? chaveTxt : chaveUrl || null };
   }
-  // unidade da nota → unidade do app (kg, L, un), convertendo g e ml
-  function unidadeNota(q, un) {
+  // quantas unidades vêm na embalagem, pela descrição: "12X350ML", "C 15", "C/12", "ANTARCTICA 12X", "STELLA ARTOIS 24"
+  function unidadesNaEmbalagem(desc) {
+    const d = ' ' + String(desc || '').toUpperCase() + ' ';
+    const m = d.match(/\b(\d{1,3})\s*X\s*\d/) || d.match(/\bC\s*\/?\s*(\d{1,3})\b/) || d.match(/\b(\d{1,3})\s*X\s/)
+      || d.match(/\b(?:FARDO|FD|CX|PCT|PACK)\s*(?:C\/)?\s*(\d{1,3})\b/) || d.match(/\s(6|8|12|15|18|20|24|30)\s*$/);
+    const n = m ? +m[1] : 0;
+    return n >= 2 && n <= 120 ? n : 0;
+  }
+  // unidade da nota → unidade do app (kg, L, un): converte g e ml, e fardo/caixa/pacote em unidades
+  function unidadeNota(q, un, desc) {
     if (/^(KG|KGS|KILO|QUILO)/.test(un)) return { q, un: 'kg' };
     if (/^(G|GR|GRS|GRAMA)/.test(un)) return { q: q / 1000, un: 'kg' };
     if (/^(L|LT|LTS|LITRO)$/.test(un)) return { q, un: 'L' };
     if (/^ML/.test(un)) return { q: q / 1000, un: 'L' };
+    if (/^(FD|FARD|CX|CAIXA|PCT|PAC|PC|PK|PACK|DZ|DUZIA|BD|BAND|EMB|KIT|SC)/.test(un)) {
+      const n = unidadesNaEmbalagem(desc) || (/^DZ|^DUZIA/.test(un) ? 12 : 0);
+      if (n) return { q: q * n, un: 'un', emb: n };
+      return { q, un: 'un', incerto: true }; // fardo sem saber quantas vêm: não liga sozinho
+    }
     return { q, un: 'un' };
   }
   // qual insumo é cada produto da nota: primeiro o que o app já aprendeu, depois pelo nome
@@ -336,6 +349,13 @@
       if (ins) return { ins, lembrado: true, fator: +fator || null };
     }
     const toks = chaveProduto(desc).split(' ').filter(t => t.length >= 3);
+    // lata: cerveja (pela marca) ou refrigerante — casa com os insumos "Cerveja lata" / "Refrigerante lata"
+    if (toks.includes('lata')) {
+      const cerveja = /\b(skol|brahma|itaipava|original|heineken|budweiser|stella|amstel|devassa|eisenbahn|corona|spaten|bohemia|petra|crystal|kaiser|schin|imperio|cerveja|chopp)\b/.test(chaveProduto(desc)) && !/guarana|zero|soda|tonica/.test(chaveProduto(desc));
+      const alvo = cerveja ? 'cerveja lata' : 'refrigerante lata';
+      const ins = P.Store.all('insumos').find(i => chaveProduto(i.nome) === alvo);
+      if (ins) return { ins };
+    }
     const casa = (a, b) => a.startsWith(b) || b.startsWith(a);
     let melhor = null, n = 0;
     P.Store.all('insumos').forEach(ins => {
@@ -348,14 +368,18 @@
   function linhasDaNota(nota) {
     const linhas = nota.itens.map(it => {
       const valor = P.round(it.valor, 2);
-      const c = unidadeNota(it.quantidade, it.un);
+      const c = unidadeNota(it.quantidade, it.un, it.descricao);
       const s = sugerirInsumo(it.descricao);
-      const base = { lido: it.descricao, nota: { q: c.q, un: c.un, txt: P.numAuto(it.quantidade) + ' ' + (it.un || 'UN') }, valor };
-      const q = s.ins && (s.ins.unidade === c.un ? c.q : s.fator ? P.round(c.q * s.fator, 3) : 0);
+      const base = { lido: it.descricao, nota: { q: c.q, un: c.un, incerto: c.incerto, txt: P.numAuto(it.quantidade) + ' ' + (it.un || 'UN') + (c.emb ? ' de ' + c.emb : '') }, valor };
+      const q = s.ins && (c.incerto ? (s.lembrado && s.fator ? P.round(c.q * s.fator, 3) : 0)
+        : s.ins.unidade === c.un ? c.q : s.fator ? P.round(c.q * s.fator, 3) : 0);
       if (s.ins && q > 0) {
         return Object.assign(base, { insumo_id: s.ins.id, descricao: s.ins.nome, unidade: s.ins.unidade, quantidade: q, preco_unit: valor / q, foto: !s.lembrado, fator: s.ins.unidade === c.un ? null : s.fator });
       }
-      return Object.assign(base, { insumo_id: null, descricao: it.descricao, unidade: 'un', quantidade: 1, preco_unit: valor, ligar: !s.nenhum });
+      // sem ficha: guarda a quantidade em unidades (custo por unidade = valor ÷ unidades)
+      const q1 = c.q > 0 ? c.q : 1;
+      return Object.assign(base, { insumo_id: null, descricao: it.descricao, unidade: c.q > 0 ? c.un : 'un', quantidade: q1, preco_unit: valor / q1, ligar: !s.nenhum,
+        sugerido: s.ins ? s.ins.id : null });
     });
     if (nota.desconto > 0) linhas.push({ insumo_id: null, descricao: 'Desconto', unidade: 'un', quantidade: 1, preco_unit: -nota.desconto, valor: -P.round(nota.desconto, 2) });
     return linhas;
@@ -542,7 +566,8 @@
               l.ligar ? h('small', { class: 'tag aviso' }, 'ligar à ficha') : !l.insumo_id ? h('small', { class: 'tag neutra' }, 'sem ficha') : null,
               l.foto ? h('small', { class: 'tag aviso' }, 'confira') : null),
             lido,
-            h('span', { class: 'cp-lin-q' }, !l.insumo_id && l.nota ? l.nota.txt + ' na nota' : P.numAuto(l.quantidade) + ' ' + (UN[l.unidade] || l.unidade) + ' × ' + P.Fichas.precoFmt(l.preco_unit),
+            h('span', { class: 'cp-lin-q' }, !l.insumo_id && l.nota && l.nota.incerto ? l.nota.txt + ' · quantas unidades? toque'
+              : P.numAuto(l.quantidade) + ' ' + (UN[l.unidade] || l.unidade) + ' × ' + P.Fichas.precoFmt(l.preco_unit) + (l.nota && l.nota.txt.includes(' de ') ? ' · ' + l.nota.txt : ''),
               dif != null && Math.abs(dif) >= 0.5 ? h('em', { class: dif > 0 ? 't-vermelho' : 't-verde' }, (dif > 0 ? ' ▲' : ' ▼') + P.num(Math.abs(dif), 0) + '%') : null)),
           h('b', { class: 'cp-lin-v' }, P.brl(l.valor)),
           h('button', { type: 'button', class: 'btn ic', 'aria-label': 'Remover', onClick: () => { d.linhas.splice(i, 1); P.vibrar(10); desenharLinhas(); } }, P.UI.icone('x'))));
@@ -588,13 +613,13 @@
       if (!l.insumo_id) {
         const val = await P.UI.pedirNumero({ titulo: l.descricao + ' — valor pago', valor: l.valor, decimais: 2, prefixo: 'R$ ' });
         if (val == null) return;
-        Object.assign(l, { preco_unit: val, valor: P.round(val, 2) });
+        Object.assign(l, { preco_unit: val / (+l.quantidade || 1), valor: P.round(val, 2) });
       } else {
         const ins = P.Store.get('insumos', l.insumo_id);
         const r = await pedirQtdPreco({ titulo: l.descricao, unidade: l.unidade, qtd: l.quantidade, preco: l.preco_unit, precoAtual: ins && !ant ? +ins.preco : null, editar: true });
         if (!r) return;
         Object.assign(l, r);
-        if (l.nota && l.nota.un !== l.unidade && l.nota.q > 0) l.fator = r.quantidade / l.nota.q;
+        if (l.nota && (l.nota.incerto || l.nota.un !== l.unidade) && l.nota.q > 0) l.fator = r.quantidade / l.nota.q;
       }
       l.foto = false;
       desenharLinhas();
@@ -602,7 +627,7 @@
     // item da nota sem ficha: escolher o insumo (ou deixar só no gasto)
     async function ligarLinha(l) {
       const freq = frequencia();
-      const ins = P.Store.all('insumos').sort((a, b) => ((freq.get(b.id) || 0) - (freq.get(a.id) || 0)) || a.nome.localeCompare(b.nome, 'pt-BR'));
+      const ins = P.Store.all('insumos').sort((a, b) => ((b.id === l.sugerido) - (a.id === l.sugerido)) || ((freq.get(b.id) || 0) - (freq.get(a.id) || 0)) || a.nome.localeCompare(b.nome, 'pt-BR'));
       const id = await P.UI.escolher({
         titulo: 'Qual insumo é "' + l.lido + '"?',
         opcoes: [{ v: '_nenhum', rotulo: 'Nenhum — deixar sem ficha', sub: 'entra no gasto (sacola, limpeza…); o app lembra' }]
@@ -611,11 +636,11 @@
       if (!id) return;
       if (id === '_nenhum') { l.ligar = false; l.esquecer = true; desenharLinhas(); return; }
       const i = P.Store.get('insumos', id);
-      const q = l.nota && l.nota.un === i.unidade && l.nota.q > 0 ? l.nota.q : null;
+      const q = l.nota && !l.nota.incerto && l.nota.un === i.unidade && l.nota.q > 0 ? l.nota.q : null;
       const r = await pedirQtdPreco({ titulo: i.nome, unidade: i.unidade, qtd: q, preco: q ? l.valor / q : +i.preco, total: q ? null : l.valor, precoAtual: +i.preco,
-        sub: 'Na nota: ' + l.lido + ' · ' + (l.nota ? l.nota.txt + ' · ' : '') + P.brl(l.valor) });
+        sub: 'Na nota: ' + l.lido + ' · ' + (l.nota ? l.nota.txt + ' · ' : '') + P.brl(l.valor) + (l.nota && l.nota.incerto ? ' — quantas ' + (UN[i.unidade] || i.unidade) + ' vieram ao todo?' : '') });
       if (!r) return;
-      const fator = l.nota && l.nota.un !== i.unidade && l.nota.q > 0 ? r.quantidade / l.nota.q : null;
+      const fator = l.nota && (l.nota.incerto || l.nota.un !== i.unidade) && l.nota.q > 0 ? r.quantidade / l.nota.q : null;
       Object.assign(l, { insumo_id: i.id, descricao: i.nome, unidade: i.unidade, ligar: false, esquecer: false, foto: false, fator }, r);
       P.vibrar(15);
       desenharLinhas();
