@@ -308,6 +308,87 @@
     try { if (new URL(qr).hostname === new URL(base).hostname) return qr; } catch (e) { /* QR estranho: usa o portal */ }
     return base + m[1];
   }
+  // ---------------------------------------------------------------
+  //  COLAR ITENS — a foto da nota vai para o Claude (conversa, grátis na
+  //  assinatura), que devolve o texto no formato abaixo; aqui só se cola.
+  //  Aceita também tabela com | ; ou tab, com ou sem cabeçalho.
+  // ---------------------------------------------------------------
+  const INSTRUCAO_CLAUDE = 'Leia esta nota de compra e responda SÓ com um bloco de código, sem comentários, neste formato:\n' +
+    'Fornecedor: nome da loja\n' +
+    'Pagamento: Dinheiro, Pix, Cartão ou A prazo (deixe vazio se a nota não diz)\n' +
+    'Total: valor total da nota\n' +
+    'descrição | quantidade | unidade | valor unitário | valor total\n' +
+    '(uma linha por item, com a descrição e a unidade como estão na nota — ex.: COCA-COLA LATA 12X350ML | 2 | FD | 37,08 | 74,16; desconto geral vira a linha: Desconto | 1 | UN | -5,00 | -5,00)';
+  const numBR = t => {
+    let s = String(t == null ? '' : t).replace(/[R$\s]/g, '');
+    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    const v = parseFloat(s);
+    return isFinite(v) ? v : NaN;
+  };
+  const formaDoTexto = t => (/pix/i.test(t) ? 'PIX' : /dinheiro|esp[eé]cie/i.test(t) ? 'DINHEIRO' : /prazo|boleto|fiado/i.test(t) ? 'PRAZO' : /cart|d[eé]bito|cr[eé]dito/i.test(t) ? 'CARTAO' : '');
+  function lerTextoNota(txt) {
+    const nota = { fornecedor: '', forma: '', total: 0, desconto: 0, chave: null, itens: [], ruins: [] };
+    String(txt || '').split(/\r?\n/).forEach(bruta => {
+      const lin = bruta.replace(/```\w*/g, '').trim();
+      if (!lin) return;
+      let m;
+      if ((m = lin.match(/^\**\s*(fornecedor|loja|emitente)\s*\**\s*:\s*(.*)$/i))) { nota.fornecedor = m[2].replace(/\*/g, '').trim(); return; }
+      if ((m = lin.match(/^\**\s*(pagamento|forma(?: de pagamento)?)\s*\**\s*:\s*(.*)$/i))) { nota.forma = formaDoTexto(m[2]); return; }
+      if ((m = lin.match(/^\**\s*(total|valor total|valor a pagar)\s*\**\s*:\s*(.*)$/i))) { nota.total = numBR(m[2]) || 0; return; }
+      if (!/[|;\t]/.test(lin)) return;
+      const c = lin.replace(/^\|/, '').replace(/\|$/, '').split(/\s*[|;\t]\s*/).map(x => x.trim());
+      if (/^[-:\s]*$/.test(c.join('')) || (/descri/i.test(c[0]) && c.some(x => /qu?a?n?t|qtd/i.test(x)))) return; // cabeçalho/separador
+      const desc = c[0];
+      let q = 1, un = 'UN', vu = NaN, vt = NaN;
+      if (c.length >= 5) { q = numBR(c[1]); un = c[2]; vu = numBR(c[3]); vt = numBR(c[4]); }
+      else if (c.length === 4) { q = numBR(c[1]); un = c[2]; vt = numBR(c[3]); }
+      else if (c.length === 3) { q = numBR(c[1]); vt = numBR(c[2]); }
+      else if (c.length === 2) { vt = numBR(c[1]); }
+      if (!isFinite(vt) && isFinite(vu) && isFinite(q)) vt = q * vu;
+      if (!desc || !isFinite(vt) || !isFinite(q) || q === 0) { nota.ruins.push(lin); return; }
+      nota.itens.push({ descricao: desc, quantidade: q, un: String(un || 'UN').toUpperCase().replace(/[^A-Z]/g, '') || 'UN', valor: P.round(vt, 2) });
+    });
+    return nota;
+  }
+  // folha para colar → nota lida, ou null
+  function pedirTextoNota() {
+    return new Promise(resolve => {
+      let feito = false;
+      const ta = h('textarea', { class: 'campo cp-colar', rows: 8, placeholder: 'Cole aqui o que o Claude respondeu', autocomplete: 'off', spellcheck: 'false' });
+      const previa = h('div', { class: 'cp-previa' });
+      const bOk = h('button', { type: 'button', class: 'btn primario grow', disabled: true }, 'Lançar itens');
+      function ver() {
+        const n = lerTextoNota(ta.value);
+        const soma = n.itens.reduce((s, it) => s + it.valor, 0);
+        const partes = [];
+        if (n.itens.length) {
+          partes.push(h('b', null, n.itens.length + (n.itens.length === 1 ? ' item' : ' itens') + ' · ' + P.brl(soma)));
+          if (n.total > 0) partes.push(Math.abs(n.total - soma) < 0.05 ? h('span', { class: 't-verde' }, ' ✓ confere com o total da nota') : h('span', { class: 't-amarelo' }, ' — nota diz ' + P.brl(n.total)));
+        } else if (ta.value.trim()) partes.push(h('span', { class: 't-amarelo' }, 'Nenhum item reconhecido. Cole a resposta do Claude inteira.'));
+        if (n.ruins.length) partes.push(h('div', { class: 't-amarelo' }, n.ruins.length + ' linha(s) não entendida(s): ' + n.ruins.slice(0, 2).join(' / ')));
+        previa.replaceChildren(...partes);
+        bOk.disabled = !n.itens.length;
+        return n;
+      }
+      ta.addEventListener('input', ver);
+      const copiar = async (texto, rot) => {
+        try { await navigator.clipboard.writeText(texto); P.UI.toast(rot + ' copiado'); } catch (e) { P.UI.toast('Não deu para copiar aqui'); }
+      };
+      const bColar = navigator.clipboard && navigator.clipboard.readText
+        ? h('button', { type: 'button', class: 'btn grow', onClick: async () => { try { ta.value = await navigator.clipboard.readText(); ver(); } catch (e) { ta.focus(); } } }, 'Colar')
+        : null;
+      bOk.addEventListener('click', () => { const n = ver(); if (!n.itens.length) return; feito = true; resolve(n); sh.fechar(); });
+      const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
+        h('ol', { class: 'cp-passos' },
+          h('li', null, 'Tire a foto da nota e mande para o Claude, junto com a ', h('button', { type: 'button', class: 'cp-link', onClick: () => copiar(INSTRUCAO_CLAUDE, 'Pedido') }, 'mensagem de pedido (toque para copiar)'), '.'),
+          h('li', null, 'Copie o que o Claude responder e cole abaixo.')),
+        ta, previa,
+        h('div', { class: 'row gap' }, h('button', { type: 'button', class: 'btn', onClick: () => sh.fechar() }, 'Cancelar'), bColar, bOk)),
+      { titulo: 'Colar itens da nota', onFechar: () => { if (!feito) resolve(null); } });
+      setTimeout(() => ta.focus(), 80);
+    });
+  }
+
   // Lê a página da NFC-e (modelo padrão das Sefaz: tabela #tabResult)
   function lerPaginaNfce(html, urlQR) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -397,7 +478,7 @@
       }
       // sem ficha: guarda a quantidade em unidades (custo por unidade = valor ÷ unidades)
       const q1 = c.q > 0 ? c.q : 1;
-      return Object.assign(base, { insumo_id: null, descricao: it.descricao, unidade: c.q > 0 ? c.un : 'un', quantidade: q1, preco_unit: valor / q1, ligar: !s.nenhum,
+      return Object.assign(base, { insumo_id: null, descricao: it.descricao, unidade: c.q > 0 ? c.un : 'un', quantidade: q1, preco_unit: valor / q1, ligar: !s.nenhum && valor > 0,
         sugerido: s.ins ? s.ins.id : null });
     });
     if (nota.desconto > 0) linhas.push({ insumo_id: null, descricao: 'Desconto', unidade: 'un', quantidade: 1, preco_unit: -nota.desconto, valor: -P.round(nota.desconto, 2) });
@@ -452,9 +533,9 @@
         h('div', { class: 'fx-tot' }, h('small', null, 'Comprado · ' + cs.length + (cs.length === 1 ? ' compra' : ' compras')), h('b', null, P.brl(total))),
         devendo ? h('a', { class: 'fx-formas link', href: '#/compras/pagar' }, h('span', { class: 'fx-f' }, 'A pagar a fornecedores ', h('b', { class: 't-amarelo' }, P.brl(devendo))), P.UI.icone('avancar')) : null));
       corpo.appendChild(h('div', { class: 'row gap cp-novas' },
-        h('button', { type: 'button', class: 'btn primario grow cp-nova', onClick: () => { fotoPendente = 'leitor'; location.hash = '#/compras/nova'; } }, P.UI.icone('camera'), 'Ler nota'),
+        h('button', { type: 'button', class: 'btn primario grow cp-nova', onClick: () => { fotoPendente = 'colar'; location.hash = '#/compras/nova'; } }, P.UI.icone('lapis'), 'Colar itens'),
         h('a', { class: 'btn grow cp-nova', href: '#/compras/nova' }, P.UI.icone('mais'), 'Digitar')));
-      corpo.appendChild(h('button', { type: 'button', class: 'cp-galeria', onClick: () => escolherFoto(true, f => { fotoPendente = f; location.hash = '#/compras/nova'; }) }, 'ou escolher foto da galeria'));
+      corpo.appendChild(h('button', { type: 'button', class: 'cp-galeria', onClick: () => { fotoPendente = 'leitor'; location.hash = '#/compras/nova'; } }, 'ou ler o QR Code do cupom'));
       if (!cs.length) { corpo.appendChild(P.UI.vazio('Nenhuma compra neste dia. Cada compra atualiza o preço dos insumos e o custo dos pratos na hora.', 'compras')); return; }
       corpo.appendChild(h('div', { class: 'secao' }, 'Compras'));
       corpo.appendChild(h('div', { class: 'ms-lista' }, cs.map(c => h('a', { class: 'ms-card', href: '#/compras/c/' + c.id },
@@ -669,8 +750,12 @@
       const e = await escanearQR();
       if (e) usarNota(e);
     }
+    async function usarColar() {
+      const nota = await pedirTextoNota();
+      if (nota) usarNota({ nota });
+    }
     async function usarNota(entrada) {
-      const nota = await lerNota(entrada);
+      const nota = entrada.nota || await lerNota(entrada);
       if (!nota) return;
       const ja = nota.chave && P.Store.all('compras').find(c => c.obs && c.obs.includes(nota.chave) && c.id !== (ant && ant.id));
       if (ja && !(await P.UI.confirmar('Essa nota já foi lançada em ' + P.Dia.rotuloCurto(ja.dia_operacional) + ' (' + P.brl(ja.total) + '). Lançar de novo?', { ok: 'Lançar de novo' }))) return;
@@ -709,8 +794,8 @@
       h('div', { class: 'form' },
         h('div', { class: 'form-tit' }, ant ? 'Editar compra' : 'Lançar compra', h('small', null, ant ? P.Dia.rotulo(ant.dia_operacional) : P.Dia.rotulo(P.Dia.hoje()))),
         ant ? null : h('div', { class: 'row gap cp-novas' },
-          h('button', { type: 'button', class: 'btn grow', onClick: usarLeitor }, P.UI.icone('camera'), 'Ler nota'),
-          h('button', { type: 'button', class: 'btn grow', onClick: () => escolherFoto(true, f => usarNota({ foto: f })) }, 'Da galeria')),
+          h('button', { type: 'button', class: 'btn grow', onClick: usarColar }, P.UI.icone('lapis'), 'Colar itens'),
+          h('button', { type: 'button', class: 'btn grow', onClick: usarLeitor }, P.UI.icone('camera'), 'Ler QR')),
         elAviso,
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'De quem'), inForn, chipsForn),
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'Itens'), elLinhas,
@@ -720,7 +805,7 @@
           h('small', { class: 'campo-d' }, '"A prazo" fica em Compras → A pagar até você marcar como pago.'))),
       elBarra);
     desenharLinhas();
-    if (!ant && fotoPendente) { const f = fotoPendente; fotoPendente = null; if (f === 'leitor') usarLeitor(); else usarNota({ foto: f }); }
+    if (!ant && fotoPendente) { const f = fotoPendente; fotoPendente = null; if (f === 'leitor') usarLeitor(); else if (f === 'colar') usarColar(); else usarNota({ foto: f }); }
     else if (!ant) setTimeout(() => { if (!d.linhas.length && location.hash === '#/compras/nova') adicionar(); }, 250);
     return {};
   }
