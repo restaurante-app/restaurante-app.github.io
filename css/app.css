@@ -712,6 +712,17 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 
 /* ---------- COMPRAS ---------- */
 .cp-nova { min-height: 62px; margin: 0 0 4px; border-radius: 20px; font-size: .98rem; }
+.cp-novas { margin: 0 0 4px; }
+.cp-novas .cp-nova { margin: 0; }
+.cp-novas .btn { white-space: nowrap; padding: 0 12px; gap: 8px; }
+.cp-novas .btn svg { flex: 0 0 auto; }
+.form > .cp-novas { margin-bottom: 12px; }
+.cp-galeria { display: block; width: 100%; min-height: 44px; border: 0; background: transparent; color: var(--brasa-tx); font-weight: 600; font-size: .8rem; }
+.cp-lin-lido { font-size: .68rem; color: var(--tx3); margin-top: 1px; }
+.cp-lendo { align-items: center; text-align: center; gap: 6px; }
+.cp-lendo small { color: var(--tx2); font-size: .8rem; }
+.cp-lendo-ic { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; margin: 6px auto 4px; background: var(--bg-atencao); color: var(--brasa-tx); animation: pulsa 1.4s ease-in-out infinite; }
+.cp-lendo-ic svg { width: 30px; height: 30px; }
 .cp-linhas { display: flex; flex-direction: column; gap: 7px; }
 .cp-vazio { color: var(--tx3); font-size: .8rem; padding: 16px; border: 1.5px dashed var(--borda2); border-radius: 18px; text-align: center; }
 .cp-lin { display: flex; align-items: center; gap: 8px; border-radius: 18px; padding: 4px 4px 4px 14px; }

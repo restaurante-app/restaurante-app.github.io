@@ -425,6 +425,31 @@
       tentou401 = false;
       return Sync.rodar();
     },
+    // Chama uma Edge Function do Supabase (ex.: 'ler-nota') com o login da nuvem
+    async funcao(nome, body, o) {
+      o = o || {};
+      if (!configurado()) throw new Error('Nuvem não configurada neste app.');
+      if (navigator.onLine === false) throw new Error('Sem internet agora.');
+      const headers = { apikey: cfg().SUPABASE_ANON_KEY, 'Content-Type': 'application/json', Authorization: 'Bearer ' + await token() };
+      const ctl = new AbortController();
+      const to = setTimeout(() => ctl.abort(), o.timeout || 120000);
+      if (o.signal) o.signal.addEventListener('abort', () => ctl.abort());
+      try {
+        const res = await fetch(baseUrl() + '/functions/v1/' + nome, {
+          method: 'POST', headers, body: JSON.stringify(body), signal: ctl.signal, cache: 'no-store',
+        });
+        const txt = await res.text();
+        let j = null;
+        try { j = txt ? JSON.parse(txt) : null; } catch (e) { /* ok */ }
+        if (!res.ok) {
+          const err = new Error((j && (j.erro || j.message || j.msg)) || (res.status === 404 ? 'Função "' + nome + '" não publicada no Supabase.' : 'HTTP ' + res.status));
+          err.http = res.status;
+          if (res.status === 401 && sessao) sessao.expira = 0; // força renovar o login na próxima
+          throw err;
+        }
+        return j;
+      } finally { clearTimeout(to); }
+    },
     sair() {
       gravarSessao(null);
       setEstado(configurado() ? 'login' : 'local');
