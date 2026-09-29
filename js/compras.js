@@ -155,6 +155,79 @@
   }
 
   // ---------------------------------------------------------------
+  //  FOTO DA NOTA — a foto vai para a função "ler-nota" do Supabase, que
+  //  devolve fornecedor, forma e itens já ligados aos insumos das fichas.
+  //  Nada é salvo sozinho: os itens entram no formulário para conferir.
+  // ---------------------------------------------------------------
+  let fotoPendente = null; // foto tirada na lista de compras, lida ao abrir "Lançar compra"
+  function escolherFoto(galeria, onFoto) {
+    const inp = h('input', { type: 'file', accept: 'image/*', style: { display: 'none' } });
+    if (!galeria) inp.setAttribute('capture', 'environment');
+    inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; inp.remove(); if (f) onFoto(f); });
+    document.body.appendChild(inp);
+    inp.click();
+  }
+  // reduz a foto (celular tira 12 MP) para enviar rápido e barato, sem perder a leitura
+  async function prepararFoto(arq) {
+    const url = URL.createObjectURL(arq);
+    try {
+      const img = await new Promise((ok, erro) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => erro(new Error('Não deu para abrir a foto.')); i.src = url; });
+      const MAX = 2000;
+      const esc = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.naturalWidth * esc);
+      cv.height = Math.round(img.naturalHeight * esc);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      return { tipo: 'image/jpeg', imagem: cv.toDataURL('image/jpeg', 0.85).split(',')[1] };
+    } finally { URL.revokeObjectURL(url); }
+  }
+  // → resultado da leitura, ou null (cancelou/erro, já avisado)
+  async function lerNota(arq) {
+    if (!P.Sync.configurado() || !P.Sync.conectado()) {
+      P.UI.toast('Para ler a foto, conecte o aparelho à nuvem (Mais → Nuvem).', { tipo: 'perigo', ms: 5000 });
+      return null;
+    }
+    const ctl = new AbortController();
+    let cancelado = false;
+    const sh = P.UI.sheet(h('div', { class: 'np-sheet cp-lendo' },
+      h('div', { class: 'cp-lendo-ic' }, P.UI.icone('camera')),
+      h('b', null, 'Lendo a nota…'),
+      h('small', null, 'Leva uns segundos. Depois é só conferir os itens.'),
+      h('button', { type: 'button', class: 'btn bloco', onClick: () => sh.fechar() }, 'Cancelar')),
+    { titulo: 'Foto da nota', onFechar: () => { cancelado = true; ctl.abort(); } });
+    try {
+      const foto = await prepararFoto(arq);
+      foto.insumos = P.Store.all('insumos').map(i => ({ id: i.id, nome: i.nome, unidade: i.unidade }));
+      const r = await P.Sync.funcao('ler-nota', foto, { signal: ctl.signal });
+      if (cancelado) return null;
+      sh.fechar();
+      if (!r || r.legivel === false || !Array.isArray(r.itens) || !r.itens.length) {
+        await P.UI.confirmar('Não consegui ler os itens desta foto. Tire outra com a nota inteira, reta e com boa luz.' + (r && r.observacao ? ' (' + r.observacao + ')' : ''), { ok: 'Ok', titulo: 'Foto da nota' });
+        return null;
+      }
+      return r;
+    } catch (e) {
+      if (cancelado) return null;
+      sh.fechar();
+      P.UI.toast(e && e.name === 'AbortError' ? 'A leitura demorou demais. Tente de novo.' : 'Não deu para ler a foto: ' + ((e && e.message) || e), { tipo: 'perigo', ms: 6000 });
+      return null;
+    }
+  }
+  // Converte a leitura em linhas do formulário (só confia em insumo que existe aqui)
+  function linhasDaLeitura(r) {
+    return r.itens.map(it => {
+      const valor = P.round(+it.valor || 0, 2);
+      const q = +it.quantidade || 0;
+      const ins = it.insumo_id ? P.Store.get('insumos', it.insumo_id) : null;
+      const desc = String(it.descricao || '').trim() || 'Item da nota';
+      if (ins && q > 0) return { insumo_id: ins.id, descricao: ins.nome, unidade: ins.unidade, quantidade: q, preco_unit: valor / q, valor, foto: true, lido: desc };
+      // sem ficha entra como valor único; a quantidade da nota fica na descrição
+      const qtd = q > 0 && !(q === 1 && it.unidade === 'un') ? ' (' + P.numAuto(q) + ' ' + (UN[it.unidade] || it.unidade || 'un') + ')' : '';
+      return { insumo_id: null, descricao: desc + qtd, unidade: 'un', quantidade: 1, preco_unit: valor, valor, foto: true };
+    }).filter(l => l.valor !== 0);
+  }
+
+  // ---------------------------------------------------------------
   //  TELA: COMPRAS DO DIA
   // ---------------------------------------------------------------
   function telaCompras(view) {
@@ -171,7 +244,11 @@
       corpo.appendChild(h('div', { class: 'fx-resumo' },
         h('div', { class: 'fx-tot' }, h('small', null, 'Comprado · ' + cs.length + (cs.length === 1 ? ' compra' : ' compras')), h('b', null, P.brl(total))),
         devendo ? h('a', { class: 'fx-formas link', href: '#/compras/pagar' }, h('span', { class: 'fx-f' }, 'A pagar a fornecedores ', h('b', { class: 't-amarelo' }, P.brl(devendo))), P.UI.icone('avancar')) : null));
-      corpo.appendChild(h('a', { class: 'btn primario bloco cp-nova', href: '#/compras/nova' }, P.UI.icone('mais'), 'Lançar compra'));
+      const irComFoto = galeria => escolherFoto(galeria, f => { fotoPendente = f; location.hash = '#/compras/nova'; });
+      corpo.appendChild(h('div', { class: 'row gap cp-novas' },
+        h('button', { type: 'button', class: 'btn primario grow cp-nova', onClick: () => irComFoto(false) }, P.UI.icone('camera'), 'Foto da nota'),
+        h('a', { class: 'btn grow cp-nova', href: '#/compras/nova' }, P.UI.icone('mais'), 'Digitar')));
+      corpo.appendChild(h('button', { type: 'button', class: 'cp-galeria', onClick: () => irComFoto(true) }, 'ou escolher foto da galeria'));
       if (!cs.length) { corpo.appendChild(P.UI.vazio('Nenhuma compra neste dia. Cada compra atualiza o preço dos insumos e o custo dos pratos na hora.', 'compras')); return; }
       corpo.appendChild(h('div', { class: 'secao' }, 'Compras'));
       corpo.appendChild(h('div', { class: 'ms-lista' }, cs.map(c => h('a', { class: 'ms-card', href: '#/compras/c/' + c.id },
@@ -284,22 +361,33 @@
     const chipsForn = h('div', { class: 'chips' }, fornecedoresRecentes().map(f => h('button', { type: 'button', class: 'chip', onClick: () => { inForn.value = f; d.fornecedor = f; P.vibrar(8); } }, f)));
     const elLinhas = h('div', { class: 'cp-linhas' });
     const elBarra = h('div', { class: 'barra-acao' });
+    const elAviso = h('div');
+    let totalNota = null, obsNota = '';
+    const mkSegForma = () => P.UI.seg(FORMAS, d.forma, v => { d.forma = v; }, 'seg-p');
+    let segForma = mkSegForma();
 
     function desenharLinhas() {
       elLinhas.innerHTML = '';
       if (!d.linhas.length) elLinhas.appendChild(h('div', { class: 'cp-vazio' }, 'Nenhum item ainda. Toque em "Adicionar item".'));
       d.linhas.forEach((l, i) => {
         const ins = l.insumo_id && P.Store.get('insumos', l.insumo_id);
+        const lido = l.lido && P.UI.semAcento(l.lido) !== P.UI.semAcento(l.descricao) ? h('small', { class: 'cp-lin-lido' }, 'na nota: ' + l.lido) : null;
         const dif = ins && !ant && +ins.preco > 0 ? (l.preco_unit / ins.preco - 1) * 100 : null;
         elLinhas.appendChild(h('div', { class: 'cp-lin' },
           h('button', { type: 'button', class: 'cp-lin-main', onClick: () => editarLinha(i) },
-            h('span', { class: 'cp-lin-n' }, l.descricao, !l.insumo_id ? h('small', { class: 'tag neutra' }, 'sem ficha') : null),
+            h('span', { class: 'cp-lin-n' }, l.descricao, !l.insumo_id ? h('small', { class: 'tag neutra' }, 'sem ficha') : null, l.foto ? h('small', { class: 'tag aviso' }, 'confira') : null),
+            lido,
             h('span', { class: 'cp-lin-q' }, P.numAuto(l.quantidade) + ' ' + (UN[l.unidade] || l.unidade) + ' × ' + P.Fichas.precoFmt(l.preco_unit),
               dif != null && Math.abs(dif) >= 0.5 ? h('em', { class: dif > 0 ? 't-vermelho' : 't-verde' }, (dif > 0 ? ' ▲' : ' ▼') + P.num(Math.abs(dif), 0) + '%') : null)),
           h('b', { class: 'cp-lin-v' }, P.brl(l.valor)),
           h('button', { type: 'button', class: 'btn ic', 'aria-label': 'Remover', onClick: () => { d.linhas.splice(i, 1); P.vibrar(10); desenharLinhas(); } }, P.UI.icone('x'))));
       });
       const total = d.linhas.reduce((s, l) => s + (+l.valor || 0), 0);
+      const avisos = [];
+      if (totalNota > 0 && Math.abs(totalNota - total) >= 0.05) avisos.push('Total da nota ' + P.brl(totalNota) + ', soma dos itens ' + P.brl(total) + ' — confira os itens.');
+      if (obsNota) avisos.push(obsNota);
+      if (d.linhas.some(l => l.foto)) avisos.unshift('Itens lidos da foto: toque em cada um para conferir quantidade e preço antes de salvar.');
+      elAviso.replaceChildren(...avisos.map((t, i) => h('div', { class: 'banner ' + (i === 0 && d.linhas.some(l => l.foto) ? 'ok' : 'aviso') }, P.UI.icone(i === 0 && d.linhas.some(l => l.foto) ? 'camera' : 'alerta'), h('span', null, t))));
       elBarra.replaceChildren(
         h('div', { class: 'barra-tot' }, h('small', null, d.linhas.length + (d.linhas.length === 1 ? ' item' : ' itens')), h('b', null, P.brl(total))),
         h('button', { type: 'button', class: 'btn primario barra-btn', disabled: !d.linhas.length, onClick: salvarCompra }, P.UI.icone('check'), ant ? 'Salvar alterações' : 'Salvar compra'));
@@ -341,6 +429,20 @@
         if (!r) return;
         Object.assign(l, r);
       }
+      l.foto = false;
+      desenharLinhas();
+    }
+    async function usarFoto(arq) {
+      const r = await lerNota(arq);
+      if (!r) return;
+      const novas = linhasDaLeitura(r);
+      if (!novas.length) { P.UI.toast('Nenhum item com valor na foto.', { tipo: 'perigo' }); return; }
+      if (r.fornecedor && !d.fornecedor.trim()) { d.fornecedor = r.fornecedor.trim(); inForn.value = d.fornecedor; }
+      if (FORMAS.some(f => f.v === r.forma) && r.forma !== d.forma) { d.forma = r.forma; const s2 = mkSegForma(); segForma.replaceWith(s2); segForma = s2; }
+      d.linhas = d.linhas.concat(novas);
+      totalNota = +r.total_nota > 0 ? (totalNota || 0) + +r.total_nota : totalNota;
+      obsNota = [obsNota, r.observacao].filter(Boolean).join(' ');
+      P.vibrar([20, 40, 20]);
       desenharLinhas();
     }
     function salvarCompra() {
@@ -357,15 +459,20 @@
       voltar(ant ? '#/compras/c/' + ant.id : '#/compras', ant ? 'Compra' : 'Compras'),
       h('div', { class: 'form' },
         h('div', { class: 'form-tit' }, ant ? 'Editar compra' : 'Lançar compra', h('small', null, ant ? P.Dia.rotulo(ant.dia_operacional) : P.Dia.rotulo(P.Dia.hoje()))),
+        ant ? null : h('div', { class: 'row gap cp-novas' },
+          h('button', { type: 'button', class: 'btn grow', onClick: () => escolherFoto(false, usarFoto) }, P.UI.icone('camera'), 'Foto da nota'),
+          h('button', { type: 'button', class: 'btn grow', onClick: () => escolherFoto(true, usarFoto) }, 'Da galeria')),
+        elAviso,
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'De quem'), inForn, chipsForn),
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'Itens'), elLinhas,
           h('button', { type: 'button', class: 'btn bloco cp-add', onClick: adicionar }, P.UI.icone('mais'), 'Adicionar item')),
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'Como pagou'),
-          P.UI.seg(FORMAS, d.forma, v => { d.forma = v; }, 'seg-p'),
+          segForma,
           h('small', { class: 'campo-d' }, '"A prazo" fica em Compras → A pagar até você marcar como pago.'))),
       elBarra);
     desenharLinhas();
-    if (!ant) setTimeout(() => { if (!d.linhas.length && location.hash === '#/compras/nova') adicionar(); }, 250);
+    if (!ant && fotoPendente) { const f = fotoPendente; fotoPendente = null; usarFoto(f); }
+    else if (!ant) setTimeout(() => { if (!d.linhas.length && location.hash === '#/compras/nova') adicionar(); }, 250);
     return {};
   }
 
