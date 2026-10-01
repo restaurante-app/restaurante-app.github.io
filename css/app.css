@@ -723,6 +723,28 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 .cp-lendo small { color: var(--tx2); font-size: .8rem; }
 .cp-lendo-ic { width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; margin: 6px auto 4px; background: var(--bg-atencao); color: var(--brasa-tx); animation: pulsa 1.4s ease-in-out infinite; }
 .cp-lendo-ic svg { width: 30px; height: 30px; }
+.cp-busca { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 0 4px 0 14px; border-radius: 16px; background: var(--s2); border: 1px solid var(--borda); }
+.cp-busca > svg { width: 18px; height: 18px; color: var(--tx3); flex: 0 0 auto; }
+.cp-busca .cp-busca-in { flex: 1 1 auto; min-width: 0; border: 0; background: transparent; box-shadow: none; padding-left: 0; }
+.cp-busca .cp-busca-x { width: 40px; min-height: 40px; border: 0; background: transparent; box-shadow: none; color: var(--tx3); }
+.cp-dia-cal { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 800; padding: 4px 0; border-radius: 12px; }
+.cp-dias { margin-top: 6px; text-align: center; }
+.cp-dias small { display: block; color: var(--tx3); font-size: .75rem; margin-bottom: 6px; }
+.cp-dias .chips { justify-content: center; }
+.cal-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.cal-top .pn-nav { width: 44px; height: 40px; border-radius: 13px; }
+.cal-mes { flex: 1 1 auto; text-align: center; font-weight: 800; text-transform: capitalize; }
+.cal-mes small { display: block; font-weight: 600; font-size: .72rem; color: var(--tx3); text-transform: none; }
+.cal-grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-sem { text-align: center; font-size: .62rem; font-weight: 800; text-transform: uppercase; color: var(--tx3); padding: 2px 0 4px; }
+.cal-d { min-height: 48px; border-radius: 12px; border: 1px solid transparent; background: var(--s2); color: var(--tx); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 2px; }
+.cal-d b { font-size: .88rem; }
+.cal-d small { font-size: .56rem; font-weight: 700; color: var(--brasa-tx); white-space: nowrap; }
+.cal-d.vazio { background: transparent; }
+.cal-d:disabled { opacity: .3; }
+.cal-d.com { background: var(--bg-atencao); }
+.cal-d.hoje { border-color: var(--tx3); }
+.cal-d.sel { border-color: var(--brasa-tx); box-shadow: 0 0 0 1px var(--brasa-tx) inset; }
 .cp-colar { min-height: 160px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .72rem; line-height: 1.45; resize: vertical; white-space: pre; }
 .cp-previa { font-size: .8rem; min-height: 1.2em; }
 .cp-passos { margin: 0; padding-left: 20px; color: var(--tx2); font-size: .82rem; line-height: 1.5; }

@@ -71,7 +71,8 @@
       criado_em: criado, usuario_id: ant ? ant.usuario_id : (u && u.id), obs: d.obs || null,
     }, pg));
     d.linhas.forEach((l, i) => P.Store.put('compra_itens', {
-      id: P.uuid(), compra_id: id, insumo_id: l.insumo_id || null, descricao: l.descricao,
+      // guarda o nome como veio na nota (ex.: "COCA-COLA LATA 12X350ML"); o insumo fica no insumo_id
+      id: P.uuid(), compra_id: id, insumo_id: l.insumo_id || null, descricao: l.lido || l.descricao,
       quantidade: P.round(l.quantidade, 3), unidade: l.unidade, preco_unit: P.round(l.preco_unit, 4), valor: P.round(l.valor, 2), ordem: i,
     }));
     // preço vivo: preço médio pago em cada insumo desta compra vira o preço do insumo
@@ -129,8 +130,64 @@
     const hoje = P.Dia.hoje();
     return h('div', { class: 'lc-dia' },
       h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Dia anterior', onClick: () => onMuda(P.Dia.anterior(dia)) }, P.UI.icone('voltar')),
-      h('div', { class: 'lc-dia-t' }, dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), h('small', null, P.Dia.rotuloCurto(dia))),
+      h('button', { type: 'button', class: 'lc-dia-t cp-dia-cal', 'aria-label': 'Escolher o dia no calendário', onClick: () => calendario(dia, onMuda) },
+        dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), h('small', null, P.Dia.rotuloCurto(dia) + ' ▾')),
       h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo dia', disabled: dia >= hoje, onClick: () => onMuda(P.Dia.seguinte(dia)) }, P.UI.icone('avancar')));
+  }
+  // Calendário do mês: dias com compra marcados com o total; toque escolhe o dia
+  function calendario(diaAtual, onEscolher) {
+    const hoje = P.Dia.hoje();
+    let mes = P.Dia.mes(diaAtual);
+    const totais = new Map();
+    P.Store.all('compras').forEach(c => totais.set(c.dia_operacional, (totais.get(c.dia_operacional) || 0) + (+c.total || 0)));
+    const corpo = h('div');
+    const mudaMes = n => { const [y, m] = mes.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); mes = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); desenhar(); };
+    function desenhar() {
+      const [y, m] = mes.split('-').map(Number);
+      const primeiro = new Date(y, m - 1, 1);
+      const vazios = (primeiro.getDay() + 6) % 7; // semana começa na segunda
+      const ultimo = new Date(y, m, 0).getDate();
+      const celulas = [];
+      for (let i = 0; i < vazios; i++) celulas.push(h('span', { class: 'cal-d vazio' }));
+      let totMes = 0;
+      for (let d = 1; d <= ultimo; d++) {
+        const iso = mes + '-' + String(d).padStart(2, '0');
+        const domingo = new Date(y, m - 1, d).getDay() === 0;
+        const t = totais.get(iso) || 0;
+        totMes += t;
+        celulas.push(h('button', {
+          type: 'button', disabled: domingo || iso > hoje,
+          class: 'cal-d' + (t ? ' com' : '') + (iso === diaAtual ? ' sel' : '') + (iso === hoje ? ' hoje' : ''),
+          onClick: () => { sh.fechar(); onEscolher(iso); },
+        }, h('b', null, d), t ? h('small', null, P.brl0(t).replace('R$ ', '')) : null));
+      }
+      corpo.replaceChildren(
+        h('div', { class: 'cal-top' },
+          h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Mês anterior', onClick: () => mudaMes(-1) }, P.UI.icone('voltar')),
+          h('div', { class: 'cal-mes' }, P.Dia.rotuloMes(mes), h('small', null, totMes ? 'comprado no mês ' + P.brl(totMes) : 'nenhuma compra no mês')),
+          h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo mês', disabled: mes >= P.Dia.mes(hoje), onClick: () => mudaMes(1) }, P.UI.icone('avancar'))),
+        h('div', { class: 'cal-grade' }, ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'].map(s => h('span', { class: 'cal-sem' }, s)), celulas),
+        h('button', { type: 'button', class: 'btn bloco', onClick: () => { sh.fechar(); onEscolher(hoje); } }, 'Ir para hoje'));
+    }
+    const sh = P.UI.sheet(corpo, { titulo: 'Escolha o dia' });
+    desenhar();
+  }
+  // Busca em todas as compras: fornecedor, produto (nome da nota) ou insumo
+  function buscarCompras(q) {
+    const termos = P.UI.semAcento(q).split(/\s+/).filter(Boolean);
+    const insNome = id => { const i = id && P.Store.get('insumos', id); return i ? i.nome : ''; };
+    const out = [];
+    P.Store.all('compras').forEach(c => {
+      const itens = itensDe(c.id);
+      const textoItem = l => P.UI.semAcento(l.descricao + ' ' + insNome(l.insumo_id));
+      const tudo = P.UI.semAcento(c.fornecedor || '') + ' ' + itens.map(textoItem).join(' ');
+      if (!termos.every(t => tudo.includes(t))) return;
+      // itens com todas as palavras; se nenhum, os que têm alguma
+      const todos = itens.filter(l => termos.every(t => textoItem(l).includes(t)));
+      const achados = todos.length ? todos : itens.filter(l => termos.some(t => textoItem(l).includes(t)));
+      out.push({ c, achados });
+    });
+    return out.sort((a, b) => (a.c.criado_em < b.c.criado_em ? 1 : -1));
   }
   const chipForma = c => h('span', { class: 'tag ' + (c.forma === 'PRAZO' ? (c.pago_em ? 'ok' : 'aviso') : 'neutra') },
     c.forma === 'PRAZO' ? (c.pago_em ? 'pago ' + P.Dia.rotuloCurto(c.pago_dia) : 'a pagar') : NOME_FORMA[c.forma] || c.forma);
@@ -522,8 +579,34 @@
     view.className = 'v-compras';
     let dia = P.Dia.hoje();
     const corpo = h('div');
+    // a busca fica fora do "corpo" para não perder o que foi digitado quando a tela atualiza sozinha
+    const inBusca = h('input', { class: 'campo cp-busca-in', type: 'search', placeholder: 'Buscar compra: fornecedor ou produto', autocomplete: 'off', enterkeyhint: 'search' });
+    const bLimpa = h('button', { type: 'button', class: 'btn ic cp-busca-x', 'aria-label': 'Limpar busca', onClick: () => { inBusca.value = ''; desenhar(); } }, P.UI.icone('x'));
+    inBusca.addEventListener('input', () => desenhar());
+    const busca = h('div', { class: 'cp-busca' }, P.UI.icone('busca'), inBusca, bLimpa);
+    function cardCompra(c, sub) {
+      return h('a', { class: 'ms-card', href: '#/compras/c/' + c.id },
+        h('span', { class: 'av-f', 'aria-hidden': 'true' }, c.fornecedor ? P.UI.iniciais(c.fornecedor.replace(/[—–-].*$/, '').replace(/box/i, '').trim() || c.fornecedor) : P.UI.icone('compras')),
+        h('div', { class: 'ms-card-n' }, nomeCompra(c), h('small', null, sub)),
+        h('div', { class: 'ms-card-d' }, h('b', null, P.brl(c.total)), chipForma(c)));
+    }
+    function desenharBusca(q) {
+      const rs = buscarCompras(q);
+      const tot = rs.reduce((s, r) => s + (+r.c.total || 0), 0);
+      corpo.appendChild(h('div', { class: 'fx-resumo' },
+        h('div', { class: 'fx-tot' }, h('small', null, rs.length + (rs.length === 1 ? ' compra encontrada' : ' compras encontradas') + ' · "' + q + '"'), h('b', null, P.brl(tot)))));
+      if (!rs.length) { corpo.appendChild(P.UI.vazio('Nenhuma compra com "' + q + '". Tente outra palavra (ex.: nome do fornecedor, "coca", "heineken").', 'busca')); return; }
+      corpo.appendChild(h('div', { class: 'ms-lista' }, rs.slice(0, 80).map(({ c, achados }) => {
+        const itens = achados.slice(0, 3).map(l => l.descricao + ' (' + P.numAuto(l.quantidade) + ' ' + (UN[l.unidade] || l.unidade) + ' × ' + P.Fichas.precoFmt(l.preco_unit) + ')');
+        return cardCompra(c, P.Dia.rotulo(c.dia_operacional) + ' · ' + (itens.length ? itens.join(', ') + (achados.length > 3 ? ' +' + (achados.length - 3) : '') : resumoItens(c)));
+      })));
+      if (rs.length > 80) corpo.appendChild(h('div', { class: 'dica' }, 'Mostrando as 80 mais recentes. Digite mais para filtrar.'));
+    }
     function desenhar() {
       corpo.innerHTML = '';
+      const q = inBusca.value.trim();
+      bLimpa.style.visibility = q ? 'visible' : 'hidden';
+      if (q.length >= 2) { desenharBusca(q); return; }
       corpo.appendChild(navDia(dia, d => { dia = d; desenhar(); }));
       if (P.Auth.isDono()) corpo.appendChild(cardResultado(dia));
       const cs = doDia(dia);
@@ -536,14 +619,18 @@
         h('button', { type: 'button', class: 'btn primario grow cp-nova', onClick: () => { fotoPendente = 'colar'; location.hash = '#/compras/nova'; } }, P.UI.icone('lapis'), 'Colar itens'),
         h('a', { class: 'btn grow cp-nova', href: '#/compras/nova' }, P.UI.icone('mais'), 'Digitar')));
       corpo.appendChild(h('button', { type: 'button', class: 'cp-galeria', onClick: () => { fotoPendente = 'leitor'; location.hash = '#/compras/nova'; } }, 'ou ler o QR Code do cupom'));
-      if (!cs.length) { corpo.appendChild(P.UI.vazio('Nenhuma compra neste dia. Cada compra atualiza o preço dos insumos e o custo dos pratos na hora.', 'compras')); return; }
+      if (!cs.length) {
+        corpo.appendChild(P.UI.vazio('Nenhuma compra neste dia. Cada compra atualiza o preço dos insumos e o custo dos pratos na hora.', 'compras'));
+        // atalhos para os últimos dias que tiveram compra
+        const dias = [...new Set(P.Store.all('compras').map(c => c.dia_operacional))].filter(x => x !== dia).sort().reverse().slice(0, 6);
+        if (dias.length) corpo.appendChild(h('div', { class: 'cp-dias' }, h('small', null, 'Dias com compra:'),
+          h('div', { class: 'chips' }, dias.map(x => h('button', { type: 'button', class: 'chip', onClick: () => { dia = x; desenhar(); } }, P.Dia.rotulo(x))))));
+        return;
+      }
       corpo.appendChild(h('div', { class: 'secao' }, 'Compras'));
-      corpo.appendChild(h('div', { class: 'ms-lista' }, cs.map(c => h('a', { class: 'ms-card', href: '#/compras/c/' + c.id },
-        h('span', { class: 'av-f', 'aria-hidden': 'true' }, c.fornecedor ? P.UI.iniciais(c.fornecedor.replace(/[—–-].*$/, '').replace(/box/i, '').trim() || c.fornecedor) : P.UI.icone('compras')),
-        h('div', { class: 'ms-card-n' }, nomeCompra(c), h('small', null, P.Dia.hora(c.criado_em) + ' · ' + resumoItens(c))),
-        h('div', { class: 'ms-card-d' }, h('b', null, P.brl(c.total)), chipForma(c))))));
+      corpo.appendChild(h('div', { class: 'ms-lista' }, cs.map(c => cardCompra(c, P.Dia.hora(c.criado_em) + ' · ' + resumoItens(c)))));
     }
-    view.append(subnavCompras('dia'), corpo);
+    view.append(subnavCompras('dia'), busca, corpo);
     desenhar();
     return { onDados: desenhar };
   }
@@ -850,7 +937,8 @@
         h('div', { class: 'row gap' }, chipForma(c), c.forma === 'PRAZO' && c.pago_em ? h('span', { class: 'tag neutra' }, 'pago em ' + (NOME_FORMA[c.pago_forma] || '')) : null)));
       corpo.appendChild(h('div', { class: 'secao' }, 'Itens'));
       corpo.appendChild(h('div', { class: 'rs-itens' }, itensDe(c.id).map(l => h('div', { class: 'rs-l cp' },
-        h('span', { class: 'rs-n' }, l.descricao, h('small', null, P.numAuto(l.quantidade) + ' ' + (UN[l.unidade] || l.unidade) + ' × ' + P.Fichas.precoFmt(l.preco_unit))),
+        h('span', { class: 'rs-n' }, l.descricao, h('small', null, P.numAuto(l.quantidade) + ' ' + (UN[l.unidade] || l.unidade) + ' × ' + P.Fichas.precoFmt(l.preco_unit) +
+          ((ins => (ins && P.UI.semAcento(ins.nome) !== P.UI.semAcento(l.descricao) ? ' · ficha: ' + ins.nome : ''))(l.insumo_id && P.Store.get('insumos', l.insumo_id))))),
         h('span', { class: 'rs-v' }, P.brl(l.valor))))));
       const acoes = h('div', { class: 'row gap acoes' });
       if (c.forma === 'PRAZO' && !c.pago_em) acoes.appendChild(h('button', { type: 'button', class: 'btn primario grow', onClick: () => pagarSheet([c], nomeCompra(c)) }, P.UI.icone('check'), 'Marcar como pago'));
