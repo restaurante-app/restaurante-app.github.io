@@ -20,6 +20,7 @@
   // ---------------------------------------------------------------
   let cache = { v: -1 };
   let diaLista = null; // dia aberto em Compras: a compra nova nasce nesse dia
+  let abrirCal = false; // atalho "Calendário" (Mais): abre Compras já com o calendário
   function idx() {
     if (cache.v === P.Store.versao) return cache;
     const itens = new Map();
@@ -658,6 +659,7 @@
     }
     view.append(subnavCompras('dia'), busca, corpo);
     desenhar();
+    if (abrirCal) { abrirCal = false; history.replaceState(null, '', '#/compras'); calendario(dia, d => { dia = diaLista = d; desenhar(); }); }
     return { onDados: desenhar };
   }
 
@@ -1165,6 +1167,7 @@
   }
 
   P.UI.rota('compras', { titulo: 'Compras', tab: 'compras', render: telaCompras });
+  P.UI.rota('calendario', { titulo: 'Compras', tab: 'compras', render: view => { abrirCal = true; return telaCompras(view); } });
   P.UI.rota('compras/nova', { titulo: 'Lançar compra', tab: 'compras', render: telaNova });
   P.UI.rota('compras/editar/:id', { titulo: 'Editar compra', tab: 'compras', render: telaNova });
   P.UI.rota('compras/c/:id', { titulo: 'Compra', tab: 'compras', render: telaDetalhe });

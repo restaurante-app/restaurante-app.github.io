@@ -5,8 +5,10 @@
    Publicado em endereço próprio (restaurante-app.github.io). Mesmo assim, por
    garantia: só apaga cache com o prefixo deste app e refaz o cache se sumir. */
 const PREFIXO = 'pari-';
-const CACHE = PREFIXO + 'v16';
+const CACHE = PREFIXO + 'v17';
 const FONTES = PREFIXO + 'fontes'; // fonte Inter (Google Fonts): guardada na 1ª abertura com internet
+// cache: 'reload' = baixa do servidor, nunca do cache HTTP do navegador (senão a versão nova
+// podia ser guardada com arquivos velhos e o celular não via a mudança)
 const ARQUIVOS = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/config.js', './js/core.js', './js/db.js', './js/calc.js', './js/seed.js', './js/ui.js', './js/auth.js',
@@ -15,8 +17,10 @@ const ARQUIVOS = [
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
 ];
 
+const novo = u => new Request(u, { cache: 'reload' });
+
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS.map(novo))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
@@ -26,7 +30,7 @@ self.addEventListener('activate', e => {
 // a página pede ao abrir: se o cache sumiu (ou ficou incompleto), baixa tudo de novo
 self.addEventListener('message', e => {
   if (e.data !== 'garantir-cache') return;
-  e.waitUntil(caches.open(CACHE).then(c => c.keys().then(ks => (ks.length < ARQUIVOS.length ? c.addAll(ARQUIVOS) : null))).catch(() => {}));
+  e.waitUntil(caches.open(CACHE).then(c => c.keys().then(ks => (ks.length < ARQUIVOS.length ? c.addAll(ARQUIVOS.map(novo)) : null))).catch(() => {}));
 });
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);

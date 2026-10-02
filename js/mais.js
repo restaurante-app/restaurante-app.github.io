@@ -38,6 +38,7 @@
         tile('mesas/totais', 'relatorio', 'verde', 'Totais do dia', P.brl0(tot.fechado) + ' vendido'),
         tile('mesas/hoje', 'check', 'verde', 'Contas fechadas', fechadas + (fechadas === 1 ? ' hoje' : ' hoje')),
         tile('mesas/fiado', 'fiado', 'vermelho', 'Fiado', fiado ? P.brl0(fiado) + ' a receber' : 'ninguém devendo', fiado ? 't-amarelo' : null),
+        tile('calendario', 'calendario', 'laranja', 'Calendário', 'compras e despesas de cada dia'),
         tile('mesas/despesas', 'caixa', 'laranja', 'Despesas', despHoje ? P.brl0(despHoje) + ' hoje' : 'gás, carvão, embalagem'),
         tile('compras/pagar', 'prazo', 'amarelo', 'A pagar', aPagar ? P.brl0(aPagar) + ' a fornecedores' : 'nada pendente', aPagar ? 't-amarelo' : null),
         tile('precos', 'preco', 'roxo', 'Preços de compra', velhos ? velhos + ' desatualizados' : 'tudo em dia', velhos ? 't-amarelo' : null)));
