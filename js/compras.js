@@ -19,6 +19,7 @@
   //  Dados
   // ---------------------------------------------------------------
   let cache = { v: -1 };
+  let diaLista = null; // dia aberto em Compras: a compra nova nasce nesse dia
   function idx() {
     if (cache.v === P.Store.versao) return cache;
     const itens = new Map();
@@ -58,7 +59,7 @@
     const agora = P.agoraISO();
     const ant = idExistente ? P.Store.get('compras', idExistente) : null;
     const id = ant ? ant.id : P.uuid();
-    const dia = ant ? ant.dia_operacional : P.Dia.diaOperacional(agora);
+    const dia = d.dia || (ant ? ant.dia_operacional : P.Dia.diaOperacional(agora));
     if (ant) itensDe(id).forEach(l => P.Store.remove('compra_itens', l.id));
     const total = P.round(d.linhas.reduce((s, l) => s + (+l.valor || 0), 0), 2);
     const criado = ant ? ant.criado_em : agora;
@@ -76,14 +77,12 @@
       quantidade: P.round(l.quantidade, 3), unidade: l.unidade, preco_unit: P.round(l.preco_unit, 4), valor: P.round(l.valor, 2), ordem: i,
     }));
     // preço vivo: preço médio pago em cada insumo desta compra vira o preço do insumo
-    // (ao editar compra antiga, não passa por cima de um preço de compra mais nova)
+    // (compra de dia passado ou editada não passa por cima do preço de uma compra mais nova)
     const maisNova = new Set();
-    if (ant) {
-      P.Store.all('compras').forEach(c => {
-        if (c.id === id || c.criado_em <= criado) return;
-        itensDe(c.id).forEach(l => { if (l.insumo_id) maisNova.add(l.insumo_id); });
-      });
-    }
+    P.Store.all('compras').forEach(c => {
+      if (c.id === id || c.dia_operacional < dia || (c.dia_operacional === dia && c.criado_em <= criado)) return;
+      itensDe(c.id).forEach(l => { if (l.insumo_id) maisNova.add(l.insumo_id); });
+    });
     const porInsumo = new Map();
     d.linhas.forEach(l => {
       if (!l.insumo_id || !(l.quantidade > 0) || maisNova.has(l.insumo_id)) return;
@@ -372,6 +371,7 @@
   // ---------------------------------------------------------------
   const INSTRUCAO_CLAUDE = 'Leia esta nota de compra e responda SÓ com um bloco de código, sem comentários, neste formato:\n' +
     'Fornecedor: nome da loja\n' +
+    'Data: dia da compra (dd/mm/aaaa)\n' +
     'Pagamento: Dinheiro, Pix, Cartão ou A prazo (deixe vazio se a nota não diz)\n' +
     'Total: valor total da nota\n' +
     'descrição | quantidade | unidade | valor unitário | valor total\n' +
@@ -383,6 +383,17 @@
     return isFinite(v) ? v : NaN;
   };
   const formaDoTexto = t => (/pix/i.test(t) ? 'PIX' : /dinheiro|esp[eé]cie/i.test(t) ? 'DINHEIRO' : /prazo|boleto|fiado/i.test(t) ? 'PRAZO' : /cart|d[eé]bito|cr[eé]dito/i.test(t) ? 'CARTAO' : '');
+  // "01/10/2026" → dia operacional (domingo conta como segunda); sem ano = este ano; futuro não vale
+  function diaDoTexto(dd, mm, aa) {
+    const hoje = P.Dia.hoje();
+    const ano = !aa ? hoje.slice(0, 4) : aa.length === 2 ? '20' + aa : aa;
+    const pad = x => String(x).padStart(2, '0');
+    const dt = new Date(+ano, +mm - 1, +dd);
+    if (dt.getMonth() !== +mm - 1 || dt.getDate() !== +dd) return null;
+    let iso = ano + '-' + pad(mm) + '-' + pad(dd);
+    if (dt.getDay() === 0) iso = P.Dia.somaDias(iso, 1);
+    return iso <= hoje ? iso : null;
+  }
   function lerTextoNota(txt) {
     const nota = { fornecedor: '', forma: '', total: 0, desconto: 0, chave: null, itens: [], ruins: [] };
     String(txt || '').split(/\r?\n/).forEach(bruta => {
@@ -391,6 +402,7 @@
       let m;
       if ((m = lin.match(/^\**\s*(fornecedor|loja|emitente)\s*\**\s*:\s*(.*)$/i))) { nota.fornecedor = m[2].replace(/\*/g, '').trim(); return; }
       if ((m = lin.match(/^\**\s*(pagamento|forma(?: de pagamento)?)\s*\**\s*:\s*(.*)$/i))) { nota.forma = formaDoTexto(m[2]); return; }
+      if ((m = lin.match(/^\**\s*(data|dia|emiss[aã]o)\s*\**\s*:\s*(\d{1,2})[/.-](\d{1,2})(?:[/.-](\d{2,4}))?/i))) { nota.dia = diaDoTexto(m[2], m[3], m[4]); return; }
       if ((m = lin.match(/^\**\s*(total|valor total|valor a pagar)\s*\**\s*:\s*(.*)$/i))) { nota.total = numBR(m[2]) || 0; return; }
       if (!/[|;\t]/.test(lin)) return;
       const c = lin.replace(/^\|/, '').replace(/\|$/, '').split(/\s*[|;\t]\s*/).map(x => x.trim());
@@ -420,6 +432,7 @@
         const partes = [];
         if (n.itens.length) {
           partes.push(h('b', null, n.itens.length + (n.itens.length === 1 ? ' item' : ' itens') + ' · ' + P.brl(soma)));
+          if (n.dia) partes.push(h('span', null, ' · dia ' + P.Dia.rotulo(n.dia)));
           if (n.total > 0) partes.push(Math.abs(n.total - soma) < 0.05 ? h('span', { class: 't-verde' }, ' ✓ confere com o total da nota') : h('span', { class: 't-amarelo' }, ' — nota diz ' + P.brl(n.total)));
         } else if (ta.value.trim()) partes.push(h('span', { class: 't-amarelo' }, 'Nenhum item reconhecido. Cole a resposta do Claude inteira.'));
         if (n.ruins.length) partes.push(h('div', { class: 't-amarelo' }, n.ruins.length + ' linha(s) não entendida(s): ' + n.ruins.slice(0, 2).join(' / ')));
@@ -577,7 +590,8 @@
   // ---------------------------------------------------------------
   function telaCompras(view) {
     view.className = 'v-compras';
-    let dia = P.Dia.hoje();
+    let dia = diaLista && diaLista <= P.Dia.hoje() ? diaLista : P.Dia.hoje();
+    diaLista = dia;
     const corpo = h('div');
     // a busca fica fora do "corpo" para não perder o que foi digitado quando a tela atualiza sozinha
     const inBusca = h('input', { class: 'campo cp-busca-in', type: 'search', placeholder: 'Buscar compra: fornecedor ou produto', autocomplete: 'off', enterkeyhint: 'search' });
@@ -607,7 +621,7 @@
       const q = inBusca.value.trim();
       bLimpa.style.visibility = q ? 'visible' : 'hidden';
       if (q.length >= 2) { desenharBusca(q); return; }
-      corpo.appendChild(navDia(dia, d => { dia = d; desenhar(); }));
+      corpo.appendChild(navDia(dia, d => { dia = diaLista = d; desenhar(); }));
       if (P.Auth.isDono()) corpo.appendChild(cardResultado(dia));
       const cs = doDia(dia);
       const total = cs.reduce((s, c) => s + (+c.total || 0), 0);
@@ -624,7 +638,7 @@
         // atalhos para os últimos dias que tiveram compra
         const dias = [...new Set(P.Store.all('compras').map(c => c.dia_operacional))].filter(x => x !== dia).sort().reverse().slice(0, 6);
         if (dias.length) corpo.appendChild(h('div', { class: 'cp-dias' }, h('small', null, 'Dias com compra:'),
-          h('div', { class: 'chips' }, dias.map(x => h('button', { type: 'button', class: 'chip', onClick: () => { dia = x; desenhar(); } }, P.Dia.rotulo(x))))));
+          h('div', { class: 'chips' }, dias.map(x => h('button', { type: 'button', class: 'chip', onClick: () => { dia = diaLista = x; desenhar(); } }, P.Dia.rotulo(x))))));
         return;
       }
       corpo.appendChild(h('div', { class: 'secao' }, 'Compras'));
@@ -728,6 +742,7 @@
     const d = {
       fornecedor: ant ? ant.fornecedor || '' : '',
       forma: ant ? ant.forma : 'DINHEIRO',
+      dia: ant ? ant.dia_operacional : diaLista && diaLista <= P.Dia.hoje() ? diaLista : P.Dia.hoje(),
       obs: ant ? ant.obs || null : null,
       linhas: ant ? itensDe(ant.id).map(l => ({ insumo_id: l.insumo_id, descricao: l.descricao, quantidade: +l.quantidade, unidade: l.unidade, preco_unit: +l.preco_unit, valor: +l.valor })) : [],
     };
@@ -740,6 +755,16 @@
     let totalNota = null;
     const mkSegForma = () => P.UI.seg(FORMAS, d.forma, v => { d.forma = v; }, 'seg-p');
     let segForma = mkSegForma();
+    const bDia = h('button', { type: 'button', class: 'btn bloco cp-dia-f', onClick: () => calendario(d.dia, mudaDia) });
+    const tDia = h('small');
+    function mudaDia(iso) {
+      d.dia = iso;
+      const hoje = d.dia === P.Dia.hoje();
+      bDia.replaceChildren(P.UI.icone('calendario'), h('span', null, (hoje ? 'Hoje · ' : '') + P.Dia.rotulo(d.dia) + '/' + d.dia.slice(0, 4)), h('small', null, 'trocar ▾'));
+      bDia.classList.toggle('passado', !hoje);
+      tDia.textContent = P.Dia.rotulo(d.dia);
+    }
+    mudaDia(d.dia);
 
     function desenharLinhas() {
       elLinhas.innerHTML = '';
@@ -847,6 +872,7 @@
       const ja = nota.chave && P.Store.all('compras').find(c => c.obs && c.obs.includes(nota.chave) && c.id !== (ant && ant.id));
       if (ja && !(await P.UI.confirmar('Essa nota já foi lançada em ' + P.Dia.rotuloCurto(ja.dia_operacional) + ' (' + P.brl(ja.total) + '). Lançar de novo?', { ok: 'Lançar de novo' }))) return;
       if (nota.fornecedor && !d.fornecedor.trim()) { d.fornecedor = nota.fornecedor; inForn.value = d.fornecedor; }
+      if (nota.dia && nota.dia !== d.dia) mudaDia(nota.dia);
       if (nota.forma && nota.forma !== d.forma) { d.forma = nota.forma; const s2 = mkSegForma(); segForma.replaceWith(s2); segForma = s2; }
       if (nota.chave) d.obs = [d.obs, 'NFC-e ' + nota.chave].filter(Boolean).join(' · ');
       d.linhas = d.linhas.concat(linhasDaNota(nota));
@@ -869,6 +895,7 @@
       if (!d.linhas.length) return;
       lembrarProdutos();
       const r = salvar(d, ant && ant.id);
+      diaLista = r.compra.dia_operacional;
       P.vibrar([20, 40, 20]);
       // mostra o resultado depois que a lista de compras abrir (trocar de tela fecha as folhas)
       const aoTrocar = () => { window.removeEventListener('hashchange', aoTrocar); setTimeout(() => mostrarResultado(r), 0); };
@@ -879,11 +906,12 @@
     view.append(
       voltar(ant ? '#/compras/c/' + ant.id : '#/compras', ant ? 'Compra' : 'Compras'),
       h('div', { class: 'form' },
-        h('div', { class: 'form-tit' }, ant ? 'Editar compra' : 'Lançar compra', h('small', null, ant ? P.Dia.rotulo(ant.dia_operacional) : P.Dia.rotulo(P.Dia.hoje()))),
+        h('div', { class: 'form-tit' }, ant ? 'Editar compra' : 'Lançar compra', tDia),
         ant ? null : h('div', { class: 'row gap cp-novas' },
           h('button', { type: 'button', class: 'btn grow', onClick: usarColar }, P.UI.icone('lapis'), 'Colar itens'),
           h('button', { type: 'button', class: 'btn grow', onClick: usarLeitor }, P.UI.icone('camera'), 'Ler QR')),
         elAviso,
+        h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'Dia da compra'), bDia),
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'De quem'), inForn, chipsForn),
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'Itens'), elLinhas,
           h('button', { type: 'button', class: 'btn bloco cp-add', onClick: adicionar }, P.UI.icone('mais'), 'Adicionar item')),

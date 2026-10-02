@@ -843,6 +843,10 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 .campo-l { display: flex; flex-direction: column; gap: 8px; }
 .campo-r { font-size: .6rem; font-weight: 800; color: var(--tx3); text-transform: uppercase; letter-spacing: .12em; }
 .campo-l .seg { margin-bottom: 0; }
+.cp-dia-f { justify-content: flex-start; gap: 10px; font-weight: 700; }
+.cp-dia-f svg { flex: 0 0 auto; }
+.cp-dia-f small { margin-left: auto; color: var(--tx3); font-weight: 600; }
+.cp-dia-f.passado { border-color: var(--st-atencao); color: var(--tx-atencao); }
 .campo-d { color: var(--tx3); font-size: .7rem; line-height: 1.45; }
 .form-info { font-size: .78rem; color: var(--tx2); border-radius: 14px; padding: 11px 13px; line-height: 1.5; }
 .ed-previa { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-radius: 18px; padding: 11px 13px; }
