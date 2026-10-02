@@ -69,8 +69,9 @@ com **ligar à ficha** — toque, escolha o insumo (ou "nenhum") e o app **lembr
 próximas notas. Nada é salvo sem tocar em *Salvar compra*; a mesma nota lançada duas vezes
 dá aviso. Nota sem QR Code (feira, açougue, escrita à mão) continua sendo digitada.
 Precisa de internet e da nuvem conectada (função `ler-qr` do Supabase — veja abaixo).
-**Achar compras antigas**: toque no dia (no topo de Compras) para abrir o **calendário** — os
-dias com compra aparecem marcados com o total; ou use a **busca** ("coca", "heineken", nome do
+**Achar compras antigas**: toque no dia (no topo de Compras, Despesas ou Fechadas) para abrir o
+**calendário** — cada dia mostra quanto saiu (compras + despesas) e o topo mostra compras e despesas
+do mês; o dia escolhido lista as compras e as despesas; ou use a **busca** ("coca", "heineken", nome do
 fornecedor), que procura em todas as compras pelo nome do produto como veio na nota.
 **A pagar**: compras a prazo por fornecedor, com "Paguei em…".
 **Resultado do dia ao vivo** (dono):

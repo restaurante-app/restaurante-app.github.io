@@ -511,7 +511,8 @@
     const hoje = P.Dia.hoje();
     return h('div', { class: 'lc-dia' },
       h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Dia anterior', onClick: () => onMuda(P.Dia.anterior(dia)) }, P.UI.icone('voltar')),
-      h('div', { class: 'lc-dia-t' }, dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), h('small', null, P.Dia.rotuloCurto(dia))),
+      h('button', { type: 'button', class: 'lc-dia-t cp-dia-cal', 'aria-label': 'Escolher o dia no calendário', onClick: () => P.Compras.calendario(dia, onMuda) },
+        dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), h('small', null, P.Dia.rotuloCurto(dia) + ' ▾')),
       h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo dia', disabled: dia >= hoje, onClick: () => onMuda(P.Dia.seguinte(dia)) }, P.UI.icone('avancar')));
   }
   function telaFechadas(view) {
