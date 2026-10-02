@@ -46,11 +46,13 @@ O dono vê no topo das Mesas: vendido hoje, em aberto nas mesas e o lucro do dia
 o total pago) e como pagou (Dinheiro, Pix, Cartão ou **A prazo**). Cada item de insumo
 **atualiza o preço da ficha técnica** e o app mostra na hora o efeito nos pratos
 ("Filé de frango saiu de 37% para 39%"). Item sem ficha (gelo, sacola) entra só no gasto.
-Ao editar uma compra antiga, o preço não passa por cima de uma compra mais nova.
+**Dia da compra**: a compra nasce no dia aberto em Compras (ou hoje); toque no dia no formulário
+para escolher outro no calendário (compra de ontem lançada hoje, por exemplo).
+Compra de dia passado ou editada não passa por cima do preço de uma compra mais nova.
 **Colar itens** (grátis, qualquer nota — até escrita à mão): em Compras → *Colar itens*,
 toque em "mensagem de pedido" para copiá-la, mande a foto da nota para o Claude (app ou
 claude.ai) junto com essa mensagem, copie a resposta e cole no app. O app confere a soma
-com o total da nota e preenche a compra (fardos em unidades, ligação às fichas). Não precisa
+com o total da nota e preenche a compra (uma linha `Data: 01/10/2026` lança no dia certo) (fardos em unidades, ligação às fichas). Não precisa
 de internet nem de Supabase.
 **Ler nota** (grátis): em Compras, toque em *Ler nota* e aponte a câmera para o **QR Code**
 do cupom fiscal (NFC-e) — lê sozinho, como app de banco (leitor ZXing em WebAssembly,
