@@ -133,12 +133,14 @@
         dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), h('small', null, P.Dia.rotuloCurto(dia) + ' ▾')),
       h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo dia', disabled: dia >= hoje, onClick: () => onMuda(P.Dia.seguinte(dia)) }, P.UI.icone('avancar')));
   }
-  // Calendário do mês: dias com compra marcados com o total; toque escolhe o dia
+  // Calendário do mês: cada dia mostra quanto saiu (compras + despesas); toque escolhe o dia
   function calendario(diaAtual, onEscolher) {
     const hoje = P.Dia.hoje();
     let mes = P.Dia.mes(diaAtual);
-    const totais = new Map();
-    P.Store.all('compras').forEach(c => totais.set(c.dia_operacional, (totais.get(c.dia_operacional) || 0) + (+c.total || 0)));
+    const totais = new Map(), soCompras = new Map();
+    const soma = (m, dia, v) => m.set(dia, (m.get(dia) || 0) + (+v || 0));
+    P.Store.all('compras').forEach(c => { soma(totais, c.dia_operacional, c.total); soma(soCompras, c.dia_operacional, c.total); });
+    P.Store.all('despesas').forEach(d => soma(totais, d.dia_operacional, d.valor));
     const corpo = h('div');
     const mudaMes = n => { const [y, m] = mes.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); mes = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); desenhar(); };
     function desenhar() {
@@ -148,12 +150,13 @@
       const ultimo = new Date(y, m, 0).getDate();
       const celulas = [];
       for (let i = 0; i < vazios; i++) celulas.push(h('span', { class: 'cal-d vazio' }));
-      let totMes = 0;
+      let totMes = 0, comprasMes = 0;
       for (let d = 1; d <= ultimo; d++) {
         const iso = mes + '-' + String(d).padStart(2, '0');
         const domingo = new Date(y, m - 1, d).getDay() === 0;
         const t = totais.get(iso) || 0;
         totMes += t;
+        comprasMes += soCompras.get(iso) || 0;
         celulas.push(h('button', {
           type: 'button', disabled: domingo || iso > hoje,
           class: 'cal-d' + (t ? ' com' : '') + (iso === diaAtual ? ' sel' : '') + (iso === hoje ? ' hoje' : ''),
@@ -163,7 +166,7 @@
       corpo.replaceChildren(
         h('div', { class: 'cal-top' },
           h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Mês anterior', onClick: () => mudaMes(-1) }, P.UI.icone('voltar')),
-          h('div', { class: 'cal-mes' }, P.Dia.rotuloMes(mes), h('small', null, totMes ? 'comprado no mês ' + P.brl(totMes) : 'nenhuma compra no mês')),
+          h('div', { class: 'cal-mes' }, P.Dia.rotuloMes(mes), h('small', null, totMes ? 'compras ' + P.brl(comprasMes) + ' · despesas ' + P.brl(totMes - comprasMes) : 'nada lançado no mês')),
           h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo mês', disabled: mes >= P.Dia.mes(hoje), onClick: () => mudaMes(1) }, P.UI.icone('avancar'))),
         h('div', { class: 'cal-grade' }, ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'].map(s => h('span', { class: 'cal-sem' }, s)), celulas),
         h('button', { type: 'button', class: 'btn bloco', onClick: () => { sh.fechar(); onEscolher(hoje); } }, 'Ir para hoje'));
@@ -625,15 +628,23 @@
       if (P.Auth.isDono()) corpo.appendChild(cardResultado(dia));
       const cs = doDia(dia);
       const total = cs.reduce((s, c) => s + (+c.total || 0), 0);
+      const ds = P.Store.all('despesas').filter(x => x.dia_operacional === dia).sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1));
+      const totDesp = ds.reduce((s, x) => s + (+x.valor || 0), 0);
       const devendo = aPagar().reduce((s, c) => s + (+c.total || 0), 0);
       corpo.appendChild(h('div', { class: 'fx-resumo' },
         h('div', { class: 'fx-tot' }, h('small', null, 'Comprado · ' + cs.length + (cs.length === 1 ? ' compra' : ' compras')), h('b', null, P.brl(total))),
+        h('a', { class: 'fx-formas link', href: '#/mesas/despesas' }, h('span', { class: 'fx-f' }, 'Despesas do dia ', h('b', null, P.brl(totDesp))), h('span', { class: 'fx-f' }, 'Saiu no dia ', h('b', null, P.brl(total + totDesp))), P.UI.icone('avancar')),
         devendo ? h('a', { class: 'fx-formas link', href: '#/compras/pagar' }, h('span', { class: 'fx-f' }, 'A pagar a fornecedores ', h('b', { class: 't-amarelo' }, P.brl(devendo))), P.UI.icone('avancar')) : null));
       corpo.appendChild(h('div', { class: 'row gap cp-novas' },
         h('button', { type: 'button', class: 'btn primario grow cp-nova', onClick: () => { fotoPendente = 'colar'; location.hash = '#/compras/nova'; } }, P.UI.icone('lapis'), 'Colar itens'),
         h('a', { class: 'btn grow cp-nova', href: '#/compras/nova' }, P.UI.icone('mais'), 'Digitar')));
       corpo.appendChild(h('button', { type: 'button', class: 'cp-galeria', onClick: () => { fotoPendente = 'leitor'; location.hash = '#/compras/nova'; } }, 'ou ler o QR Code do cupom'));
+      const elDesp = ds.length ? [h('div', { class: 'secao' }, 'Despesas · ' + P.brl(totDesp)),
+        h('div', { class: 'ms-lista' }, ds.map(x => h('a', { class: 'ms-card', href: '#/mesas/despesas' },
+          h('div', { class: 'ms-card-n' }, x.descricao || P.Mesas.NOME_DESP[x.categoria], h('small', null, P.Dia.hora(x.criado_em) + ' · ' + P.Mesas.NOME_DESP[x.categoria])),
+          h('div', { class: 'ms-card-d' }, h('b', null, P.brl(x.valor))))))] : [];
       if (!cs.length) {
+        corpo.append(...elDesp);
         corpo.appendChild(P.UI.vazio('Nenhuma compra neste dia. Cada compra atualiza o preço dos insumos e o custo dos pratos na hora.', 'compras'));
         // atalhos para os últimos dias que tiveram compra
         const dias = [...new Set(P.Store.all('compras').map(c => c.dia_operacional))].filter(x => x !== dia).sort().reverse().slice(0, 6);
@@ -643,6 +654,7 @@
       }
       corpo.appendChild(h('div', { class: 'secao' }, 'Compras'));
       corpo.appendChild(h('div', { class: 'ms-lista' }, cs.map(c => cardCompra(c, P.Dia.hora(c.criado_em) + ' · ' + resumoItens(c)))));
+      corpo.append(...elDesp);
     }
     view.append(subnavCompras('dia'), busca, corpo);
     desenhar();
@@ -1159,5 +1171,5 @@
   P.UI.rota('compras/pagar', { titulo: 'A pagar', tab: 'compras', render: telaPagar });
   P.UI.rota('compras/custos', { titulo: 'Custos', tab: 'compras', dono: true, render: telaCustos });
 
-  P.Compras = { itensDe, aPagar, doDia, salvar, pagar, custos, variacoes, NOME_FORMA, cardResultado };
+  P.Compras = { calendario, itensDe, aPagar, doDia, salvar, pagar, custos, variacoes, NOME_FORMA, cardResultado };
 })();
