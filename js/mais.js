@@ -24,7 +24,7 @@
       const fechadas = tot.nFechadas;
       const fiado = P.Mesas.fiadoAberto().reduce((s, p) => s + (+p.valor || 0), 0);
       const aPagar = P.Compras.aPagar().reduce((s, c) => s + (+c.total || 0), 0);
-      const despHoje = P.Store.all('despesas').filter(d => d.dia_operacional === hoje).reduce((s, d) => s + (+d.valor || 0), 0);
+      const despHoje = P.Store.all('despesas').filter(d => d.dia_operacional === hoje && P.Mesas.despVisivel(d)).reduce((s, d) => s + (+d.valor || 0), 0);
       const velhos = P.Store.all('insumos').filter(P.Calc.precoVelho).length;
       const passou = P.Fluxo.totais('PASSOU').dia;
 
@@ -39,7 +39,7 @@
         tile('mesas/hoje', 'check', 'verde', 'Contas fechadas', fechadas + (fechadas === 1 ? ' hoje' : ' hoje')),
         tile('mesas/fiado', 'fiado', 'vermelho', 'Fiado', fiado ? P.brl0(fiado) + ' a receber' : 'ninguém devendo', fiado ? 't-amarelo' : null),
         tile('calendario', 'calendario', 'laranja', 'Calendário', 'compras e despesas de cada dia'),
-        tile('mesas/despesas', 'caixa', 'laranja', 'Despesas', despHoje ? P.brl0(despHoje) + ' hoje' : 'gás, carvão, embalagem'),
+        tile('mesas/despesas', 'caixa', 'laranja', 'Despesas', despHoje ? P.brl0(despHoje) + ' hoje' : dono ? 'salários, aluguel, contas, gás…' : 'gás, carvão, embalagem'),
         tile('compras/pagar', 'prazo', 'amarelo', 'A pagar', aPagar ? P.brl0(aPagar) + ' a fornecedores' : 'nada pendente', aPagar ? 't-amarelo' : null),
         tile('precos', 'preco', 'roxo', 'Preços de compra', velhos ? velhos + ' desatualizados' : 'tudo em dia', velhos ? 't-amarelo' : null)));
 

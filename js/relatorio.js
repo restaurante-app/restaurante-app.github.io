@@ -35,7 +35,7 @@
     const r = {
       dias, fatBruto: 0, desconto: 0, cmv: 0, qtd: 0,
       porItem: new Map(), porHora: new Map(), porCanal: {}, porForma: {}, recebidoFiado: {}, linhasCsv: [],
-      fechadas, canceladas, despesas, merc: 0, outras: 0, diasMov: new Set(),
+      fechadas, canceladas, despesas, merc: 0, outras: 0, fixoPago: 0, diasMov: new Set(),
     };
     CANAIS.forEach(k => { r.porCanal[k] = { fat: 0, cmv: 0, contas: 0, totContas: 0 }; });
     FORMAS.forEach(f => { r.porForma[f] = 0; r.recebidoFiado[f] = 0; });
@@ -78,7 +78,11 @@
     P.Store.all('pagamentos').forEach(p => {
       if (p.forma === 'FIADO' && p.recebido_em && set.has(p.recebido_dia)) r.recebidoFiado[p.recebido_forma] = (r.recebidoFiado[p.recebido_forma] || 0) + (+p.valor || 0);
     });
-    despesas.forEach(d => { if (d.categoria === 'MERCADORIA') r.merc += +d.valor || 0; else r.outras += +d.valor || 0; });
+    despesas.forEach(d => {
+      if (d.categoria === 'MERCADORIA') r.merc += +d.valor || 0;
+      else if (P.Mesas.DESP_FIXA.has(d.categoria)) r.fixoPago += +d.valor || 0; // no lucro entra o custo fixo rateado
+      else r.outras += +d.valor || 0;
+    });
     // compras de mercadoria: feitas no período (custo) e pagas no período (caixa)
     r.compras = P.Store.all('compras').filter(c => set.has(c.dia_operacional)).sort((a, b) => (a.criado_em < b.criado_em ? -1 : 1));
     r.comprasTotal = r.compras.reduce((s, c) => s + (+c.total || 0), 0);
@@ -104,7 +108,7 @@
     r.lucroBruto = r.fat - r.cmv;
     r.lucro = r.lucroBruto - r.outras - r.fixo;
     r.entradas = ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].reduce((s, f) => s + r.porForma[f] + (r.recebidoFiado[f] || 0), 0);
-    r.saidas = r.comprasPagas + r.merc + r.outras;
+    r.saidas = r.comprasPagas + r.merc + r.outras + r.fixoPago;
     r.gastoMercadoria = r.comprasTotal + r.merc;
     r.ticket = fechadas.length ? fechadas.reduce((s, c) => s + (+c.total || 0), 0) / fechadas.length : null;
     r.fiadoEmAberto = P.Mesas.fiadoAberto().reduce((s, p) => s + (+p.valor || 0), 0);
@@ -166,7 +170,7 @@
         linhaV('= Faturamento líquido', P.brl(r.fat), 'forte'),
         linhaV('(−) Custo do que foi vendido (fichas)', P.brl(r.cmv)),
         linhaV('= Lucro bruto', P.brl(r.lucroBruto), 'forte'),
-        linhaV('(−) Despesas (gás, embalagem, limpeza…)', P.brl(r.outras)),
+        linhaV('(−) Despesas (gás, embalagem, limpeza, manutenção…)', P.brl(r.outras)),
         linhaV('(−) Custo fixo rateado (' + r.diasMov.size + (r.diasMov.size === 1 ? ' dia' : ' dias') + ')', P.brl(r.fixo)),
         linhaV(r.lucro >= 0 ? '= Lucro' : '= Prejuízo', P.brl(r.lucro), 'total ' + (r.lucro >= 0 ? 't-verde' : 't-vermelho')),
         r.gastoMercadoria ? linhaV('Compras × custo do vendido: ' + (r.gastoMercadoria - r.cmv >= 0 ? 'comprou ' + P.brl(r.gastoMercadoria - r.cmv) + ' a mais (estoque ou perda)' : 'usou ' + P.brl(r.cmv - r.gastoMercadoria) + ' de estoque'), '', 'nota') : null));
@@ -176,6 +180,7 @@
         linhaV('= Entradas', P.brl(r.entradas), 'forte'),
         linhaV('(−) Compras pagas', P.brl(r.comprasPagas + r.merc)),
         linhaV('(−) Despesas', P.brl(r.outras)),
+        r.fixoPago ? linhaV('(−) Fixos pagos (salários, aluguel, contas, impostos)', P.brl(r.fixoPago)) : null,
         linhaV('= Saldo de caixa do período', P.brl(r.entradas - r.saidas), 'total ' + (r.entradas - r.saidas >= 0 ? 't-verde' : 't-vermelho')),
         r.porForma.FIADO ? linhaV('Vendido no fiado neste período (a receber)', P.brl(r.porForma.FIADO), 'aviso') : null,
         r.comprasAPrazo ? linhaV('Comprado a prazo neste período (a pagar)', P.brl(r.comprasAPrazo), 'aviso') : null));
@@ -242,7 +247,7 @@
         corpo.appendChild(secao('Despesas',
           h('div', { class: 'ms-lista' }, r.despesas.map(d => h('div', { class: 'ms-card' },
             h('div', { class: 'ms-card-n' }, d.descricao || P.Mesas.NOME_DESP[d.categoria],
-              h('small', null, (dias.length > 1 ? P.Dia.rotuloCurto(d.dia_operacional) + ' · ' : '') + P.Dia.hora(d.criado_em) + ' · ' + P.Mesas.NOME_DESP[d.categoria])),
+              h('small', null, (dias.length > 1 ? P.Dia.rotuloCurto(d.dia_operacional) + ' · ' : '') + P.Dia.hora(d.criado_em) + ' · ' + P.Mesas.subDesp(d))),
             h('b', null, P.brl(d.valor)))))));
       }
 
@@ -270,7 +275,7 @@
             const linhas = [];
             r.compras.forEach(c => P.Compras.itensDe(c.id).forEach(l => linhas.push([c.dia_operacional, fmtDataHora(c.criado_em), 'Compra', c.fornecedor || '',
               l.descricao, num(l.quantidade, 3), l.unidade, num(l.preco_unit, 4), num(l.valor), P.Compras.NOME_FORMA[c.forma] || c.forma, c.pago_em ? 'sim' : 'não'])));
-            r.despesas.forEach(d => linhas.push([d.dia_operacional, fmtDataHora(d.criado_em), 'Despesa · ' + P.Mesas.NOME_DESP[d.categoria], '', d.descricao || '', '', '', '', num(d.valor), '', 'sim']));
+            r.despesas.forEach(d => linhas.push([d.dia_operacional, fmtDataHora(d.criado_em), 'Despesa · ' + P.Mesas.NOME_DESP[d.categoria], '', d.descricao || '', '', '', '', num(d.valor), P.Mesas.NOME_FORMA_DESP[d.forma] || '', 'sim']));
             P.UI.baixar('gastos_' + nomeArq + '.csv', csv(['dia_operacional', 'data_hora', 'tipo', 'fornecedor', 'item', 'quantidade', 'unidade', 'preco_unit', 'valor', 'forma', 'pago'], linhas), 'text/csv;charset=utf-8');
           } }, P.UI.icone('download'), 'Compras e gastos'),
           h('button', { type: 'button', class: 'btn', onClick: () => window.print() }, 'Imprimir'))));

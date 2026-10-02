@@ -37,7 +37,11 @@ saem. Cada item fica com o horário. O total é automático. Em *Fechar conta* e
 forma (Dinheiro, Pix, Débito, Crédito, Fiado); dá para dividir e calcular troco.
 *Venda rápida* é para o balcão (sem mesa). *Marmita* abre comanda no canal marmita.
 Abas: **Fechadas** (contas do dia), **Totais do dia** (automático: itens e valores
-somados das comandas, nada é digitado), **Despesas** (gás, carvão, embalagem, limpeza),
+somados das comandas, nada é digitado), **Despesas** (gás, carvão, embalagem, limpeza, manutenção; o dono lança também funcionários,
+aluguel, luz/água/internet e impostos), cada uma com a **forma de pagamento** (Dinheiro, Pix, Cartão, Boleto);
+toque numa despesa para editar; **Do mês** mostra o total por tipo e por forma e a lista do mês.
+Salários, aluguel, contas e impostos lançados contam no **caixa**; no lucro entra o custo fixo de
+Ajustes (assim não conta duas vezes). O operador não vê essas despesas,
 **Fiado** (quem deve, com "Recebi em…").
 Item tirado de uma comanda e conta cancelada ficam registrados com quem fez.
 O dono vê no topo das Mesas: vendido hoje, em aberto nas mesas e o lucro do dia.

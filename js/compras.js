@@ -141,7 +141,7 @@
     const totais = new Map(), soCompras = new Map();
     const soma = (m, dia, v) => m.set(dia, (m.get(dia) || 0) + (+v || 0));
     P.Store.all('compras').forEach(c => { soma(totais, c.dia_operacional, c.total); soma(soCompras, c.dia_operacional, c.total); });
-    P.Store.all('despesas').forEach(d => soma(totais, d.dia_operacional, d.valor));
+    P.Store.all('despesas').forEach(d => { if (P.Mesas.despVisivel(d)) soma(totais, d.dia_operacional, d.valor); });
     const corpo = h('div');
     const mudaMes = n => { const [y, m] = mes.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); mes = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); desenhar(); };
     function desenhar() {
@@ -629,7 +629,7 @@
       if (P.Auth.isDono()) corpo.appendChild(cardResultado(dia));
       const cs = doDia(dia);
       const total = cs.reduce((s, c) => s + (+c.total || 0), 0);
-      const ds = P.Store.all('despesas').filter(x => x.dia_operacional === dia).sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1));
+      const ds = P.Store.all('despesas').filter(x => x.dia_operacional === dia && P.Mesas.despVisivel(x)).sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1));
       const totDesp = ds.reduce((s, x) => s + (+x.valor || 0), 0);
       const devendo = aPagar().reduce((s, c) => s + (+c.total || 0), 0);
       corpo.appendChild(h('div', { class: 'fx-resumo' },
@@ -642,7 +642,7 @@
       corpo.appendChild(h('button', { type: 'button', class: 'cp-galeria', onClick: () => { fotoPendente = 'leitor'; location.hash = '#/compras/nova'; } }, 'ou ler o QR Code do cupom'));
       const elDesp = ds.length ? [h('div', { class: 'secao' }, 'Despesas · ' + P.brl(totDesp)),
         h('div', { class: 'ms-lista' }, ds.map(x => h('a', { class: 'ms-card', href: '#/mesas/despesas' },
-          h('div', { class: 'ms-card-n' }, x.descricao || P.Mesas.NOME_DESP[x.categoria], h('small', null, P.Dia.hora(x.criado_em) + ' · ' + P.Mesas.NOME_DESP[x.categoria])),
+          h('div', { class: 'ms-card-n' }, x.descricao || P.Mesas.NOME_DESP[x.categoria], h('small', null, P.Dia.hora(x.criado_em) + ' · ' + P.Mesas.subDesp(x))),
           h('div', { class: 'ms-card-d' }, h('b', null, P.brl(x.valor))))))] : [];
       if (!cs.length) {
         corpo.append(...elDesp);

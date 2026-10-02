@@ -26,7 +26,7 @@
     const set = new Set(dias);
     const I = P.Calc.idx();
     const r = {
-      fat: 0, cmv: 0, desconto: 0, mercadoria: 0, compras: 0, nCompras: 0, outras: 0, espetos: 0, comandas: 0,
+      fat: 0, cmv: 0, desconto: 0, mercadoria: 0, compras: 0, nCompras: 0, outras: 0, fixoPago: 0, espetos: 0, comandas: 0,
       entrou: 0, saiu: 0, dias: new Set(), canal: {},
     };
     CANAIS.forEach(c => { r.canal[c] = { fat: 0, cmv: 0, bebidas: 0, pratos: 0, itens: 0, comandas: 0, comBebida: 0 }; });
@@ -58,7 +58,9 @@
     });
     P.Store.all('despesas').forEach(d => {
       if (!set.has(d.dia_operacional)) return;
-      if (d.categoria === 'MERCADORIA') r.mercadoria += +d.valor || 0; else r.outras += +d.valor || 0;
+      if (d.categoria === 'MERCADORIA') r.mercadoria += +d.valor || 0;
+      else if (P.Mesas.DESP_FIXA.has(d.categoria)) r.fixoPago += +d.valor || 0; // já está no custo fixo rateado
+      else r.outras += +d.valor || 0;
       r.saiu += +d.valor || 0;
     });
     P.Store.all('compras').forEach(c => {

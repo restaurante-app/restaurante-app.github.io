@@ -843,6 +843,13 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 .campo-l { display: flex; flex-direction: column; gap: 8px; }
 .campo-r { font-size: .6rem; font-weight: 800; color: var(--tx3); text-transform: uppercase; letter-spacing: .12em; }
 .campo-l .seg { margin-bottom: 0; }
+.ds-novas { margin: 12px 0; }
+.ds-card { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 12px; border: 0; background: none; padding: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+.ds-card .ms-card-n { flex: 1 1 auto; min-width: 0; }
+.ds-barras { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.ds-barra { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: baseline; font-variant-numeric: tabular-nums; }
+.ds-barra-n { min-width: 0; color: var(--tx2); font-weight: 600; }
+.ds-barra-f { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--brasa); min-width: 2px; }
 .cp-dia-f { justify-content: flex-start; gap: 10px; font-weight: 700; }
 .cp-dia-f svg { flex: 0 0 auto; }
 .cp-dia-f small { margin-left: auto; color: var(--tx3); font-weight: 600; }
