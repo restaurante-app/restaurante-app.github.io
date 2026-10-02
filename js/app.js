@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   const P = window.P;
-  P.VERSAO = '1.3.0';
+  P.VERSAO = '1.4.0';
 
   function comTempo(promessa, ms) {
     return Promise.race([promessa, new Promise(res => setTimeout(() => res(false), ms))]);
@@ -26,7 +26,13 @@
 
     const semSW = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && localStorage.getItem('pari.sw') !== '1';
     if ('serviceWorker' in navigator && location.protocol !== 'file:' && !semSW) {
-      navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW', e));
+      // versão nova publicada: procura ao abrir e ao voltar para o app; quando ela assume, recarrega uma vez
+      const tinhaVersao = !!navigator.serviceWorker.controller;
+      let recarregou = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (tinhaVersao && !recarregou) { recarregou = true; location.reload(); } });
+      navigator.serviceWorker.register('sw.js').then(reg => {
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+      }).catch(e => console.warn('SW', e));
       // o endereço é dividido com outros apps que limpam caches: refaz o nosso se sumir
       const garantir = () => navigator.serviceWorker.ready.then(r => { if (r.active) r.active.postMessage('garantir-cache'); }).catch(() => {});
       garantir();
