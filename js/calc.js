@@ -77,7 +77,9 @@
   function montar(item, bruto, perda, preco) {
     const cmv = bruto * (1 + (+perda || 0) / 100);
     const fc = preco > 0 ? cmv / preco * 100 : null;
-    return { item, bruto, perda: +perda || 0, cmv, preco, fc, margem: preco > 0 ? preco - cmv : null, faixa: faixa(fc) };
+    // sem ficha (nenhum componente com custo): não tem como saber o food cost — fica sem faixa
+    const semFicha = !(bruto > 0);
+    return { item, bruto, perda: +perda || 0, cmv, preco, fc, margem: preco > 0 ? preco - cmv : null, faixa: semFicha ? 'na' : faixa(fc), semFicha };
   }
 
   // ficha de um item salvo

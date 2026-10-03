@@ -88,6 +88,19 @@ fornecedor), que procura em todas as compras pelo nome do produto como veio na n
 (peso bruto, com fator de correção e perda). Sobra grande que se repete = desperdício,
 porção maior que a ficha ou venda sem comanda. Mostra também os preços que mudaram.
 
+**Análise de compras** (dono; Compras → *Análise* ou Mais → *Análise de compras*) — recalcula sozinha
+a cada compra ou venda. Três partes, para a semana, 30 dias ou 3 meses:
+- *Alertas*: preço acima do que costuma pagar pelo mesmo produto (mediana das compras dos últimos 120 dias;
+  15% = atenção, 30% = confira já, com o fornecedor que vendeu mais barato), preço muito abaixo (erro de
+  digitação?), quantidade 2,5× acima do costume, mesma compra lançada duas vezes, comprado bem acima do que
+  as vendas usaram pela ficha (sobra/perda) e compras sem ligação com ficha. "Está certo" esconde o alerta.
+  Logo depois de salvar uma compra, o que estiver fora do normal já aparece.
+- *Compras × vendas*: vendas, compras (% das vendas, meta de food cost), custo pela ficha, semana a semana
+  e o que mais comprou, com a variação de preço e quantidade sobre o período anterior.
+- *Pratos*: compensa (custo até 35% do preço), no limite (até 40%), não compensa ou sem ficha; quanto
+  vendeu e quanto deixou, se o custo subiu com as últimas compras, o preço (ou a porção) para voltar a 35%
+  e se vende bem / ganha bem comparado com os outros da categoria.
+
 **Fluxo** — só a passagem é contada à mão: botão +1 gigante para **PASSOU**, faixa de
 hora automática, fecha sozinho na virada da hora, retoma se o app fechar.
 **COMPROU é automático**: cada comanda com item conta como uma compra, na hora em que

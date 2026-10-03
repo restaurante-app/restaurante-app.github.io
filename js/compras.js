@@ -122,7 +122,10 @@
       { id: 'dia', rota: 'compras', rotulo: 'Compras do dia' },
       { id: 'pagar', rota: 'compras/pagar', rotulo: 'A pagar', badge: n || null },
     ];
-    if (P.Auth.isDono()) itens.push({ id: 'custos', rota: 'compras/custos', rotulo: 'Custos' });
+    if (P.Auth.isDono()) {
+      itens.push({ id: 'custos', rota: 'compras/custos', rotulo: 'Custos' });
+      itens.push({ id: 'analise', rota: 'compras/analise', rotulo: 'Análise', badge: (P.Analise && P.Analise.contar()) || null });
+    }
     return P.UI.subnav(itens, ativo);
   }
   function voltar(href, rot) { return h('a', { class: 'voltar', href }, P.UI.icone('voltar'), rot || 'Voltar'); }
@@ -941,6 +944,13 @@
   // Depois de salvar: o que mudou de preço e o efeito nos pratos
   function mostrarResultado(r) {
     const partes = [];
+    // o que nesta compra está fora do normal (preço, quantidade, compra repetida)
+    const fora = P.Analise ? P.Analise.daCompra(r.compra.id) : [];
+    if (fora.length) {
+      partes.push(h('div', { class: 'secao' }, 'Confira'));
+      fora.forEach(a => partes.push(h('div', { class: 'banner ' + (a.nivel === 'alto' ? 'perigo' : 'aviso') }, P.UI.icone('alerta'),
+        h('span', { class: 'banner-t' }, h('b', null, a.titulo), h('br'), a.texto))));
+    }
     if (r.mudancas.length) {
       partes.push(h('div', { class: 'secao' }, 'Preços atualizados nas fichas'));
       partes.push(h('div', { class: 'rs-itens' }, r.mudancas.map(m => {
@@ -1173,5 +1183,5 @@
   P.UI.rota('compras/pagar', { titulo: 'A pagar', tab: 'compras', render: telaPagar });
   P.UI.rota('compras/custos', { titulo: 'Custos', tab: 'compras', dono: true, render: telaCustos });
 
-  P.Compras = { calendario, itensDe, aPagar, doDia, salvar, pagar, custos, variacoes, NOME_FORMA, cardResultado };
+  P.Compras = { subnav: subnavCompras, calendario, itensDe, aPagar, doDia, salvar, pagar, custos, variacoes, NOME_FORMA, cardResultado };
 })();

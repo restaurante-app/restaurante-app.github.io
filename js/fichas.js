@@ -107,6 +107,11 @@
         corpo.appendChild(banner('aviso', velhos.length + (velhos.length === 1 ? ' insumo com preço' : ' insumos com preço') +
           ' de mais de ' + cfg.dias_preco_velho + ' dias', 'Atualizar', '#/precos'));
       }
+      const semFicha = vend.filter(f => f.semFicha);
+      if (semFicha.length) {
+        corpo.appendChild(banner('aviso', semFicha.length + (semFicha.length === 1 ? ' item sem ficha técnica' : ' itens sem ficha técnica') +
+          ' (custo desconhecido)', 'Ver', '#/compras/analise'));
+      }
       const vermelhos = vend.filter(f => f.faixa === 'vermelho');
       if (vermelhos.length) {
         corpo.appendChild(banner('perigo', vermelhos.length + (vermelhos.length === 1 ? ' item' : ' itens') + ' acima de ' + cfg.vermelho_acima + '% de food cost'));
@@ -129,7 +134,7 @@
       vend.filter(f => cat === 'TODOS' || f.item.categoria === cat).forEach(f => lista.appendChild(
         h('a', { href: '#/fichas/item/' + f.item.id, class: 'mg-lin f-' + f.faixa, 'aria-label': f.item.nome + ': food cost ' + P.pct(f.fc) + ', margem ' + P.brl(f.margem) },
           h('div', { class: 'mg-nome' }, f.item.nome, h('small', null, CAT[f.item.categoria] || '')),
-          h('div', { class: 'mg-fc' }, P.pct(f.fc), h('small', null, 'food cost')),
+          h('div', { class: 'mg-fc' }, f.semFicha ? '—' : P.pct(f.fc), h('small', null, f.semFicha ? 'sem ficha' : 'food cost')),
           P.UI.medidor(f.fc / ESC, ST_F[f.faixa] || 'neutro', [cfg.verde_ate / ESC, cfg.vermelho_acima / ESC]),
           h('div', { class: 'mg-det' },
             h('span', null, 'CMV ', h('b', null, P.brl(f.cmv))),
