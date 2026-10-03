@@ -40,8 +40,9 @@ Abas: **Fechadas** (contas do dia), **Totais do dia** (automático: itens e valo
 somados das comandas, nada é digitado), **Despesas** (gás, carvão, embalagem, limpeza, manutenção; o dono lança também funcionários,
 aluguel, luz/água/internet e impostos), cada uma com a **forma de pagamento** (Dinheiro, Pix, Cartão, Boleto);
 toque numa despesa para editar; **Do mês** mostra o total por tipo e por forma e a lista do mês.
-Salários, aluguel, contas e impostos lançados contam no **caixa**; no lucro entra o custo fixo de
-Ajustes (assim não conta duas vezes). O operador não vê essas despesas,
+O **lucro** usa as despesas lançadas (salários, aluguel, contas e impostos entram no dia em que foram
+pagos). Os custos fixos de Ajustes ficam só como **base**: a projeção do mês usa a base enquanto os
+fixos do mês não forem lançados. O operador não vê essas despesas,
 **Fiado** (quem deve, com "Recebi em…").
 Item tirado de uma comanda e conta cancelada ficam registrados com quem fez.
 O dono vê no topo das Mesas: vendido hoje, em aberto nas mesas e o lucro do dia.
@@ -80,7 +81,7 @@ fornecedor), que procura em todas as compras pelo nome do produto como veio na n
 **A pagar**: compras a prazo por fornecedor, com "Paguei em…".
 **Resultado do dia ao vivo** (dono):
 
-    resultado = vendas − custo do que foi vendido (fichas) − despesas − custo fixo do dia
+    resultado = vendas − custo do que foi vendido (fichas) − despesas lançadas (inclusive fixos pagos)
     caixa     = recebido (sem fiado) − compras pagas − despesas
 
 **Custos** (dono): por insumo, quanto foi comprado × quanto as vendas usaram pela ficha

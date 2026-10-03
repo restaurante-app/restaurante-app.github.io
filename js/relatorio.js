@@ -80,8 +80,10 @@
     });
     despesas.forEach(d => {
       if (d.categoria === 'MERCADORIA') r.merc += +d.valor || 0;
-      else if (P.Mesas.DESP_FIXA.has(d.categoria)) r.fixoPago += +d.valor || 0; // no lucro entra o custo fixo rateado
-      else r.outras += +d.valor || 0;
+      else {
+        r.outras += +d.valor || 0;
+        if (P.Mesas.DESP_FIXA.has(d.categoria)) r.fixoPago += +d.valor || 0; // salários, aluguel, contas, impostos
+      }
     });
     // compras de mercadoria: feitas no período (custo) e pagas no período (caixa)
     r.compras = P.Store.all('compras').filter(c => set.has(c.dia_operacional)).sort((a, b) => (a.criado_em < b.criado_em ? -1 : 1));
@@ -104,11 +106,10 @@
     r.canceladasValor = canceladas.map(c => ({ c, quem: usu(c.cancelada_por), valor: M.subtotal(c.id) }));
 
     r.fat = r.fatBruto - r.desconto;
-    r.fixo = P.Painel.fixoMensal() / P.Painel.diasMes() * r.diasMov.size;
     r.lucroBruto = r.fat - r.cmv;
-    r.lucro = r.lucroBruto - r.outras - r.fixo;
+    r.lucro = r.lucroBruto - r.outras;
     r.entradas = ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].reduce((s, f) => s + r.porForma[f] + (r.recebidoFiado[f] || 0), 0);
-    r.saidas = r.comprasPagas + r.merc + r.outras + r.fixoPago;
+    r.saidas = r.comprasPagas + r.merc + r.outras;
     r.gastoMercadoria = r.comprasTotal + r.merc;
     r.ticket = fechadas.length ? fechadas.reduce((s, c) => s + (+c.total || 0), 0) / fechadas.length : null;
     r.fiadoEmAberto = P.Mesas.fiadoAberto().reduce((s, p) => s + (+p.valor || 0), 0);
@@ -170,8 +171,8 @@
         linhaV('= Faturamento líquido', P.brl(r.fat), 'forte'),
         linhaV('(−) Custo do que foi vendido (fichas)', P.brl(r.cmv)),
         linhaV('= Lucro bruto', P.brl(r.lucroBruto), 'forte'),
-        linhaV('(−) Despesas (gás, embalagem, limpeza, manutenção…)', P.brl(r.outras)),
-        linhaV('(−) Custo fixo rateado (' + r.diasMov.size + (r.diasMov.size === 1 ? ' dia' : ' dias') + ')', P.brl(r.fixo)),
+        linhaV('(−) Despesas (gás, embalagem, limpeza, manutenção…)', P.brl(r.outras - r.fixoPago)),
+        linhaV('(−) Salários, aluguel, contas e impostos lançados', P.brl(r.fixoPago)),
         linhaV(r.lucro >= 0 ? '= Lucro' : '= Prejuízo', P.brl(r.lucro), 'total ' + (r.lucro >= 0 ? 't-verde' : 't-vermelho')),
         r.gastoMercadoria ? linhaV('Compras × custo do vendido: ' + (r.gastoMercadoria - r.cmv >= 0 ? 'comprou ' + P.brl(r.gastoMercadoria - r.cmv) + ' a mais (estoque ou perda)' : 'usou ' + P.brl(r.cmv - r.gastoMercadoria) + ' de estoque'), '', 'nota') : null));
 
@@ -179,7 +180,7 @@
         ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].map(f => linhaV(P.Mesas.NOME_FORMA[f], P.brl(r.porForma[f]) + (r.recebidoFiado[f] ? ' + ' + P.brl(r.recebidoFiado[f]) + ' de fiado' : ''))),
         linhaV('= Entradas', P.brl(r.entradas), 'forte'),
         linhaV('(−) Compras pagas', P.brl(r.comprasPagas + r.merc)),
-        linhaV('(−) Despesas', P.brl(r.outras)),
+        linhaV('(−) Despesas', P.brl(r.outras - r.fixoPago)),
         r.fixoPago ? linhaV('(−) Fixos pagos (salários, aluguel, contas, impostos)', P.brl(r.fixoPago)) : null,
         linhaV('= Saldo de caixa do período', P.brl(r.entradas - r.saidas), 'total ' + (r.entradas - r.saidas >= 0 ? 't-verde' : 't-vermelho')),
         r.porForma.FIADO ? linhaV('Vendido no fiado neste período (a receber)', P.brl(r.porForma.FIADO), 'aviso') : null,

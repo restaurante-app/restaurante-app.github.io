@@ -1,7 +1,7 @@
 /* COMPRAS — o que foi comprado no mercado, de quem, por quanto e como foi pago.
    - Cada item comprado de insumo ATUALIZA o preço do insumo (preço vivo das fichas)
      e mostra na hora quais pratos mudaram de margem.
-   - O resultado do dia (vendas − custo do vendido − despesas − fixo) e o caixa
+   - O resultado do dia (vendas − custo do vendido − despesas lançadas) e o caixa
      (entrou × saiu) são recalculados ao vivo a cada compra ou venda.
    - Custos (dono): comprado × consumido pelas vendas (pela ficha), por insumo. */
 (function () {
@@ -195,7 +195,7 @@
   const chipForma = c => h('span', { class: 'tag ' + (c.forma === 'PRAZO' ? (c.pago_em ? 'ok' : 'aviso') : 'neutra') },
     c.forma === 'PRAZO' ? (c.pago_em ? 'pago ' + P.Dia.rotuloCurto(c.pago_dia) : 'a pagar') : NOME_FORMA[c.forma] || c.forma);
 
-  // Resultado ao vivo (dono): vendas − custo do vendido − despesas − fixo; e o caixa
+  // Resultado ao vivo (dono): vendas − custo do vendido − despesas lançadas; e o caixa
   function cardResultado(dia) {
     const r = P.Painel.resultadoDia(dia);
     const cor = !r.temMovimento ? 'cinza' : r.resultado >= 0 ? 'verde' : 'vermelho';
@@ -206,8 +206,7 @@
       h('div', { class: 'res-conta' },
         h('span', null, 'Vendas ', h('b', null, P.brl0(r.fat))),
         h('span', null, '− custo vendido ', h('b', null, P.brl0(r.cmv))),
-        h('span', null, '− despesas ', h('b', null, P.brl0(r.outras))),
-        h('span', null, '− fixo ', h('b', null, P.brl0(r.fixo)))),
+        h('span', null, '− despesas ', h('b', null, P.brl0(r.outras)))),
       h('div', { class: 'res-caixa' },
         h('span', null, 'Caixa: entrou ', h('b', null, P.brl0(r.entrou))),
         h('span', null, 'saiu ', h('b', null, P.brl0(r.saiu))),

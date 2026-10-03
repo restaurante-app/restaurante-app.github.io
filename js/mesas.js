@@ -14,8 +14,8 @@
   const NOME_FORMA = { DINHEIRO: 'Dinheiro', PIX: 'Pix', DEBITO: 'Débito', CREDITO: 'Crédito', FIADO: 'Fiado' };
   const ICONE_FORMA = { DINHEIRO: 'dinheiro', PIX: 'pix', DEBITO: 'cartao', CREDITO: 'cartao', FIADO: 'fiado', CARTAO: 'cartao', PRAZO: 'prazo' };
   const NOME_CANAL = { ESPETO: 'Espeto', SALAO: 'Salão', MARMITA: 'Marmita' };
-  // fixo: salário, aluguel, contas e impostos já entram no lucro pelo custo fixo de Ajustes;
-  // lançados aqui contam só no caixa (dinheiro que saiu) e só o dono vê
+  // fixo: salário, aluguel, contas e impostos — entram no lucro e no caixa do dia em que foram
+  // pagos (os custos fixos de Ajustes ficam só como base de previsão); só o dono vê
   const CAT_DESPESA = [
     { v: 'MERCADORIA', rotulo: 'Mercadoria' }, { v: 'GAS_CARVAO', rotulo: 'Gás / carvão' },
     { v: 'EMBALAGEM', rotulo: 'Embalagem' }, { v: 'LIMPEZA', rotulo: 'Limpeza' }, { v: 'MANUTENCAO', rotulo: 'Manutenção' },
@@ -620,7 +620,7 @@
       let feito = false;
       const desc = h('input', { class: 'campo', type: 'text', value: ant ? ant.descricao || '' : '', placeholder: 'O quê? (ex.: botijão, salário do João, aluguel de outubro)', autocomplete: 'off' });
       const dica = h('small', { class: 'campo-d' });
-      const mostrarDica = () => { dica.textContent = DESP_FIXA.has(cat) ? 'Conta no caixa do dia. No lucro, salários, aluguel e contas já entram pelo custo fixo (Ajustes).' : ''; };
+      const mostrarDica = () => { dica.textContent = DESP_FIXA.has(cat) ? 'Entra no lucro e no caixa deste dia. Os custos fixos de Ajustes ficam só como base de previsão do mês.' : ''; };
       const cats = CAT_DESPESA.filter(c => c.v !== 'MERCADORIA' && (P.Auth.isDono() || !c.fixo));
       const bValor = h('button', { type: 'button', class: 'btn valor bloco' });
       const mostrar = () => { bValor.textContent = valor ? P.brl(valor) : 'Valor (R$)'; };
