@@ -141,9 +141,9 @@
   };
   P.salvarCfg = (chave, valor) => P.Store.put('config', { chave, valor_json: valor });
 
-  // Pratos do Restaurante M. Simone (lista do dono, 03/10/2026) — [id, nome, preço]
+  // Pratos do Restaurante Maria Simone (lista do dono, 03/10/2026) — [id, nome, preço]
   // Entram uma vez em cada aparelho; prato com o mesmo nome não é duplicado e o preço
-  // dele só muda se o dono confirmar (folha "Cardápio M. Simone").
+  // dele só muda se o dono confirmar (folha "Cardápio Maria Simone").
   const CARDAPIO_SIMONE = [
     ['ms_rabada', 'Rabada', 35], ['ms_costelinha', 'Costelinha', 35], ['ms_contra_file_ovo', 'Contra filé com ovo', 40],
     ['ms_bife_panela', 'Bife de panela', 35], ['ms_panqueca_frango_1', 'Panqueca de frango (1 no prato)', 25],
@@ -197,7 +197,7 @@
       rel.novos.length ? h('small', { class: 'campo-d' }, 'Entraram sem ficha técnica (custo R$ 0). Monte a ficha em Fichas → Cadastro para ver a margem certa.') : null,
       rel.iguais.length ? [h('div', { class: 'secao' }, 'Já existiam com o mesmo preço · ' + rel.iguais.length), rel.iguais.map(n => linha(n.nome, P.brl(n.preco)))] : null,
       rel.diferentes.length ? [h('div', { class: 'secao' }, 'Já existiam com preço diferente · ' + rel.diferentes.length), h('small', { class: 'campo-d' }, 'Nada foi alterado. Escolha qual preço fica:'), difs] : null),
-    { titulo: 'Cardápio M. Simone' });
+    { titulo: 'Cardápio Maria Simone' });
   }
 
   function aplicar() {
