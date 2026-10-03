@@ -14,11 +14,23 @@
   const NOME_FORMA = { DINHEIRO: 'Dinheiro', PIX: 'Pix', DEBITO: 'Débito', CREDITO: 'Crédito', FIADO: 'Fiado' };
   const ICONE_FORMA = { DINHEIRO: 'dinheiro', PIX: 'pix', DEBITO: 'cartao', CREDITO: 'cartao', FIADO: 'fiado', CARTAO: 'cartao', PRAZO: 'prazo' };
   const NOME_CANAL = { ESPETO: 'Espeto', SALAO: 'Salão', MARMITA: 'Marmita' };
+  // fixo: salário, aluguel, contas e impostos — entram no lucro e no caixa do dia em que foram
+  // pagos (os custos fixos de Ajustes ficam só como base de previsão); só o dono vê
   const CAT_DESPESA = [
     { v: 'MERCADORIA', rotulo: 'Mercadoria' }, { v: 'GAS_CARVAO', rotulo: 'Gás / carvão' },
-    { v: 'EMBALAGEM', rotulo: 'Embalagem' }, { v: 'LIMPEZA', rotulo: 'Limpeza' }, { v: 'OUTROS', rotulo: 'Outros' },
+    { v: 'EMBALAGEM', rotulo: 'Embalagem' }, { v: 'LIMPEZA', rotulo: 'Limpeza' }, { v: 'MANUTENCAO', rotulo: 'Manutenção' },
+    { v: 'FUNCIONARIOS', rotulo: 'Funcionários', fixo: true }, { v: 'ALUGUEL', rotulo: 'Aluguel', fixo: true },
+    { v: 'CONTAS', rotulo: 'Luz / água / net', fixo: true }, { v: 'IMPOSTOS', rotulo: 'Impostos e taxas', fixo: true },
+    { v: 'OUTROS', rotulo: 'Outros' },
   ];
   const NOME_DESP = Object.fromEntries(CAT_DESPESA.map(c => [c.v, c.rotulo]));
+  const DESP_FIXA = new Set(CAT_DESPESA.filter(c => c.fixo).map(c => c.v));
+  const FORMAS_DESP = [
+    { v: 'DINHEIRO', rotulo: 'Dinheiro' }, { v: 'PIX', rotulo: 'Pix' }, { v: 'CARTAO', rotulo: 'Cartão' }, { v: 'BOLETO', rotulo: 'Boleto / transf.' },
+  ];
+  const NOME_FORMA_DESP = Object.fromEntries(FORMAS_DESP.map(f => [f.v, f.rotulo]));
+  const despVisivel = d => P.Auth.isDono() || !DESP_FIXA.has(d.categoria);
+  const subDesp = d => NOME_DESP[d.categoria] + (d.forma ? ' · ' + NOME_FORMA_DESP[d.forma] : '');
   const AGRUPA_MS = 90 * 1000; // toques seguidos no mesmo item viram uma linha só
 
   // ---------------------------------------------------------------
@@ -600,12 +612,16 @@
   // ---------------------------------------------------------------
   //  TELA: DESPESAS (quanto gastei)
   // ---------------------------------------------------------------
-  function novaDespesa(dia, cat0) {
+  function novaDespesa(dia, cat0, ant) {
     return new Promise(resolve => {
-      let cat = cat0 || 'GAS_CARVAO';
-      let valor = null;
+      let cat = ant ? ant.categoria : cat0 || 'GAS_CARVAO';
+      let forma = ant ? ant.forma || 'DINHEIRO' : 'DINHEIRO';
+      let valor = ant ? +ant.valor : null;
       let feito = false;
-      const desc = h('input', { class: 'campo', type: 'text', placeholder: 'O quê? (ex.: botijão, detergente)', autocomplete: 'off' });
+      const desc = h('input', { class: 'campo', type: 'text', value: ant ? ant.descricao || '' : '', placeholder: 'O quê? (ex.: botijão, salário do João, aluguel de outubro)', autocomplete: 'off' });
+      const dica = h('small', { class: 'campo-d' });
+      const mostrarDica = () => { dica.textContent = DESP_FIXA.has(cat) ? 'Entra no lucro e no caixa deste dia. Os custos fixos de Ajustes ficam só como base de previsão do mês.' : ''; };
+      const cats = CAT_DESPESA.filter(c => c.v !== 'MERCADORIA' && (P.Auth.isDono() || !c.fixo));
       const bValor = h('button', { type: 'button', class: 'btn valor bloco' });
       const mostrar = () => { bValor.textContent = valor ? P.brl(valor) : 'Valor (R$)'; };
       bValor.addEventListener('click', async () => {
@@ -613,49 +629,88 @@
         if (v != null) { valor = v; mostrar(); }
       });
       const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
-        P.UI.seg(CAT_DESPESA.filter(c => c.v !== 'MERCADORIA'), cat, v => { cat = v; }, 'seg-p seg-cat'),
-        bValor, desc,
+        P.UI.seg(cats, cat, v => { cat = v; mostrarDica(); }, 'seg-p seg-cat'),
+        dica, bValor, desc,
+        h('span', { class: 'campo-r' }, 'Como pagou'),
+        P.UI.seg(FORMAS_DESP, forma, v => { forma = v; }, 'seg-p seg-cat'),
         h('div', { class: 'row gap' },
           h('button', { type: 'button', class: 'btn', onClick: () => sh.fechar() }, 'Cancelar'),
           h('button', { type: 'button', class: 'btn primario grow', onClick: () => {
             if (!(valor > 0)) { P.UI.toast('Informe o valor.', { tipo: 'perigo' }); return; }
             const u = P.Auth.usuario();
-            const r = P.Store.put('despesas', { id: P.uuid(), dia_operacional: dia, categoria: cat, descricao: desc.value.trim() || null, valor: P.round(valor, 2), criado_em: P.agoraISO(), usuario_id: u && u.id });
+            const r = P.Store.put('despesas', ant
+              ? Object.assign({}, ant, { categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2) })
+              : { id: P.uuid(), dia_operacional: dia, categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2), criado_em: P.agoraISO(), usuario_id: u && u.id });
             feito = true; resolve(r); sh.fechar();
           } }, 'Salvar'))),
-      { titulo: 'Nova despesa · ' + P.Dia.rotulo(dia), onFechar: () => { if (!feito) resolve(null); } });
+      { titulo: (ant ? 'Editar despesa · ' : 'Nova despesa · ') + P.Dia.rotulo(ant ? ant.dia_operacional : dia), onFechar: () => { if (!feito) resolve(null); } });
       mostrar();
-      setTimeout(() => bValor.click(), 150);
+      mostrarDica();
+      if (!ant) setTimeout(() => bValor.click(), 150);
     });
   }
   function telaDespesas(view) {
     view.className = 'v-mesas';
     let dia = P.Dia.hoje();
+    let modo = 'dia'; // dia | mes
+    let mes = P.Dia.mes(dia);
     const corpo = h('div');
+    // toque na despesa = editar (tipo, valor, forma); lixeira = excluir
+    const cardDesp = (d, comDia) => h('div', { class: 'ms-card' },
+      h('button', { type: 'button', class: 'ds-card', onClick: () => novaDespesa(d.dia_operacional, null, d).then(desenhar) },
+        h('div', { class: 'ms-card-n' }, d.descricao || NOME_DESP[d.categoria],
+          h('small', null, (comDia ? P.Dia.rotulo(d.dia_operacional) : P.Dia.hora(d.criado_em)) + ' · ' + subDesp(d))),
+        h('b', null, P.brl(d.valor))),
+      h('button', { type: 'button', class: 'btn ic perigo', 'aria-label': 'Excluir', onClick: () => {
+        P.Store.remove('despesas', d.id);
+        P.UI.toast('Despesa excluída', { acao: { rotulo: 'Desfazer', fn: () => P.Store.put('despesas', Object.assign({}, d, { excluido: false })) } });
+      } }, P.UI.icone('lixo')));
+    // linhas "nome ........ valor" com barra proporcional
+    const barras = (pares, total) => h('div', { class: 'ds-barras' }, pares.map(([nome, v]) => h('div', { class: 'ds-barra' },
+      h('span', { class: 'ds-barra-n' }, nome), h('b', null, P.brl(v)),
+      h('span', { class: 'ds-barra-f', style: { width: (total ? v / total * 100 : 0).toFixed(1) + '%' } }))));
+    function desenharMes() {
+      const mudaMes = n => { const [y, m] = mes.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); mes = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); desenhar(); };
+      corpo.appendChild(h('div', { class: 'lc-dia' },
+        h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Mês anterior', onClick: () => mudaMes(-1) }, P.UI.icone('voltar')),
+        h('div', { class: 'lc-dia-t' }, P.Dia.rotuloMes(mes)),
+        h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo mês', disabled: mes >= P.Dia.mes(P.Dia.hoje()), onClick: () => mudaMes(1) }, P.UI.icone('avancar'))));
+      const ds = P.Store.all('despesas').filter(d => d.dia_operacional.slice(0, 7) === mes && d.categoria !== 'MERCADORIA' && despVisivel(d))
+        .sort((a, b) => (a.dia_operacional < b.dia_operacional ? 1 : a.dia_operacional > b.dia_operacional ? -1 : a.criado_em < b.criado_em ? 1 : -1));
+      const tot = ds.reduce((s, d) => s + (+d.valor || 0), 0);
+      const compras = P.Store.all('compras').filter(c => c.dia_operacional.slice(0, 7) === mes).reduce((s, c) => s + (+c.total || 0), 0);
+      corpo.appendChild(h('div', { class: 'fx-resumo' },
+        h('div', { class: 'fx-tot' }, h('small', null, 'Despesas do mês · ' + ds.length), h('b', null, P.brl(tot))),
+        h('a', { class: 'fx-formas link', href: '#/calendario' }, h('span', { class: 'fx-f' }, 'Compras de mercadoria ', h('b', null, P.brl(compras))), h('span', { class: 'fx-f' }, 'Saiu no mês ', h('b', null, P.brl(tot + compras))), P.UI.icone('avancar'))));
+      if (!ds.length) { corpo.appendChild(P.UI.vazio('Nenhuma despesa lançada neste mês.', 'caixa')); return; }
+      const soma = chave => { const m = new Map(); ds.forEach(d => { const k = chave(d); m.set(k, (m.get(k) || 0) + (+d.valor || 0)); }); return [...m].sort((a, b) => b[1] - a[1]); };
+      corpo.appendChild(h('div', { class: 'secao' }, 'Por tipo'));
+      corpo.appendChild(barras(soma(d => NOME_DESP[d.categoria]), tot));
+      corpo.appendChild(h('div', { class: 'secao' }, 'Como pagou'));
+      corpo.appendChild(barras(soma(d => NOME_FORMA_DESP[d.forma] || 'Não informado'), tot));
+      corpo.appendChild(h('div', { class: 'secao' }, 'Todas as despesas do mês'));
+      corpo.appendChild(h('div', { class: 'ms-lista' }, ds.map(d => cardDesp(d, true))));
+    }
     function desenhar() {
       corpo.innerHTML = '';
+      corpo.appendChild(P.UI.seg([{ v: 'dia', rotulo: 'Do dia' }, { v: 'mes', rotulo: 'Do mês' }], modo, v => { modo = v; if (v === 'mes') mes = P.Dia.mes(dia); desenhar(); }, 'seg-p'));
+      corpo.appendChild(h('div', { class: 'row gap ds-novas' },
+        h('button', { type: 'button', class: 'btn primario grow', onClick: () => novaDespesa(modo === 'dia' ? dia : (mes === P.Dia.mes(P.Dia.hoje()) ? P.Dia.hoje() : P.Dia.doMes(mes).slice(-1)[0]), 'GAS_CARVAO').then(desenhar) }, P.UI.icone('mais'), 'Despesa'),
+        h('a', { class: 'btn grow', href: '#/compras/nova' }, P.UI.icone('compras'), 'Compra de mercadoria')));
+      if (modo === 'mes') { desenharMes(); return; }
       corpo.appendChild(navDia(dia, d => { dia = d; desenhar(); }));
-      const ds = P.Store.all('despesas').filter(d => d.dia_operacional === dia).sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1));
+      const ds = P.Store.all('despesas').filter(d => d.dia_operacional === dia && despVisivel(d)).sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1));
       const tot = ds.reduce((s, d) => s + (+d.valor || 0), 0);
       const compras = P.Compras.doDia(dia).reduce((s, c) => s + (+c.total || 0), 0);
       corpo.appendChild(h('div', { class: 'fx-resumo' },
         h('div', { class: 'fx-tot' }, h('small', null, 'Despesas do dia'), h('b', null, P.brl(tot))),
         h('a', { class: 'fx-formas link', href: '#/compras' }, h('span', { class: 'fx-f' }, 'Compras de mercadoria ', h('b', null, P.brl(compras))), P.UI.icone('avancar'))));
-      corpo.appendChild(h('div', { class: 'row gap' },
-        h('button', { type: 'button', class: 'btn primario grow', onClick: () => novaDespesa(dia, 'GAS_CARVAO').then(desenhar) }, P.UI.icone('mais'), 'Despesa'),
-        h('a', { class: 'btn grow', href: '#/compras/nova' }, P.UI.icone('compras'), 'Compra de mercadoria')));
-      if (!ds.length) { corpo.appendChild(P.UI.vazio('Nenhuma despesa neste dia. Aqui entram gás, carvão, embalagem, limpeza. Mercadoria (comida e bebida) vai em Compras.', 'caixa')); return; }
-      corpo.appendChild(h('div', { class: 'ms-lista' }, ds.map(d => h('div', { class: 'ms-card' },
-        h('div', { class: 'ms-card-n' }, d.descricao || NOME_DESP[d.categoria], h('small', null, P.Dia.hora(d.criado_em) + ' · ' + NOME_DESP[d.categoria])),
-        h('b', null, P.brl(d.valor)),
-        h('button', { type: 'button', class: 'btn ic perigo', 'aria-label': 'Excluir', onClick: () => {
-          P.Store.remove('despesas', d.id);
-          P.UI.toast('Despesa excluída', { acao: { rotulo: 'Desfazer', fn: () => P.Store.put('despesas', Object.assign({}, d, { excluido: false })) } });
-        } }, P.UI.icone('lixo'))))));
+      if (!ds.length) { corpo.appendChild(P.UI.vazio('Nenhuma despesa neste dia. Aqui entram gás, carvão, embalagem, limpeza, manutenção' + (P.Auth.isDono() ? ', salários, aluguel, contas e impostos' : '') + '. Mercadoria (comida e bebida) vai em Compras.', 'caixa')); return; }
+      corpo.appendChild(h('div', { class: 'ms-lista' }, ds.map(d => cardDesp(d, false))));
     }
     view.append(subnavMesas('despesas'), corpo);
     desenhar();
-    return { onDados(t) { if (t.has('despesas')) desenhar(); } };
+    return { onDados(t) { if (t.has('despesas') || t.has('compras')) desenhar(); } };
   }
 
   // ---------------------------------------------------------------
@@ -723,7 +778,7 @@
 
   P.Mesas = {
     linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, fiadoAberto, totaisDoDia,
-    FORMAS, NOME_FORMA, ICONE_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP,
+    FORMAS, NOME_FORMA, ICONE_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP, DESP_FIXA, NOME_FORMA_DESP, despVisivel, subDesp,
     _abrir: abrir, _adicionar: adicionar, _fechar: fechar, _tirar: tirar,
   };
 })();

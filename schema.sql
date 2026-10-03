@@ -165,15 +165,22 @@ create table if not exists pagamentos (
 create table if not exists despesas (
   id text primary key,
   dia_operacional date not null,
-  categoria text not null check (categoria in ('MERCADORIA', 'GAS_CARVAO', 'EMBALAGEM', 'LIMPEZA', 'OUTROS')),
+  categoria text not null check (categoria in ('MERCADORIA', 'GAS_CARVAO', 'EMBALAGEM', 'LIMPEZA', 'MANUTENCAO',
+    'FUNCIONARIOS', 'ALUGUEL', 'CONTAS', 'IMPOSTOS', 'OUTROS')),
   descricao text,
   valor numeric(12, 2) not null default 0,
+  forma text,
   criado_em timestamptz not null default now(),
   usuario_id text,
   modificado_em timestamptz not null default now(),
   excluido boolean not null default false,
   sincronizado_em timestamptz not null default clock_timestamp()
 );
+-- banco criado antes das categorias novas e da forma de pagamento: atualiza (pode rodar de novo)
+alter table despesas add column if not exists forma text;
+alter table despesas drop constraint if exists despesas_categoria_check;
+alter table despesas add constraint despesas_categoria_check check (categoria in ('MERCADORIA', 'GAS_CARVAO', 'EMBALAGEM',
+  'LIMPEZA', 'MANUTENCAO', 'FUNCIONARIOS', 'ALUGUEL', 'CONTAS', 'IMPOSTOS', 'OUTROS'));
 
 -- COMPRAS de mercadoria (cada item de insumo atualiza o preço da ficha técnica)
 create table if not exists compras (

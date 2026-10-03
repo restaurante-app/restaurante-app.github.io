@@ -3,7 +3,8 @@
    Tudo automático: vendas vêm das COMANDAS (mesas, balcão, marmita), o custo do
    que foi vendido das fichas técnicas (com o preço das últimas compras), a
    mercadoria comprada de COMPRAS e os demais gastos de DESPESAS.
-     resultado = vendas − custo do vendido − despesas − custo fixo rateado
+     resultado = vendas − custo do vendido − despesas lançadas (inclusive salários, aluguel, contas)
+     Os custos fixos de Ajustes são só a base: previsão do mês enquanto não forem lançados.
      caixa     = recebido (fora fiado) − compras pagas − despesas */
 (function () {
   'use strict';
@@ -26,7 +27,7 @@
     const set = new Set(dias);
     const I = P.Calc.idx();
     const r = {
-      fat: 0, cmv: 0, desconto: 0, mercadoria: 0, compras: 0, nCompras: 0, outras: 0, espetos: 0, comandas: 0,
+      fat: 0, cmv: 0, desconto: 0, mercadoria: 0, compras: 0, nCompras: 0, outras: 0, fixoPago: 0, espetos: 0, comandas: 0,
       entrou: 0, saiu: 0, dias: new Set(), canal: {},
     };
     CANAIS.forEach(c => { r.canal[c] = { fat: 0, cmv: 0, bebidas: 0, pratos: 0, itens: 0, comandas: 0, comBebida: 0 }; });
@@ -58,7 +59,11 @@
     });
     P.Store.all('despesas').forEach(d => {
       if (!set.has(d.dia_operacional)) return;
-      if (d.categoria === 'MERCADORIA') r.mercadoria += +d.valor || 0; else r.outras += +d.valor || 0;
+      if (d.categoria === 'MERCADORIA') r.mercadoria += +d.valor || 0;
+      else {
+        r.outras += +d.valor || 0;
+        if (P.Mesas.DESP_FIXA.has(d.categoria)) r.fixoPago += +d.valor || 0; // salários, aluguel, contas, impostos
+      }
       r.saiu += +d.valor || 0;
     });
     P.Store.all('compras').forEach(c => {
@@ -81,10 +86,9 @@
   // Resultado de um dia, ao vivo (painel, compras, mesas)
   function resultadoDia(dia) {
     const r = agregar([dia]);
-    const fixo = fixoMensal() / diasMes();
     return {
-      fat: r.fat, cmv: r.cmv, outras: r.outras, fixo, compras: r.compras, entrou: r.entrou, saiu: r.saiu, ag: r,
-      resultado: r.fat - r.cmv - r.outras - fixo,
+      fat: r.fat, cmv: r.cmv, outras: r.outras, fixoPago: r.fixoPago, compras: r.compras, entrou: r.entrou, saiu: r.saiu, ag: r,
+      resultado: r.fat - r.cmv - r.outras,
       temMovimento: r.dias.size > 0 || r.compras > 0 || r.outras > 0,
     };
   }
@@ -124,8 +128,7 @@
       wrap.innerHTML = '';
       const metas = cfg('metas');
       const D = diasMes();
-      const fixoM = fixoMensal();
-      const fixoDia = fixoM / D;
+      const fixoM = fixoMensal(); // base (Ajustes): previsão dos fixos do mês
       const metaMes = +metas.lucro_mensal || 0;
       const metaDia = metaMes / D;
       const hoje = P.Dia.hoje();
@@ -157,7 +160,7 @@
           h('div', { class: 'pn-linha' },
             mini('Vendas', P.brl0(rd.fat)),
             mini('Custo vendido', P.brl0(rd.cmv), null, P.pct(rd.fat ? rd.cmv / rd.fat * 100 : null, 0)),
-            mini('Desp. + fixo', P.brl0(res.outras + res.fixo))),
+            mini('Despesas', P.brl0(res.outras))),
           h('a', { class: 'pn-caixa', href: '#/compras' }, P.UI.icone('caixa'),
             h('span', null, 'Caixa ', h('b', null, P.brl0(res.entrou)), ' entrou · ', h('b', null, P.brl0(res.saiu)), ' saiu'),
             valorCor(P.brl0(saldoCx), saldoCx >= 0 ? 'verde' : 'vermelho')),
@@ -176,7 +179,7 @@
       const porDia = diasSem.slice().reverse().map(d => {
         const a = agregar([d]);
         const mov = a.dias.size > 0 || a.outras > 0;
-        return { rotulo: P.Dia.rotulo(d), curto: P.Dia.nomeSemana(d), atual: d === dia, valor: mov ? a.fat - a.cmv - a.outras - fixoDia : null };
+        return { rotulo: P.Dia.rotulo(d), curto: P.Dia.nomeSemana(d), atual: d === dia, valor: mov ? a.fat - a.cmv - a.outras : null };
       });
       wrap.appendChild(h('section', { class: 'pn-card s-' + semS },
         cab('Semana', nS + '/' + diasSem.length + ' dias', ST[semS],
@@ -206,9 +209,12 @@
       const mes = P.Dia.mes(dia);
       const rm = agregar(P.Dia.doMes(mes, dia));
       const nM = rm.dias.size;
-      const lucroM = rm.fat - rm.cmv - rm.outras - fixoDia * nM;
+      const lucroM = rm.fat - rm.cmv - rm.outras;
       const projFat = nM ? rm.fat / nM * D : 0;
-      const projLucro = nM ? (rm.fat - rm.cmv - rm.outras) / nM * D - fixoM : 0;
+      // projeção: o dia a dia (sem os fixos) estendido ao mês − fixos do mês
+      // (os lançados; se ainda faltam, vale a base de Ajustes)
+      const fixoMes = Math.max(rm.fixoPago, fixoM);
+      const projLucro = nM ? (rm.fat - rm.cmv - (rm.outras - rm.fixoPago)) / nM * D - fixoMes : 0;
       const margem = rm.fat > 0 ? lucroM / rm.fat * 100 : null;
       const semM = !nM ? 'cinza' : projLucro >= metaMes ? 'verde' : projLucro >= 0 ? 'amarelo' : 'vermelho';
       const fracMes = metaMes > 0 ? projLucro / metaMes : 0;
@@ -226,6 +232,7 @@
             mini('Faturamento', P.brl0(rm.fat)),
             mini('Projeção fat.', P.brl0(projFat)),
             mini('Margem líq.', P.pct(margem, 1), margem == null ? null : margem >= 0 ? 'verde' : 'vermelho')),
+          h('div', { class: 'pn-txt' }, 'Fixos lançados ', h('b', null, P.brl0(rm.fixoPago)), ' de ', h('b', null, P.brl0(fixoM)), ' previstos (base em Ajustes)'),
           escada(rm.espetos / nM),
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nenhum dia com venda neste mês.'))));
     }
@@ -342,7 +349,8 @@
 
       const cf = cfg('custos_fixos');
       const money = { decimais: 2, prefixo: 'R$ ' };
-      corpo.appendChild(secao('Custos fixos mensais',
+      corpo.appendChild(secao('Custos fixos mensais (base)',
+        h('small', { class: 'campo-d' }, 'Só referência: o lucro usa as despesas lançadas. Esta base serve para a projeção do mês enquanto salários, aluguel e contas não forem lançados.'),
         linha('Aluguel', P.brl(cf.aluguel), editar('custos_fixos', 'aluguel', Object.assign({ titulo: 'Aluguel' }, money))),
         linha('Folha', P.brl(cf.folha), editar('custos_fixos', 'folha', Object.assign({ titulo: 'Folha de pagamento' }, money))),
         linha('Pró-labore + INSS', P.brl(cf.prolabore_inss), editar('custos_fixos', 'prolabore_inss', Object.assign({ titulo: 'Pró-labore + INSS' }, money))),
