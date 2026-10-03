@@ -843,6 +843,11 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 .campo-l { display: flex; flex-direction: column; gap: 8px; }
 .campo-r { font-size: .6rem; font-weight: 800; color: var(--tx3); text-transform: uppercase; letter-spacing: .12em; }
 .campo-l .seg { margin-bottom: 0; }
+.cs-sheet { gap: 8px; }
+.cs-linha { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--borda); font-variant-numeric: tabular-nums; }
+.cs-linha span { min-width: 0; }
+.cs-linha b { white-space: nowrap; }
+.cs-dif { display: flex; flex-direction: column; gap: 8px; }
 .cp-dia-f { justify-content: flex-start; gap: 10px; font-weight: 700; }
 .cp-dia-f svg { flex: 0 0 auto; }
 .cp-dia-f small { margin-left: auto; color: var(--tx3); font-weight: 600; }

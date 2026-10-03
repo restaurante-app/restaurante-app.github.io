@@ -141,7 +141,71 @@
   };
   P.salvarCfg = (chave, valor) => P.Store.put('config', { chave, valor_json: valor });
 
+  // Pratos do Restaurante M. Simone (lista do dono, 03/10/2026) — [id, nome, preço]
+  // Entram uma vez em cada aparelho; prato com o mesmo nome não é duplicado e o preço
+  // dele só muda se o dono confirmar (folha "Cardápio M. Simone").
+  const CARDAPIO_SIMONE = [
+    ['ms_rabada', 'Rabada', 35], ['ms_costelinha', 'Costelinha', 35], ['ms_contra_file_ovo', 'Contra filé com ovo', 40],
+    ['ms_bife_panela', 'Bife de panela', 35], ['ms_panqueca_frango_1', 'Panqueca de frango (1 no prato)', 25],
+    ['ms_panqueca_frango_2', 'Panqueca de frango (2 no prato)', 30], ['ms_file_frango', 'Filé de frango', 25],
+    ['ms_costela', 'Costela', 35], ['ms_file_tilapia', 'Filé de tilápia', 40], ['ms_posta_tilapia', 'Posta de tilápia', 35],
+    ['ms_bacalhau', 'Bacalhau', 40], ['ms_picadinho', 'Picadinho', 30], ['ms_contra_file_acebolado', 'Contra filé acebolado', 40],
+    ['ms_porcao_calabresa', 'Porção de calabresa', 25], ['ms_porcao_peixe_peq', 'Porção de peixe pequena', 30],
+  ];
+  const chaveNome = n => P.UI.semAcento(String(n || '')).replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')').trim();
+  function cardapioSimone() {
+    const S = P.Store;
+    if (S.meta('cardapio_simone_v1')) return;
+    const porNome = new Map(S.all('itens').map(it => [chaveNome(it.nome), it]));
+    const rel = { novos: [], iguais: [], diferentes: [] };
+    CARDAPIO_SIMONE.forEach(([id, nome, preco]) => {
+      const ja = porNome.get(chaveNome(nome)) || S.get('itens', 'it_' + id);
+      if (!ja) {
+        S.put('itens', { id: 'it_' + id, nome, categoria: 'PRATO', preco_venda: preco, perda_pct: CONFIG.fichas.perda_padrao, ativo: true });
+        rel.novos.push({ id: 'it_' + id, nome, preco });
+      } else if (P.round(+ja.preco_venda || 0, 2) === preco) rel.iguais.push({ id: ja.id, nome: ja.nome, preco });
+      else rel.diferentes.push({ id: ja.id, nome: ja.nome, atual: +ja.preco_venda || 0, preco });
+    });
+    S.setMeta('cardapio_simone_v1', rel);
+    S.setMeta('cardapio_simone_ver', true);
+  }
+  // Folha para o dono: o que entrou, o que já existia e os preços diferentes (só muda se confirmar)
+  function mostrarCardapioSimone() {
+    const S = P.Store;
+    const rel = S.meta('cardapio_simone_v1');
+    if (!S.meta('cardapio_simone_ver') || !rel || !P.Auth.isDono()) return;
+    S.setMeta('cardapio_simone_ver', false);
+    const h = P.UI.h;
+    const linha = (nome, dir, cls) => h('div', { class: 'cs-linha' + (cls ? ' ' + cls : '') }, h('span', null, nome), h('b', null, dir));
+    const difs = rel.diferentes.map(d => {
+      const el = h('div', { class: 'cs-dif' });
+      const desenhar = feito => el.replaceChildren(
+        linha(d.nome, feito || ('no app ' + P.brl(d.atual) + ' · na lista ' + P.brl(d.preco))),
+        feito ? null : h('div', { class: 'row gap' },
+          h('button', { type: 'button', class: 'btn', onClick: () => desenhar('mantido ' + P.brl(d.atual)) }, 'Manter ' + P.brl(d.atual)),
+          h('button', { type: 'button', class: 'btn primario grow', onClick: () => {
+            const it = S.get('itens', d.id);
+            if (it) S.put('itens', Object.assign({}, it, { preco_venda: d.preco }));
+            desenhar('alterado para ' + P.brl(d.preco));
+          } }, 'Usar ' + P.brl(d.preco))));
+      desenhar();
+      return el;
+    });
+    P.UI.sheet(h('div', { class: 'np-sheet cs-sheet' },
+      h('div', { class: 'secao' }, 'Cadastrados · ' + rel.novos.length),
+      rel.novos.length ? rel.novos.map(n => linha(n.nome, P.brl(n.preco))) : h('small', null, 'Nenhum: todos já existiam.'),
+      rel.novos.length ? h('small', { class: 'campo-d' }, 'Entraram sem ficha técnica (custo R$ 0). Monte a ficha em Fichas → Cadastro para ver a margem certa.') : null,
+      rel.iguais.length ? [h('div', { class: 'secao' }, 'Já existiam com o mesmo preço · ' + rel.iguais.length), rel.iguais.map(n => linha(n.nome, P.brl(n.preco)))] : null,
+      rel.diferentes.length ? [h('div', { class: 'secao' }, 'Já existiam com preço diferente · ' + rel.diferentes.length), h('small', { class: 'campo-d' }, 'Nada foi alterado. Escolha qual preço fica:'), difs] : null),
+    { titulo: 'Cardápio M. Simone' });
+  }
+
   function aplicar() {
+    const novo = aplicarBase();
+    cardapioSimone();
+    return novo;
+  }
+  function aplicarBase() {
     const S = P.Store;
     const op = { stamp: false, silent: true };
     Object.keys(CONFIG).forEach(ch => {
@@ -182,5 +246,5 @@
     });
   }
 
-  P.Seed = { aplicar, conferir, CONFIG, ESPERADO };
+  P.Seed = { aplicar, conferir, mostrarCardapioSimone, CONFIG, ESPERADO, CARDAPIO_SIMONE };
 })();

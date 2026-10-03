@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   const P = window.P;
-  P.VERSAO = '1.4.0';
+  P.VERSAO = '1.4.1';
 
   function comTempo(promessa, ms) {
     return Promise.race([promessa, new Promise(res => setTimeout(() => res(false), ms))]);
@@ -23,6 +23,10 @@
     P.UI.montarCasca();
     P.UI.render();
     if (P.Sync.configurado()) P.Sync.agendar(800);
+    // resumo do cardápio novo: aparece para o dono, uma vez, depois de entrar com o PIN
+    const verCardapio = () => setTimeout(() => P.Seed.mostrarCardapioSimone(), 400);
+    verCardapio();
+    window.addEventListener('hashchange', verCardapio);
 
     const semSW = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && localStorage.getItem('pari.sw') !== '1';
     if ('serviceWorker' in navigator && location.protocol !== 'file:' && !semSW) {
