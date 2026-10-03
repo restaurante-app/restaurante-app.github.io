@@ -44,7 +44,9 @@
         tile('precos', 'preco', 'roxo', 'Preços de compra', velhos ? velhos + ' desatualizados' : 'tudo em dia', velhos ? 't-amarelo' : null)));
 
       if (dono) {
+        const nAl = P.Analise ? P.Analise.contar() : 0;
         corpo.appendChild(grupo('Gestão',
+          tile('compras/analise', 'alerta', 'amarelo', 'Análise de compras', nAl ? nAl + (nAl === 1 ? ' alerta nas compras' : ' alertas nas compras') : 'compras × vendas e pratos', nAl ? 't-amarelo' : null),
           tile('painel', 'painel', 'verde', 'Painel', 'lucro do dia, semana e mês'),
           tile('relatorio', 'relatorio', 'azul', 'Relatório detalhado', 'vendas, caixa, compras, CSV'),
           tile('compras/custos', 'custos', 'laranja', 'Custos', 'comprado × usado pelas vendas'),

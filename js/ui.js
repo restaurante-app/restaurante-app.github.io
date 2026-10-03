@@ -503,9 +503,15 @@
 
   // Sub-navegação dentro de um módulo
   function subnav(itens, ativo) {
-    return h('div', { class: 'subnav' }, itens.map(i =>
+    const el = h('div', { class: 'subnav' }, itens.map(i =>
       h('a', { href: '#/' + i.rota, class: i.id === ativo ? 'on' : '' }, i.rotulo,
         i.badge ? h('span', { class: 'badge-in' }, i.badge) : null)));
+    // a aba ativa fica à vista quando a barra é mais larga que a tela
+    requestAnimationFrame(() => {
+      const a = el.querySelector('a.on');
+      if (a && el.scrollWidth > el.clientWidth && a.offsetLeft + a.offsetWidth > el.clientWidth) el.scrollLeft = a.offsetLeft - 14;
+    });
+    return el;
   }
   function vazio(msg, ic) {
     return h('div', { class: 'vazio' }, h('div', { class: 'vazio-ic' }, icone(ic || 'info')), h('p', null, msg));
