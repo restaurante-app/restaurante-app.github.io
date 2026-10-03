@@ -64,7 +64,7 @@
           : P.Store.pendentes() ? P.Store.pendentes() + ' pendentes' : ({ online: 'sincronizado', offline: 'sem internet agora', erro: 'erro — ver ajustes', sincronizando: 'sincronizando…' }[P.Sync.estado] || P.Sync.estado),
         !P.Sync.conectado() && P.Sync.configurado() ? 't-amarelo' : null)));
 
-      corpo.appendChild(h('div', { class: 'aj-rodape' }, 'Pátio do Pari · Restaurante · v' + P.VERSAO + ' · dia operacional vira às 03:00'));
+      corpo.appendChild(h('div', { class: 'aj-rodape' }, 'Pátio do Pari · Restaurante Maria Simone · v' + P.VERSAO + ' · dia operacional vira às 03:00'));
     }
     view.append(corpo);
     desenhar();
