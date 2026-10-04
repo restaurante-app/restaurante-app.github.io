@@ -496,6 +496,7 @@
   function unidadesNaEmbalagem(desc) {
     const d = ' ' + String(desc || '').toUpperCase() + ' ';
     const m = d.match(/\b(\d{1,3})\s*X\s*\d/) || d.match(/\bC\s*\/?\s*(\d{1,3})\b/) || d.match(/\b(\d{1,3})\s*X\s/)
+      || d.match(/\b(\d{1,3})\s*(?:UN|UND|UNID|UNIDADES)\b/)
       || d.match(/\b(?:FARDO|FD|CX|PCT|PACK)\s*(?:C\/)?\s*(\d{1,3})\b/) || d.match(/\s(6|8|12|15|18|20|24|30)\s*$/);
     const n = m ? +m[1] : 0;
     return n >= 2 && n <= 120 ? n : 0;
@@ -507,7 +508,8 @@
     if (/^(L|LT|LTS|LITRO)$/.test(un)) return { q, un: 'L' };
     if (/^ML/.test(un)) return { q: q / 1000, un: 'L' };
     if (/^(FD|FARD|CX|CAIXA|PCT|PAC|PC|PK|PACK|DZ|DUZIA|BD|BAND|EMB|KIT|SC)/.test(un)) {
-      const n = unidadesNaEmbalagem(desc) || (/^DZ|^DUZIA/.test(un) ? 12 : 0);
+      // quantas vêm: pela descrição; senão o que o dono já respondeu para este produto
+      const n = unidadesNaEmbalagem(desc) || +mapaEmb()[chaveProduto(desc)] || (/^DZ|^DUZIA/.test(un) ? 12 : 0);
       if (n) return { q: q * n, un: 'un', emb: n };
       return { q, un: 'un', incerto: true }; // fardo sem saber quantas vêm: não liga sozinho
     }
@@ -516,6 +518,7 @@
   // qual insumo é cada produto da nota: primeiro o que o app já aprendeu, depois pelo nome
   const chaveProduto = desc => P.UI.semAcento(desc).replace(/[^a-z0-9]+/g, ' ').trim();
   const mapaNota = () => P.cfg('nota_insumos');
+  const mapaEmb = () => P.cfg('nota_embalagem'); // produto da nota → unidades em 1 fardo/caixa/pacote
   function sugerirInsumo(desc) {
     // guardado como "insumo" ou "insumo|fator" (fator = unidades da ficha por unidade da nota, ex.: 1 garrafa = 0,9 kg)
     const [lembrado, fator] = String(mapaNota()[chaveProduto(desc)] || '').split('|');
@@ -546,7 +549,7 @@
       const valor = P.round(it.valor, 2);
       const c = unidadeNota(it.quantidade, it.un, it.descricao);
       const s = sugerirInsumo(it.descricao);
-      const base = { lido: it.descricao, nota: { q: c.q, un: c.un, incerto: c.incerto, txt: P.numAuto(it.quantidade) + ' ' + (it.un || 'UN') + (c.emb ? ' de ' + c.emb : '') }, valor };
+      const base = { item: it, lido: it.descricao, nota: { q: c.q, un: c.un, incerto: c.incerto, txt: P.numAuto(it.quantidade) + ' ' + (it.un || 'UN') + (c.emb ? ' de ' + c.emb : '') }, valor };
       const q = s.ins && (c.incerto ? (s.lembrado && s.fator ? P.round(c.q * s.fator, 3) : 0)
         : s.ins.unidade === c.un ? c.q : s.fator ? P.round(c.q * s.fator, 3) : 0);
       if (s.ins && q > 0) {
@@ -795,7 +798,7 @@
               l.ligar ? h('small', { class: 'tag aviso' }, 'ligar à ficha') : !l.insumo_id ? h('small', { class: 'tag neutra' }, 'sem ficha') : null,
               l.foto ? h('small', { class: 'tag aviso' }, 'confira') : null),
             lido,
-            h('span', { class: 'cp-lin-q' }, !l.insumo_id && l.nota && l.nota.incerto ? l.nota.txt + ' · quantas unidades? toque'
+            h('span', { class: 'cp-lin-q' }, !l.insumo_id && l.nota && l.nota.incerto ? l.nota.txt + ' · quantas unidades vêm? toque'
               : P.numAuto(l.quantidade) + ' ' + (UN[l.unidade] || l.unidade) + ' × ' + P.Fichas.precoFmt(l.preco_unit) + (l.nota && l.nota.txt.includes(' de ') ? ' · ' + l.nota.txt : ''),
               dif != null && Math.abs(dif) >= 0.5 ? h('em', { class: dif > 0 ? 't-vermelho' : 't-verde' }, (dif > 0 ? ' ▲' : ' ▼') + P.num(Math.abs(dif), 0) + '%') : null)),
           h('b', { class: 'cp-lin-v' }, P.brl(l.valor)),
@@ -838,6 +841,7 @@
     }
     async function editarLinha(idx) {
       const l = d.linhas[idx];
+      if (l.nota && l.nota.incerto && !l.insumo_id && l.item) { await perguntarEmbalagem(l); return; }
       if (!l.insumo_id && l.lido) { await ligarLinha(l); return; }
       if (!l.insumo_id) {
         const val = await P.UI.pedirNumero({ titulo: l.descricao + ' — valor pago', valor: l.valor, decimais: 2, prefixo: 'R$ ' });
@@ -882,6 +886,21 @@
       const nota = await pedirTextoNota();
       if (nota) usarNota({ nota });
     }
+    // fardo/caixa sem a quantidade na nota (a Sefaz só diz "FD"): pergunta uma vez e o app guarda
+    async function perguntarEmbalagem(l) {
+      const un = String(l.item.un || 'FD').toUpperCase();
+      const n = await P.UI.pedirNumero({ titulo: 'Quantas unidades vêm em 1 ' + un + '?', decimais: 0, maxInteiros: 3, ok: 'Guardar',
+        sub: l.lido + ' · ' + l.nota.txt + ' · ' + P.brl(l.valor) + '. A nota não diz quantas unidades vêm dentro. O app guarda a resposta para as próximas notas deste produto.' });
+      if (!(n >= 1)) return false;
+      const mapa = mapaEmb();
+      mapa[chaveProduto(l.lido)] = n;
+      P.salvarCfg('nota_embalagem', mapa);
+      const nova = linhasDaNota({ itens: [l.item] })[0];
+      const i = d.linhas.indexOf(l);
+      if (i >= 0) d.linhas[i] = nova;
+      desenharLinhas();
+      return true;
+    }
     async function usarNota(entrada) {
       const nota = entrada.nota || await lerNota(entrada);
       if (!nota) return;
@@ -891,10 +910,14 @@
       if (nota.dia && nota.dia !== d.dia) mudaDia(nota.dia);
       if (nota.forma && nota.forma !== d.forma) { d.forma = nota.forma; const s2 = mkSegForma(); segForma.replaceWith(s2); segForma = s2; }
       if (nota.chave) d.obs = [d.obs, 'NFC-e ' + nota.chave].filter(Boolean).join(' · ');
-      d.linhas = d.linhas.concat(linhasDaNota(nota));
+      const novas = linhasDaNota(nota);
+      d.linhas = d.linhas.concat(novas);
       totalNota = nota.total > 0 ? (totalNota || 0) + nota.total : totalNota;
       P.vibrar([20, 40, 20]);
       desenharLinhas();
+      for (const l of novas.filter(x => x.nota && x.nota.incerto && !x.insumo_id && x.item)) {
+        if (!(await perguntarEmbalagem(l))) break; // "Cancelar" deixa o resto para tocar depois
+      }
     }
     // o app lembra qual insumo é cada produto da nota (vale para todos os aparelhos)
     function lembrarProdutos() {
