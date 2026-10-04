@@ -65,7 +65,8 @@ do cupom fiscal (NFC-e) — lê sozinho, como app de banco (leitor ZXing em WebA
 estado (erro de alguns sistemas de caixa), o app usa o portal do estado da chave (SP). Se preferir, *Tirar foto* ou
 escolher da galeria (foto de longe costuma sair borrada; chegue perto do QR). O app busca os itens
 na página pública da Sefaz: fornecedor, forma de pagamento, itens com quantidade e valor.
-Fardo, caixa, pacote e dúzia viram **unidades** pela descrição ("2 FD" de "12X350ML" = 24 un,
+Quando a nota diz só "FD"/"CX" sem dizer quantas vêm dentro, o app **pergunta uma vez** ("Quantas unidades vêm
+em 1 FD?") e guarda para as próximas notas daquele produto. Fardo, caixa, pacote e dúzia viram **unidades** pela descrição ("2 FD" de "12X350ML" = 24 un,
 "C 15" = 15, "DZ" = 12), então cada item mostra o **custo por unidade** (lata, garrafa).
 Lata casa sozinha com "Cerveja lata" (pela marca) ou "Refrigerante lata"; long neck com
 "Long neck" — o preço desses insumos vira a média paga por unidade.
