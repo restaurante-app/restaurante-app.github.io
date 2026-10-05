@@ -10,7 +10,8 @@
   const P = window.P;
   const S = () => P.Store;
 
-  const PADRAO_FICHAS = { verde_ate: 35, vermelho_acima: 40, perda_padrao: 4, dias_preco_velho: 14 };
+  // custo_sem_ficha_pct: prato sem ficha e sem custo estimado → custo = esse % do preço (0 = não estima)
+  const PADRAO_FICHAS = { verde_ate: 35, vermelho_acima: 40, perda_padrao: 4, dias_preco_velho: 14, custo_sem_ficha_pct: 0 };
   function cfgFichas() {
     const c = S().get('config', 'fichas');
     return Object.assign({}, PADRAO_FICHAS, c && c.valor_json);
@@ -74,12 +75,24 @@
     return fc <= c.verde_ate ? 'verde' : fc <= c.vermelho_acima ? 'amarelo' : 'vermelho';
   }
 
+  // Item sem ficha: o custo que o dono estimou (R$ por unidade) ou, se não tiver, o % de
+  // Ajustes → Fichas sobre o preço. 0 = sem estimativa (custo desconhecido).
+  function estimado(item, preco) {
+    const ce = +(item && item.custo_estimado) || 0;
+    if (ce > 0) return ce;
+    const pct = +cfgFichas().custo_sem_ficha_pct || 0;
+    return pct > 0 && preco > 0 ? preco * pct / 100 : 0;
+  }
   function montar(item, bruto, perda, preco) {
-    const cmv = bruto * (1 + (+perda || 0) / 100);
-    const fc = preco > 0 ? cmv / preco * 100 : null;
-    // sem ficha (nenhum componente com custo): não tem como saber o food cost — fica sem faixa
+    // sem ficha (nenhum componente com custo): usa a estimativa; sem ela, não tem como saber o food cost
     const semFicha = !(bruto > 0);
-    return { item, bruto, perda: +perda || 0, cmv, preco, fc, margem: preco > 0 ? preco - cmv : null, faixa: semFicha ? 'na' : faixa(fc), semFicha };
+    const est = semFicha ? estimado(item, preco) : 0;
+    const cmv = semFicha ? est : bruto * (1 + (+perda || 0) / 100);
+    const fc = preco > 0 ? cmv / preco * 100 : null;
+    return {
+      item, bruto, perda: +perda || 0, cmv, preco, fc, margem: preco > 0 ? preco - cmv : null,
+      faixa: semFicha && !(est > 0) ? 'na' : faixa(fc), semFicha, estimado: semFicha && est > 0,
+    };
   }
 
   // ficha de um item salvo
@@ -225,8 +238,20 @@
     return { alvo, precoAlvo, porcao, ja: f.fc != null && f.fc <= alvo };
   }
 
+  // Custo de uma linha vendida: o gravado na hora da venda; se ficou 0 (prato ainda sem ficha
+  // na hora), o custo de hoje — pela ficha, ou a estimativa (custo estimado ou % de Ajustes).
+  function cmvLinha(l) {
+    const c = +l.cmv_unit || 0;
+    if (c > 0) return c;
+    const it = idx().itens.get(l.item_id);
+    if (!it) return 0;
+    const f = ficha(it);
+    if (!f) return 0;
+    return f.semFicha ? estimado(it, +l.preco_unit || 0) : f.cmv;
+  }
+
   P.Calc = {
-    cfgFichas, idx, custoInsumo, custoBruto, custoLista, ficha, fichaCom, linhas, faixa,
+    cfgFichas, idx, custoInsumo, custoBruto, custoLista, ficha, fichaCom, linhas, faixa, estimado, cmvLinha,
     espetosPorUnidade, contem, usosDoInsumo, usosDoItem, vendavel, snapshot, diferencas, paraAlvo, consumo,
     unidadeQtd, divisor,
     componentesDe: itemId => (idx().comps.get(itemId) || []).slice(),

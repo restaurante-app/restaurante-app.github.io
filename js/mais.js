@@ -23,7 +23,7 @@
       const tot = P.Mesas.totaisDoDia(hoje, 'TODOS');
       const fechadas = tot.nFechadas;
       const fiado = P.Mesas.fiadoAberto().reduce((s, p) => s + (+p.valor || 0), 0);
-      const aPagar = P.Compras.aPagar().reduce((s, c) => s + (+c.total || 0), 0);
+      const aPagar = P.Compras.aPagar().reduce((s, c) => s + P.Compras.valorAberto(c), 0);
       const despHoje = P.Store.all('despesas').filter(d => d.dia_operacional === hoje && P.Mesas.despVisivel(d)).reduce((s, d) => s + (+d.valor || 0), 0);
       const velhos = P.Store.all('insumos').filter(P.Calc.precoVelho).length;
       const passou = P.Fluxo.totais('PASSOU').dia;
@@ -40,11 +40,18 @@
         tile('mesas/fiado', 'fiado', 'vermelho', 'Fiado', fiado ? P.brl0(fiado) + ' a receber' : 'ninguém devendo', fiado ? 't-amarelo' : null),
         tile('calendario', 'calendario', 'laranja', 'Calendário', 'compras e despesas de cada dia'),
         tile('mesas/despesas', 'caixa', 'laranja', 'Despesas', despHoje ? P.brl0(despHoje) + ' hoje' : dono ? 'salários, aluguel, contas, gás…' : 'gás, carvão, embalagem'),
-        tile('compras/pagar', 'prazo', 'amarelo', 'A pagar', aPagar ? P.brl0(aPagar) + ' a fornecedores' : 'nada pendente', aPagar ? 't-amarelo' : null),
+        tile('compras/pagar', 'prazo', 'amarelo', 'A pagar', aPagar ? P.brl0(aPagar) + ' (fornecedores e cartão)' : 'nada pendente', aPagar ? 't-amarelo' : null),
         tile('precos', 'preco', 'roxo', 'Preços de compra', velhos ? velhos + ' desatualizados' : 'tudo em dia', velhos ? 't-amarelo' : null)));
 
       if (dono) {
         const nAl = P.Analise ? P.Analise.contar() : 0;
+        const nPend = P.Anotacoes ? P.Anotacoes.abertas().length : 0;
+        const nEq = P.Store.all('pessoas').filter(p => p.ativo !== false).length;
+        corpo.appendChild(grupo('Dono',
+          tile('anotacoes', 'fiado', 'amarelo', 'Pendências', nPend ? nPend + (nPend === 1 ? ' para confirmar' : ' para confirmar') : 'anotações e lembretes', nPend ? 't-amarelo' : null),
+          tile('equipe', 'usuario', 'verde', 'Equipe', nEq ? nEq + (nEq === 1 ? ' pessoa' : ' pessoas') + ' · vales, salários, pró-labore' : 'vales, salários e pró-labore'),
+          tile('caixa', 'caixa', 'azul', 'Capital e caixa', 'desde a abertura e a montagem'),
+          tile('importar', 'upload', 'cinza', 'Importar lançamentos', 'relatório ou caderno, com conferência')));
         corpo.appendChild(grupo('Gestão',
           tile('compras/analise', 'alerta', 'amarelo', 'Análise de compras', nAl ? nAl + (nAl === 1 ? ' alerta nas compras' : ' alertas nas compras') : 'compras × vendas e pratos', nAl ? 't-amarelo' : null),
           tile('painel', 'painel', 'verde', 'Painel', 'lucro do dia, semana e mês'),

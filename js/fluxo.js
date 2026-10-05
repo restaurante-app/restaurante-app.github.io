@@ -103,7 +103,8 @@
     const porChave = new Map();   // 'dia|faixa' → nº de compras
     const diasVenda = new Set();
     P.Store.all('comandas').forEach(c => {
-      if (c.status === 'CANCELADA' || !c.aberta_em) return;
+      // venda lançada depois (sem horário de verdade) não entra na contagem por hora
+      if (c.status === 'CANCELADA' || !c.aberta_em || c.origem) return;
       const dia = P.Dia.diaOperacional(c.aberta_em);
       if (diasSet && !diasSet.has(dia)) return;
       if (!P.Mesas.linhas(c.id).some(l => +l.quantidade > 0)) return;

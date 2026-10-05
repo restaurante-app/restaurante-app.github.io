@@ -117,7 +117,7 @@
 
   const CONFIG = {
     custos_fixos: { aluguel: 5000, folha: 14129, prolabore_inss: 6660, outros: 4230 },
-    operacao: { dias_mes: 26 },
+    operacao: { dias_mes: 26, abertura: null }, // abertura: dia em que o restaurante abriu (antes disso = montagem)
     metas: {
       espeto_empate_dia: 22,
       anexacao_espeto: 80, anexacao_salao: 75, anexacao_marmita: 60,
@@ -133,6 +133,7 @@
     fichas: { verde_ate: 35, vermelho_acima: 40, perda_padrao: 4, dias_preco_velho: 14 },
     turnos: { espeto_ini: 3, espeto_fim: 10, almoco_ini: 11, almoco_fim: 16 },
     mesas: { quantidade: 12 },
+    cartao: { nome: null, vencimento_dia: 1 }, // cartão de crédito das compras: fatura vence todo dia X
   };
   // valor de configuração (o salvo no banco por cima do padrão)
   P.cfg = chave => {
@@ -144,6 +145,7 @@
   // Pratos do Restaurante Maria Simone (lista do dono, 03/10/2026) — [id, nome, preço]
   // Entram uma vez em cada aparelho; prato com o mesmo nome não é duplicado e o preço
   // dele só muda se o dono confirmar (folha "Cardápio Maria Simone").
+  const CARDAPIO_TS = '2026-10-03T00:00:00.000Z'; // dia da lista do dono
   const CARDAPIO_SIMONE = [
     ['ms_rabada', 'Rabada', 35], ['ms_costelinha', 'Costelinha', 35], ['ms_contra_file_ovo', 'Contra filé com ovo', 40],
     ['ms_bife_panela', 'Bife de panela', 35], ['ms_panqueca_frango_1', 'Panqueca de frango (1 no prato)', 25],
@@ -161,7 +163,8 @@
     CARDAPIO_SIMONE.forEach(([id, nome, preco]) => {
       const ja = porNome.get(chaveNome(nome)) || S.get('itens', 'it_' + id);
       if (!ja) {
-        S.put('itens', { id: 'it_' + id, nome, categoria: 'PRATO', preco_venda: preco, perda_pct: CONFIG.fichas.perda_padrao, ativo: true });
+        // data antiga de propósito: num aparelho novo, nunca passa por cima do prato já editado na nuvem
+        S.put('itens', { id: 'it_' + id, nome, categoria: 'PRATO', preco_venda: preco, perda_pct: CONFIG.fichas.perda_padrao, ativo: true, modificado_em: CARDAPIO_TS }, { stamp: false });
         rel.novos.push({ id: 'it_' + id, nome, preco });
       } else if (P.round(+ja.preco_venda || 0, 2) === preco) rel.iguais.push({ id: ja.id, nome: ja.nome, preco });
       else rel.diferentes.push({ id: ja.id, nome: ja.nome, atual: +ja.preco_venda || 0, preco });

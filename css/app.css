@@ -1095,3 +1095,68 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 .rl-tr.rl-tr4 { grid-template-columns: minmax(0, .8fr) 1.3fr .8fr 1fr; }
 .rl-tr.pico span:first-child { color: var(--brasa-tx); }
 .rl-tr .leg-dot { margin-right: 7px; vertical-align: 1px; }
+
+/* ---------- Compras: como pagou (partes, crédito com vencimento) ---------- */
+.cp-pag { display: flex; flex-direction: column; gap: 8px; }
+.cp-pag .seg { margin-bottom: 0; }
+.cp-pag-v { align-items: center; }
+.cp-vence { gap: 7px; }
+.cp-parte { display: flex; flex-direction: column; gap: 8px; padding: 11px 12px; border-radius: 16px; border: 1px dashed var(--borda2); }
+.cp-parte-top { display: flex; align-items: center; gap: 10px; }
+.cp-parte-top > b { flex: 1 1 auto; font-size: .8rem; }
+.cp-parte-v { font-weight: 800; font-size: .95rem; white-space: nowrap; }
+.cp-parte-v small { font-weight: 600; color: var(--tx3); font-size: .68rem; }
+.cp-partes { margin-top: 2px; line-height: 1.45; }
+.rs-obs { margin-top: 6px; padding: 9px 11px; border-radius: 12px; background: var(--s2); color: var(--tx2); font-size: .74rem; line-height: 1.5; white-space: pre-line; }
+
+/* ---------- Painel: aviso de venda sem custo ---------- */
+.pn-aviso { display: flex; align-items: flex-start; gap: 7px; margin-top: 8px; padding: 7px 9px; border-radius: 11px; background: var(--bg-atencao); color: var(--tx-atencao); font-size: .66rem; line-height: 1.35; }
+.pn-aviso svg { width: 14px; height: 14px; margin-top: 1px; }
+.pn-aviso b { color: inherit; }
+
+/* ---------- Despesas: equipe ---------- */
+.ds-equipe { display: flex; flex-direction: column; gap: 6px; }
+.ds-equipe .seg { margin-bottom: 0; }
+
+/* ---------- Equipe ---------- */
+.eq-card { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 20px; margin-bottom: 10px;
+  background: linear-gradient(180deg, var(--brilho), transparent 42%), var(--s1); border: 1px solid var(--borda); }
+.eq-card.inativo { opacity: .6; }
+.eq-top { display: flex; align-items: center; gap: 11px; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid var(--borda); }
+.eq-top > svg { color: var(--tx3); }
+.eq-nome { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.eq-nome b { font-size: .95rem; letter-spacing: -.02em; }
+.eq-nome small { color: var(--tx2); font-size: .7rem; }
+.eq-l { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; font-size: .8rem; color: var(--tx2); }
+.eq-l b { color: var(--tx); white-space: nowrap; }
+.eq-l.t-amarelo b { color: var(--tx-atencao); }
+.eq-l.t-verde b { color: var(--tx-bom); }
+.eq-l.t-vermelho b { color: var(--tx-critico); }
+.eq-hist, .eq-obs { color: var(--tx3); font-size: .68rem; line-height: 1.45; padding-top: 2px; }
+.eq-acoes { margin-top: 8px; }
+.eq-acoes .btn { min-height: 46px; }
+
+/* ---------- Pendências e anotações ---------- */
+.nt-lista { display: flex; flex-direction: column; gap: 8px; }
+.nt-card { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 18px;
+  background: linear-gradient(180deg, var(--brilho), transparent 42%), var(--s1); border: 1px solid var(--borda); border-left: 3px solid var(--st-atencao); }
+.nt-card.nota { border-left-color: var(--serie-salao); }
+.nt-card.resolvida { border-left-color: var(--st-bom); opacity: .7; }
+.nt-corpo { display: flex; flex-direction: column; gap: 4px; text-align: left; border: 0; background: none; padding: 0; color: inherit; font: inherit; }
+.nt-tag { font-size: .6rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--tx3); }
+.nt-txt { font-size: .86rem; line-height: 1.45; white-space: pre-line; }
+.nt-res { color: var(--tx-bom); font-size: .74rem; }
+.nt-acoes { display: flex; gap: 8px; justify-content: flex-end; }
+.nt-acoes:empty { display: none; }
+.nt-ta { min-height: 110px; resize: vertical; }
+
+/* ---------- Importar lançamentos ---------- */
+.im-det { border-radius: var(--r); background: var(--s1); border: 1px solid var(--borda); }
+.im-det > summary { cursor: pointer; padding: 12px 14px; font-size: .82rem; font-weight: 700; color: var(--brasa-tx); }
+.im-det .rs-itens { border: 0; border-top: 1px solid var(--borda); border-radius: 0 0 var(--r) var(--r); }
+.im-l .rs-v { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.im-chk, .im-op { display: flex; align-items: center; gap: 8px; font-size: .74rem; color: var(--tx2); margin-top: 4px; }
+.im-op { font-size: .8rem; color: var(--tx); padding: 10px 2px; line-height: 1.4; }
+.im-chk input, .im-op input { width: 20px; height: 20px; accent-color: var(--brasa); flex: 0 0 auto; }
+.rl-l.link { text-decoration: none; color: var(--tx2); }
+.rl-l.link small { color: var(--tx3); }

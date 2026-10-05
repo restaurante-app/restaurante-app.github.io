@@ -107,10 +107,14 @@
         corpo.appendChild(banner('aviso', velhos.length + (velhos.length === 1 ? ' insumo com preço' : ' insumos com preço') +
           ' de mais de ' + cfg.dias_preco_velho + ' dias', 'Atualizar', '#/precos'));
       }
-      const semFicha = vend.filter(f => f.semFicha);
+      const semFicha = vend.filter(f => f.semFicha && !f.estimado);
+      const estimados = vend.filter(f => f.estimado);
       if (semFicha.length) {
         corpo.appendChild(banner('aviso', semFicha.length + (semFicha.length === 1 ? ' item sem ficha técnica' : ' itens sem ficha técnica') +
-          ' (custo desconhecido)', 'Ver', '#/compras/analise'));
+          ' (custo desconhecido: toque no item para pôr um custo estimado)', 'Ver', '#/compras/analise'));
+      }
+      if (estimados.length) {
+        corpo.appendChild(banner('aviso', estimados.length + (estimados.length === 1 ? ' item com custo estimado' : ' itens com custo estimado') + ' (sem ficha técnica)'));
       }
       const vermelhos = vend.filter(f => f.faixa === 'vermelho');
       if (vermelhos.length) {
@@ -134,7 +138,7 @@
       vend.filter(f => cat === 'TODOS' || f.item.categoria === cat).forEach(f => lista.appendChild(
         h('a', { href: '#/fichas/item/' + f.item.id, class: 'mg-lin f-' + f.faixa, 'aria-label': f.item.nome + ': food cost ' + P.pct(f.fc) + ', margem ' + P.brl(f.margem) },
           h('div', { class: 'mg-nome' }, f.item.nome, h('small', null, CAT[f.item.categoria] || '')),
-          h('div', { class: 'mg-fc' }, f.semFicha ? '—' : P.pct(f.fc), h('small', null, f.semFicha ? 'sem ficha' : 'food cost')),
+          h('div', { class: 'mg-fc' }, f.semFicha && !f.estimado ? '—' : P.pct(f.fc), h('small', null, f.estimado ? 'estimado' : f.semFicha ? 'sem ficha' : 'food cost')),
           P.UI.medidor(f.fc / ESC, ST_F[f.faixa] || 'neutro', [cfg.verde_ate / ESC, cfg.vermelho_acima / ESC]),
           h('div', { class: 'mg-det' },
             h('span', null, 'CMV ', h('b', null, P.brl(f.cmv))),
@@ -549,6 +553,13 @@
     const elComps = h('div', { class: 'sim-comps' });
     const elPrevia = h('div', { class: 'ed-previa' });
     const custos = new Map();
+    // prato sem ficha: custo aproximado por unidade (até a ficha ser montada)
+    const bEst = botaoValor('', async () => {
+      const v = await P.UI.pedirNumero({ titulo: 'Custo estimado de 1 ' + (d.nome || 'unidade'), valor: +d.custo_estimado || null, decimais: 2, prefixo: 'R$ ',
+        sub: 'Quanto custa, mais ou menos, para fazer 1 (comida + embalagem). 0 = sem estimativa. Vale só enquanto o item não tiver ficha.' });
+      if (v != null) { d.custo_estimado = v > 0 ? P.round(v, 4) : null; mostrarEst(); previa(); }
+    });
+    function mostrarEst() { bEst.textContent = +d.custo_estimado > 0 ? P.brl(d.custo_estimado) + ' por unidade' : 'Sem estimativa'; }
 
     function mostrar() { bPreco.textContent = +d.preco_venda > 0 ? P.brl(d.preco_venda) : 'Sem preço (componente)'; previa(); }
     function previa() {
@@ -556,7 +567,7 @@
       P.Calc.linhas(comps).forEach(l => { const el = custos.get(l.c.id); if (el) el.textContent = P.brl(l.custo); });
       elPrevia.className = 'ed-previa f-' + f.faixa;
       elPrevia.replaceChildren(
-        h('div', null, h('small', null, 'CMV'), h('b', null, P.brl(f.cmv))),
+        h('div', null, h('small', null, f.estimado ? 'CMV estimado' : 'CMV'), h('b', null, P.brl(f.cmv))),
         h('div', null, h('small', null, 'Food cost'), h('b', null, dot(f.faixa), f.fc == null ? '—' : P.pct(f.fc))),
         h('div', null, h('small', null, 'Margem'), h('b', null, f.margem == null ? '—' : P.brl(f.margem))));
     }
@@ -640,6 +651,7 @@
         campo('Preço de venda', bPreco),
         campo('Perda operacional', stPerda.el),
         campo('Situação', P.UI.seg([{ v: true, rotulo: 'Ativo' }, { v: false, rotulo: 'Inativo' }], d.ativo !== false, v => { d.ativo = v; }, 'seg-p')),
+        campo('Custo estimado (sem ficha)', bEst, 'Enquanto o item não tem componentes, o lucro usa este custo. Com a ficha montada, vale o custo da ficha.'),
         elPrevia,
         h('div', { class: 'secao' }, 'Componentes'),
         elComps,
@@ -651,6 +663,7 @@
           novo ? null : h('button', { type: 'button', class: 'btn perigo', onClick: excluir }, P.UI.icone('lixo'), 'Excluir'),
           h('button', { type: 'button', class: 'btn primario grow', onClick: salvar }, 'Salvar'))));
     desenharComps();
+    mostrarEst();
     mostrar();
     if (novo) setTimeout(() => nome.focus(), 50);
     return {};

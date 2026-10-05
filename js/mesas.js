@@ -14,23 +14,39 @@
   const NOME_FORMA = { DINHEIRO: 'Dinheiro', PIX: 'Pix', DEBITO: 'Débito', CREDITO: 'Crédito', FIADO: 'Fiado' };
   const ICONE_FORMA = { DINHEIRO: 'dinheiro', PIX: 'pix', DEBITO: 'cartao', CREDITO: 'cartao', FIADO: 'fiado', CARTAO: 'cartao', PRAZO: 'prazo' };
   const NOME_CANAL = { ESPETO: 'Espeto', SALAO: 'Salão', MARMITA: 'Marmita' };
-  // fixo: salário, aluguel, contas e impostos — entram no lucro e no caixa do dia em que foram
-  // pagos (os custos fixos de Ajustes ficam só como base de previsão); só o dono vê
+  // fixo: salário, aluguel, contas, impostos e pró-labore — entram no lucro e no caixa do dia em
+  // que foram pagos (os custos fixos de Ajustes ficam só como base de previsão); só o dono vê.
+  // fora: investimento (equipamento, obra) — sai do caixa, mas não é custo do mês (fora do lucro).
   const CAT_DESPESA = [
     { v: 'MERCADORIA', rotulo: 'Mercadoria' }, { v: 'GAS_CARVAO', rotulo: 'Gás / carvão' },
     { v: 'EMBALAGEM', rotulo: 'Embalagem' }, { v: 'LIMPEZA', rotulo: 'Limpeza' }, { v: 'MANUTENCAO', rotulo: 'Manutenção' },
     { v: 'FUNCIONARIOS', rotulo: 'Funcionários', fixo: true }, { v: 'ALUGUEL', rotulo: 'Aluguel', fixo: true },
     { v: 'CONTAS', rotulo: 'Luz / água / net', fixo: true }, { v: 'IMPOSTOS', rotulo: 'Impostos e taxas', fixo: true },
+    { v: 'PROLABORE', rotulo: 'Pró-labore (retirada)', fixo: true }, { v: 'INVESTIMENTO', rotulo: 'Investimento', dono: true, fora: true },
     { v: 'OUTROS', rotulo: 'Outros' },
   ];
   const NOME_DESP = Object.fromEntries(CAT_DESPESA.map(c => [c.v, c.rotulo]));
   const DESP_FIXA = new Set(CAT_DESPESA.filter(c => c.fixo).map(c => c.v));
+  const DESP_DONO = new Set(CAT_DESPESA.filter(c => c.fixo || c.dono).map(c => c.v));
+  const DESP_FORA = new Set(CAT_DESPESA.filter(c => c.fora).map(c => c.v)); // fora do lucro (só caixa)
   const FORMAS_DESP = [
     { v: 'DINHEIRO', rotulo: 'Dinheiro' }, { v: 'PIX', rotulo: 'Pix' }, { v: 'CARTAO', rotulo: 'Cartão' }, { v: 'BOLETO', rotulo: 'Boleto / transf.' },
   ];
   const NOME_FORMA_DESP = Object.fromEntries(FORMAS_DESP.map(f => [f.v, f.rotulo]));
-  const despVisivel = d => P.Auth.isDono() || !DESP_FIXA.has(d.categoria);
-  const subDesp = d => NOME_DESP[d.categoria] + (d.forma ? ' · ' + NOME_FORMA_DESP[d.forma] : '');
+  // tipo do pagamento da equipe
+  const SUBTIPOS = [
+    { v: 'VALE', rotulo: 'Vale (adiantamento)' }, { v: 'CONDUCAO', rotulo: 'Condução' }, { v: 'SALARIO', rotulo: 'Salário' },
+    { v: 'SEMANA', rotulo: 'Semana' }, { v: 'DIARIA', rotulo: 'Diária' }, { v: 'OUTRO', rotulo: 'Outro' },
+  ];
+  const NOME_SUBTIPO = Object.fromEntries(SUBTIPOS.map(s => [s.v, s.rotulo]));
+  const despVisivel = d => P.Auth.isDono() || !DESP_DONO.has(d.categoria);
+  function subDesp(d) {
+    const pes = d.pessoa_id && P.Store.get('pessoas', d.pessoa_id);
+    return NOME_DESP[d.categoria] + (pes ? ' · ' + pes.nome : '') + (d.subtipo ? ' · ' + (NOME_SUBTIPO[d.subtipo] || d.subtipo).replace(' (adiantamento)', '') : '') +
+      (d.forma ? ' · ' + NOME_FORMA_DESP[d.forma] : '');
+  }
+  // venda lançada depois (pelo caderno/relatório): não tem horário de verdade
+  const semHora = c => !!(c && c.origem);
   const AGRUPA_MS = 90 * 1000; // toques seguidos no mesmo item viram uma linha só
 
   // ---------------------------------------------------------------
@@ -110,18 +126,24 @@
     ultimoToque.delete(c.id + '|' + itemId);
     return true;
   }
+  // comanda de outro dia que já tinha sido fechada (reaberta para corrigir) ou lançada depois:
+  // ao fechar de novo continua no dia dela (não muda a venda de dia)
+  const jaFechada = c => !!c.origem || P.Store.todos('pagamentos').some(p => p.comanda_id === c.id && p.excluido);
   function fechar(c, pags, desconto) {
     const u = P.Auth.usuario();
     const agora = P.agoraISO();
-    const dia = P.Dia.diaOperacional(agora);
+    const atual = P.Store.get('comandas', c.id) || c;
+    const manter = jaFechada(atual) && atual.dia_operacional && atual.dia_operacional < P.Dia.diaOperacional(agora);
+    const dia = manter ? atual.dia_operacional : P.Dia.diaOperacional(agora);
+    const quando = manter && semHora(atual) ? P.Compras.meioDia(dia) : agora;
     const d = P.round(desconto || 0, 2);
     const total = Math.max(0, P.round(subtotal(c.id) - d, 2));
     pags.filter(p => p.valor > 0).forEach(p => P.Store.put('pagamentos', {
       id: P.uuid(), comanda_id: c.id, dia_operacional: dia, forma: p.forma, valor: P.round(p.valor, 2),
-      pago_em: agora, usuario_id: u && u.id, recebido_em: null, recebido_dia: null, recebido_forma: null,
+      pago_em: quando, usuario_id: u && u.id, recebido_em: null, recebido_dia: null, recebido_forma: null,
     }));
-    return P.Store.put('comandas', Object.assign({}, P.Store.get('comandas', c.id) || c, {
-      status: 'FECHADA', fechada_em: agora, dia_operacional: dia, desconto: d, total, fechada_por: u && u.id,
+    return P.Store.put('comandas', Object.assign({}, atual, {
+      status: 'FECHADA', fechada_em: quando, dia_operacional: dia, desconto: d, total, fechada_por: u && u.id,
     }));
   }
   function reabrir(c) {
@@ -403,21 +425,24 @@
     const L = P.Store.todos('comanda_itens').filter(l => l.comanda_id === c.id).sort((a, b) => (a.adicionado_em < b.adicionado_em ? -1 : 1));
     const pags = pagamentos(c.id);
     const nomeUsu = id => { const u = id && P.Store.get('usuarios', id); return u ? u.nome : '—'; };
+    const sh = semHora(c);
+    const hora = iso => (sh ? '—' : P.Dia.hora(iso));
     view.append(
       voltar('#/mesas/hoje', 'Fechadas'),
       h('div', { class: 'rs-cab ' + c.status.toLowerCase() },
         h('div', { class: 'rs-tit' }, rotulo(c)),
-        h('div', { class: 'rs-sub' }, NOME_CANAL[c.canal] + ' · aberta ' + P.Dia.hora(c.aberta_em) + (c.fechada_em ? ' · ' + (c.status === 'CANCELADA' ? 'cancelada ' : 'fechada ') + P.Dia.hora(c.fechada_em) : '') + ' · ' + P.Dia.rotulo(c.dia_operacional)),
-        h('div', { class: 'rs-total' }, c.status === 'CANCELADA' ? 'CANCELADA' : P.brl(c.total))),
-      h('div', { class: 'secao' }, 'Itens (com horário)'),
+        h('div', { class: 'rs-sub' }, NOME_CANAL[c.canal] + (sh ? ' · lançada depois (sem horário)' : ' · aberta ' + P.Dia.hora(c.aberta_em) + (c.fechada_em ? ' · ' + (c.status === 'CANCELADA' ? 'cancelada ' : 'fechada ') + P.Dia.hora(c.fechada_em) : '')) + ' · ' + P.Dia.rotulo(c.dia_operacional)),
+        h('div', { class: 'rs-total' }, c.status === 'CANCELADA' ? 'CANCELADA' : P.brl(c.total)),
+        c.obs ? h('div', { class: 'rs-obs' }, c.obs) : null),
+      h('div', { class: 'secao' }, sh ? 'Itens' : 'Itens (com horário)'),
       h('div', { class: 'rs-itens' }, L.map(l => h('div', { class: 'rs-l' + (l.excluido ? ' removido' : '') },
-        h('span', { class: 'rs-h' }, P.Dia.hora(l.adicionado_em)),
+        h('span', { class: 'rs-h' }, hora(l.adicionado_em)),
         h('span', { class: 'rs-n' }, (l.excluido ? 0 : l.quantidade) + '× ' + l.nome,
           +l.removidos ? h('small', null, ' (' + l.removidos + ' tirado' + (l.removidos > 1 ? 's' : '') + ' por ' + nomeUsu(l.removido_por) + ' às ' + P.Dia.hora(l.removido_em) + ')') : null),
         h('span', { class: 'rs-v' }, P.brl((l.excluido ? 0 : l.quantidade) * l.preco_unit))))),
       +c.desconto ? h('div', { class: 'rs-l' }, h('span', { class: 'rs-h' }), h('span', { class: 'rs-n' }, 'Desconto'), h('span', { class: 'rs-v' }, '− ' + P.brl(c.desconto))) : null,
       pags.length ? [h('div', { class: 'secao' }, 'Pagamento'), h('div', { class: 'rs-itens' }, pags.map(p => h('div', { class: 'rs-l' },
-        h('span', { class: 'rs-h' }, P.Dia.hora(p.pago_em)),
+        h('span', { class: 'rs-h' }, hora(p.pago_em)),
         h('span', { class: 'rs-n' }, NOME_FORMA[p.forma] + (p.forma === 'FIADO' ? (p.recebido_em ? ' — recebido ' + P.Dia.rotuloCurto(p.recebido_dia) + ' (' + NOME_FORMA[p.recebido_forma] + ')' : ' — em aberto') : '')),
         h('span', { class: 'rs-v' }, P.brl(p.valor)))))] : null,
       h('div', { class: 'rs-quem' }, 'Aberta por ' + nomeUsu(c.usuario_id) + (c.fechada_por ? ' · fechada por ' + nomeUsu(c.fechada_por) : '') + (c.cancelada_por ? ' · cancelada por ' + nomeUsu(c.cancelada_por) : '')),
@@ -547,7 +572,7 @@
       if (!cs.length) { corpo.appendChild(P.UI.vazio('Nenhuma conta fechada neste dia.')); return; }
       corpo.appendChild(h('div', { class: 'ms-lista' }, cs.map(c => h('a', { class: 'ms-card' + (c.status === 'CANCELADA' ? ' cancelada' : ''), href: '#/mesas/c/' + c.id },
         h('div', { class: 'ms-card-n' }, rotulo(c),
-          h('small', null, P.Dia.hora(c.aberta_em) + '–' + P.Dia.hora(c.fechada_em) + ' · ' + NOME_CANAL[c.canal] + ' · ' +
+          h('small', null, (semHora(c) ? 'lançada depois' : P.Dia.hora(c.aberta_em) + '–' + P.Dia.hora(c.fechada_em)) + ' · ' + NOME_CANAL[c.canal] + ' · ' +
             (c.status === 'CANCELADA' ? 'cancelada' : pagamentos(c.id).map(p => NOME_FORMA[p.forma]).join(' + ')))),
         h('b', null, c.status === 'CANCELADA' ? '—' : P.brl(c.total))))));
     }
@@ -612,16 +637,58 @@
   // ---------------------------------------------------------------
   //  TELA: DESPESAS (quanto gastei)
   // ---------------------------------------------------------------
-  function novaDespesa(dia, cat0, ant) {
+  // A que mês (ou semana) o pagamento da equipe se refere: salário pago até o dia 10 é do mês
+  // anterior; semana = segunda-feira da semana; o resto, o mês do pagamento.
+  function inicioSemana(dia) {
+    const d = P.Dia.parse(dia);
+    return P.Dia.somaDias(dia, -((d.getDay() + 6) % 7));
+  }
+  function competenciaDe(cat, subtipo, dia) {
+    if (cat === 'PROLABORE') return dia.slice(0, 7);
+    if (cat !== 'FUNCIONARIOS' || !subtipo) return null;
+    if (subtipo === 'SEMANA') return inicioSemana(dia);
+    if (subtipo === 'SALARIO' && +dia.slice(8, 10) <= 10) {
+      const [y, m] = dia.split('-').map(Number);
+      const a = new Date(y, m - 2, 1);
+      return a.getFullYear() + '-' + String(a.getMonth() + 1).padStart(2, '0');
+    }
+    return dia.slice(0, 7);
+  }
+  const rotuloCompetencia = c => (!c ? '' : c.length === 7 ? P.Dia.rotuloMes(c) : 'semana de ' + P.Dia.rotuloCurto(c));
+  // o: atalhos da tela Equipe { pessoa_id, subtipo, valor, descricao }
+  function novaDespesa(dia, cat0, ant, o) {
+    o = o || {};
     return new Promise(resolve => {
       let cat = ant ? ant.categoria : cat0 || 'GAS_CARVAO';
       let forma = ant ? ant.forma || 'DINHEIRO' : 'DINHEIRO';
-      let valor = ant ? +ant.valor : null;
+      let valor = ant ? +ant.valor : o.valor != null ? o.valor : null;
+      let pessoa = ant ? ant.pessoa_id || null : o.pessoa_id || null;
+      let subtipo = ant ? ant.subtipo || null : o.subtipo || null;
       let feito = false;
-      const desc = h('input', { class: 'campo', type: 'text', value: ant ? ant.descricao || '' : '', placeholder: 'O quê? (ex.: botijão, salário do João, aluguel de outubro)', autocomplete: 'off' });
+      const desc = h('input', { class: 'campo', type: 'text', value: ant ? ant.descricao || '' : o.descricao || '', placeholder: 'O quê? (ex.: botijão, salário do João, aluguel de outubro)', autocomplete: 'off' });
       const dica = h('small', { class: 'campo-d' });
-      const mostrarDica = () => { dica.textContent = DESP_FIXA.has(cat) ? 'Entra no lucro e no caixa deste dia. Os custos fixos de Ajustes ficam só como base de previsão do mês.' : ''; };
-      const cats = CAT_DESPESA.filter(c => c.v !== 'MERCADORIA' && (P.Auth.isDono() || !c.fixo));
+      const elEquipe = h('div', { class: 'ds-equipe' });
+      const DICAS = {
+        PROLABORE: 'Retirada do dono por conta do pró-labore do mês (inclusive coisa pessoal paga com dinheiro do restaurante). Entra no lucro como custo fixo.',
+        INVESTIMENTO: 'Equipamento, obra, reforma: sai do caixa, mas não entra no lucro do mês (é gasto de uma vez).',
+      };
+      const mostrarDica = () => { dica.textContent = DICAS[cat] || (DESP_FIXA.has(cat) ? 'Entra no lucro e no caixa deste dia. Os custos fixos de Ajustes ficam só como base de previsão do mês.' : ''); };
+      // funcionários e pró-labore: de quem é e que tipo de pagamento (para a tela Equipe)
+      function desenharEquipe() {
+        if (cat !== 'FUNCIONARIOS' && cat !== 'PROLABORE') { elEquipe.replaceChildren(); return; }
+        const ps = P.Store.all('pessoas').filter(p => (p.ativo !== false || p.id === pessoa) && (cat === 'PROLABORE') === (p.pagamento === 'PROLABORE'))
+          .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+        if (cat === 'PROLABORE' && !pessoa && ps.length === 1) pessoa = ps[0].id;
+        const comp = competenciaDe(cat, subtipo, ant ? ant.dia_operacional : dia);
+        elEquipe.replaceChildren(...[
+          ps.length ? [h('span', { class: 'campo-r' }, cat === 'PROLABORE' ? 'De quem' : 'Quem'),
+            P.UI.seg(ps.map(p => ({ v: p.id, rotulo: p.nome })), pessoa, v => { pessoa = v; }, 'seg-p seg-cat')]
+            : h('small', { class: 'campo-d' }, 'Cadastre a equipe em Mais → Equipe para ver quanto falta pagar a cada um.'),
+          cat === 'FUNCIONARIOS' ? [h('span', { class: 'campo-r' }, 'Tipo'), P.UI.seg(SUBTIPOS, subtipo, v => { subtipo = v; desenharEquipe(); }, 'seg-p seg-cat')] : null,
+          comp ? h('small', { class: 'campo-d' }, 'Conta para ' + rotuloCompetencia(comp) + '.') : null,
+        ].flat().filter(Boolean));
+      }
+      const cats = CAT_DESPESA.filter(c => c.v !== 'MERCADORIA' && (P.Auth.isDono() || !(c.fixo || c.dono)));
       const bValor = h('button', { type: 'button', class: 'btn valor bloco' });
       const mostrar = () => { bValor.textContent = valor ? P.brl(valor) : 'Valor (R$)'; };
       bValor.addEventListener('click', async () => {
@@ -629,8 +696,8 @@
         if (v != null) { valor = v; mostrar(); }
       });
       const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
-        P.UI.seg(cats, cat, v => { cat = v; mostrarDica(); }, 'seg-p seg-cat'),
-        dica, bValor, desc,
+        P.UI.seg(cats, cat, v => { cat = v; mostrarDica(); desenharEquipe(); }, 'seg-p seg-cat'),
+        dica, bValor, elEquipe, desc,
         h('span', { class: 'campo-r' }, 'Como pagou'),
         P.UI.seg(FORMAS_DESP, forma, v => { forma = v; }, 'seg-p seg-cat'),
         h('div', { class: 'row gap' },
@@ -638,15 +705,24 @@
           h('button', { type: 'button', class: 'btn primario grow', onClick: () => {
             if (!(valor > 0)) { P.UI.toast('Informe o valor.', { tipo: 'perigo' }); return; }
             const u = P.Auth.usuario();
+            const equipe = cat === 'FUNCIONARIOS' || cat === 'PROLABORE';
+            const diaD = ant ? ant.dia_operacional : dia;
+            const extra = {
+              pessoa_id: equipe ? pessoa : null,
+              subtipo: cat === 'FUNCIONARIOS' ? subtipo : null,
+              // editando sem trocar o tipo: mantém a competência que já tinha (ex.: vale de antes da abertura)
+              competencia: !equipe ? null : ant && ant.competencia && ant.categoria === cat && ant.subtipo === subtipo ? ant.competencia : competenciaDe(cat, subtipo, diaD),
+            };
             const r = P.Store.put('despesas', ant
-              ? Object.assign({}, ant, { categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2) })
-              : { id: P.uuid(), dia_operacional: dia, categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2), criado_em: P.agoraISO(), usuario_id: u && u.id });
+              ? Object.assign({}, ant, { categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2) }, extra)
+              : Object.assign({ id: P.uuid(), dia_operacional: dia, categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2), criado_em: P.agoraISO(), usuario_id: u && u.id }, extra));
             feito = true; resolve(r); sh.fechar();
           } }, 'Salvar'))),
       { titulo: (ant ? 'Editar despesa · ' : 'Nova despesa · ') + P.Dia.rotulo(ant ? ant.dia_operacional : dia), onFechar: () => { if (!feito) resolve(null); } });
       mostrar();
       mostrarDica();
-      if (!ant) setTimeout(() => bValor.click(), 150);
+      desenharEquipe();
+      if (!ant && o.valor == null) setTimeout(() => bValor.click(), 150);
     });
   }
   function telaDespesas(view) {
@@ -778,7 +854,8 @@
 
   P.Mesas = {
     linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, fiadoAberto, totaisDoDia,
-    FORMAS, NOME_FORMA, ICONE_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP, DESP_FIXA, NOME_FORMA_DESP, despVisivel, subDesp,
+    FORMAS, NOME_FORMA, ICONE_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP, DESP_FIXA, DESP_DONO, DESP_FORA, NOME_FORMA_DESP, despVisivel, subDesp,
+    SUBTIPOS, NOME_SUBTIPO, competenciaDe, rotuloCompetencia, inicioSemana, novaDespesa, semHora, jaFechada,
     _abrir: abrir, _adicionar: adicionar, _fechar: fechar, _tirar: tirar,
   };
 })();

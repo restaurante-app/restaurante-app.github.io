@@ -9,7 +9,7 @@
   const P = window.P;
 
   const DB_NAME = 'pari-restaurante';
-  const DB_VERSION = 1;
+  const DB_VERSION = 2; // 2: pessoas (equipe) e anotacoes
 
   // Colunas que existem no servidor. Só elas são enviadas.
   const SCHEMA = {
@@ -17,18 +17,23 @@
     config: ['chave', 'valor_json'],
     contagens: ['id', 'dia_operacional', 'faixa_hora', 'modo', 'quantidade', 'usuario_id', 'criado_em', 'encerrado'],
     insumos: ['id', 'nome', 'unidade', 'preco', 'fator_correcao', 'atualizado_em'],
-    itens: ['id', 'nome', 'categoria', 'preco_venda', 'perda_pct', 'ativo'],
+    itens: ['id', 'nome', 'categoria', 'preco_venda', 'perda_pct', 'ativo', 'custo_estimado'],
     componentes: ['id', 'item_id', 'insumo_id', 'item_componente_id', 'gramas', 'ordem'],
     historico_precos: ['id', 'insumo_id', 'preco', 'data'],
     comandas: ['id', 'dia_operacional', 'mesa', 'cliente', 'canal', 'status', 'aberta_em', 'fechada_em', 'desconto', 'total',
-      'usuario_id', 'fechada_por', 'cancelada_por', 'obs'],
+      'usuario_id', 'fechada_por', 'cancelada_por', 'obs', 'origem'],
     comanda_itens: ['id', 'comanda_id', 'item_id', 'nome', 'quantidade', 'preco_unit', 'cmv_unit', 'adicionado_em', 'usuario_id',
       'removidos', 'removido_por', 'removido_em'],
     pagamentos: ['id', 'comanda_id', 'dia_operacional', 'forma', 'valor', 'pago_em', 'usuario_id', 'recebido_em', 'recebido_dia', 'recebido_forma'],
-    despesas: ['id', 'dia_operacional', 'categoria', 'descricao', 'valor', 'forma', 'criado_em', 'usuario_id'],
+    despesas: ['id', 'dia_operacional', 'categoria', 'descricao', 'valor', 'forma', 'criado_em', 'usuario_id',
+      'pessoa_id', 'subtipo', 'competencia'],
     compras: ['id', 'dia_operacional', 'fornecedor', 'forma', 'total', 'criado_em', 'usuario_id',
-      'pago_em', 'pago_dia', 'pago_forma', 'obs'],
+      'pago_em', 'pago_dia', 'pago_forma', 'obs', 'pagamentos'],
     compra_itens: ['id', 'compra_id', 'insumo_id', 'descricao', 'quantidade', 'unidade', 'preco_unit', 'valor', 'ordem'],
+    // equipe: quem trabalha (e o dono, para o pró-labore) e como recebe
+    pessoas: ['id', 'nome', 'funcao', 'pagamento', 'valor', 'conducao_dia', 'inicio', 'fim', 'ativo', 'obs'],
+    // pendências e anotações do dono (o que falta confirmar, lembretes)
+    anotacoes: ['id', 'dia', 'tipo', 'texto', 'resolvido', 'resolvido_em', 'resolucao', 'ref', 'criado_em', 'usuario_id'],
   };
   const COMUNS = ['modificado_em', 'excluido'];
   const TABLES = Object.keys(SCHEMA);
@@ -55,7 +60,14 @@
         if (!db.objectStoreNames.contains('_outbox')) db.createObjectStore('_outbox', { keyPath: 'k' });
         if (!db.objectStoreNames.contains('_meta')) db.createObjectStore('_meta', { keyPath: 'k' });
       };
-      rq.onsuccess = () => res(rq.result);
+      // outra aba com a versão velha aberta segura a atualização do banco: avisa (ela recarrega sozinha)
+      rq.onblocked = () => { const v = document.getElementById('view'); if (v) v.textContent = 'Atualizando… feche as outras abas do app, se houver.'; };
+      rq.onsuccess = () => {
+        const db = rq.result;
+        // versão mais nova do app abriu em outra aba: solta o banco e recarrega com ela
+        db.onversionchange = () => { gravarAgora(); db.close(); location.reload(); };
+        res(db);
+      };
       rq.onerror = () => rej(rq.error);
     });
   }
@@ -220,7 +232,13 @@
   let deNovo = false;
 
   function cfg() { return P.CONFIG || {}; }
-  function configurado() { return !!(cfg().SUPABASE_URL && cfg().SUPABASE_ANON_KEY); }
+  // Em teste no computador (localhost) a nuvem fica desligada: nada de teste vai para os dados
+  // de verdade. Para testar a nuvem aqui: localStorage.setItem('pari.nuvemLocal', '1').
+  const LOCAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  function configurado() {
+    if (LOCAL) { try { if (localStorage.getItem('pari.nuvemLocal') !== '1') return false; } catch (e) { return false; } }
+    return !!(cfg().SUPABASE_URL && cfg().SUPABASE_ANON_KEY);
+  }
   const baseUrl = () => cfg().SUPABASE_URL.replace(/\/+$/, '');
 
   // ---------------------------------------------------------------
@@ -296,10 +314,46 @@
     } finally { clearTimeout(to); }
   }
 
+  // ---------------------------------------------------------------
+  //  Nuvem desatualizada: o app ganhou tabela/coluna/opção nova e o
+  //  schema.sql novo ainda não foi rodado no Supabase. Em vez de travar
+  //  a sincronização inteira, o que a nuvem ainda não aceita fica
+  //  guardado no aparelho (na fila) e o resto segue. Tenta de novo a
+  //  cada 10 minutos e em "Sincronizar agora".
+  // ---------------------------------------------------------------
+  const falta = { colunas: {}, tabelas: new Set(), recusados: new Map(), desde: 0 };
+  function limparFalta() { falta.colunas = {}; falta.tabelas.clear(); falta.recusados.clear(); falta.desde = 0; }
+  function marcarFalta() { if (!falta.desde) falta.desde = Date.now(); }
+  const semValor = v => v == null || v === '' || (Array.isArray(v) && !v.length);
+  // linha com valor numa coluna que a nuvem ainda não tem: espera o schema.sql (não perde a informação)
+  function esperaColuna(t, r) {
+    const sem = falta.colunas[t];
+    if (!sem || !r) return false;
+    for (const c of sem) if (!semValor(r[c])) return true;
+    return false;
+  }
+  function tipoErro(e) {
+    const txt = String((e && e.message) || '');
+    const m = txt.match(/find the '([^']+)' column/i);
+    if (m) return { tipo: 'coluna', coluna: m[1] };
+    if (e && e.http === 404) return { tipo: 'tabela' };
+    if (/PGRST205|42P01|find the table|does not exist/i.test(txt)) return { tipo: 'tabela' };
+    if (e && (e.http === 400 || e.http === 409 || e.http === 422)) return { tipo: 'linha' };
+    return { tipo: 'outro' };
+  }
+  function msgErro(e) {
+    const txt = String((e && e.message) || e || '');
+    const i = txt.indexOf('{');
+    if (i >= 0) { try { const j = JSON.parse(txt.slice(i)); if (j && j.message) return j.message; } catch (x) { /* resposta cortada: tenta pelo texto */ } }
+    const m = txt.match(/"message"\s*:\s*"((?:[^"\\]|\\.)*)/);
+    return m ? m[1].replace(/\\"/g, '"') : txt.slice(0, 160);
+  }
+
   function serializar(t, r) {
     if (!r) return null;
     const o = {};
-    SCHEMA[t].concat(COMUNS).forEach(c => { o[c] = r[c] === undefined ? null : r[c]; });
+    const sem = falta.colunas[t];
+    SCHEMA[t].concat(COMUNS).forEach(c => { if (sem && sem.has(c)) return; o[c] = r[c] === undefined ? null : r[c]; });
     return o;
   }
 
@@ -329,39 +383,75 @@
     }
   }
 
+  // Envia um lote de uma tabela. Se a nuvem ainda não tem uma coluna nova, manda sem ela
+  // (linhas que dependem dela esperam); tabela que não existe lá fica para depois; linha
+  // recusada (ex.: categoria nova antes do schema.sql) é separada e as outras seguem.
+  async function enviarLote(t, lote) {
+    for (let tentativa = 0; tentativa < 8; tentativa++) {
+      if (falta.tabelas.has(t)) return;
+      const prontos = lote.filter(ob => mem[t].has(ob.key) && !falta.recusados.has(ob.k) && !esperaColuna(t, mem[t].get(ob.key)));
+      if (!prontos.length) return;
+      const revEnviada = prontos.map(ob => revs.get(ob.k) || 0);
+      const rows = prontos.map(ob => serializar(t, mem[t].get(ob.key)));
+      let resp;
+      try {
+        resp = await rest('POST', t + '?on_conflict=' + keyField(t), rows, 'resolution=merge-duplicates,return=representation');
+      } catch (e) {
+        if (e && (e.login || e.http === 401)) throw e;
+        const k = tipoErro(e);
+        if (k.tipo === 'coluna' && !(falta.colunas[t] && falta.colunas[t].has(k.coluna))) {
+          (falta.colunas[t] = falta.colunas[t] || new Set()).add(k.coluna);
+          marcarFalta();
+          continue;
+        }
+        if (k.tipo === 'tabela') { falta.tabelas.add(t); marcarFalta(); return; }
+        if (k.tipo === 'linha') {
+          if (prontos.length > 1) { for (const ob of prontos) await enviarLote(t, [ob]); return; }
+          falta.recusados.set(prontos[0].k, t + ': ' + msgErro(e));
+          marcarFalta();
+          return;
+        }
+        throw e;
+      }
+      prontos.forEach((ob, j) => {
+        if ((revs.get(ob.k) || 0) === revEnviada[j]) { // não mudou durante o envio
+          outbox.delete(ob.k);
+          remocoesFila.add(ob.k);
+        }
+      });
+      agendarGravacao();
+      if (Array.isArray(resp)) aplicarRemotos(t, resp);
+      P.emit('pendentes', outbox.size);
+      return;
+    }
+  }
   async function enviar() {
     if (!outbox.size) return;
+    // depois de um tempo, confere de novo se a nuvem já foi atualizada (schema.sql rodado)
+    if (falta.desde && Date.now() - falta.desde > 10 * 60000) limparFalta();
     const porTabela = {};
     outbox.forEach(ob => { (porTabela[ob.t] = porTabela[ob.t] || []).push(ob); });
     for (const t of TABLES) {
       const obs = porTabela[t];
       if (!obs) continue;
-      for (let i = 0; i < obs.length; i += 250) {
-        const lote = obs.slice(i, i + 250).filter(ob => mem[t].has(ob.key));
-        if (!lote.length) continue;
-        const revEnviada = lote.map(ob => revs.get(ob.k) || 0);
-        const rows = lote.map(ob => serializar(t, mem[t].get(ob.key)));
-        const resp = await rest('POST', t + '?on_conflict=' + keyField(t), rows, 'resolution=merge-duplicates,return=representation');
-        lote.forEach((ob, j) => {
-          if ((revs.get(ob.k) || 0) === revEnviada[j]) { // não mudou durante o envio
-            outbox.delete(ob.k);
-            remocoesFila.add(ob.k);
-          }
-        });
-        agendarGravacao();
-        if (Array.isArray(resp)) aplicarRemotos(t, resp);
-        P.emit('pendentes', outbox.size);
-      }
+      for (let i = 0; i < obs.length; i += 250) await enviarLote(t, obs.slice(i, i + 250));
     }
   }
 
   async function receber() {
     for (const t of TABLES) {
+      if (falta.tabelas.has(t)) continue;
       let cursor = meta['cur:' + t] || '1970-01-01T00:00:00Z';
       // folga de 2 min: pega linhas de transações que terminaram fora de ordem
       let desde = new Date(ts(cursor) - 120000).toISOString();
       for (let pagina = 0; pagina < 100; pagina++) {
-        const rows = await rest('GET', t + '?select=*&sincronizado_em=gt.' + encodeURIComponent(desde) + '&order=sincronizado_em.asc&limit=1000');
+        let rows;
+        try {
+          rows = await rest('GET', t + '?select=*&sincronizado_em=gt.' + encodeURIComponent(desde) + '&order=sincronizado_em.asc&limit=1000');
+        } catch (e) {
+          if (e && !e.login && e.http !== 401 && tipoErro(e).tipo === 'tabela') { falta.tabelas.add(t); marcarFalta(); break; }
+          throw e;
+        }
         if (!rows || !rows.length) break;
         aplicarRemotos(t, rows);
         const ult = rows[rows.length - 1].sincronizado_em;
@@ -386,6 +476,16 @@
     configurado,
     conectado: () => !!sessao,
     email: () => (sessao ? sessao.email : null),
+    // o que a nuvem ainda não aceita (schema.sql novo não rodado) → lista de frases, ou []
+    falta() {
+      const out = [];
+      falta.tabelas.forEach(t => out.push('tabela ' + t));
+      Object.keys(falta.colunas).forEach(t => falta.colunas[t].forEach(c => out.push('coluna ' + t + '.' + c)));
+      if (falta.recusados.size) out.push(falta.recusados.size + (falta.recusados.size === 1 ? ' registro recusado' : ' registros recusados') + ' (' + [...new Set(falta.recusados.values())].slice(0, 2).join('; ') + ')');
+      return out;
+    },
+    // "Sincronizar agora": tenta de novo inclusive o que a nuvem recusou antes
+    async agora() { limparFalta(); return Sync.rodar(); },
     agendar(ms) {
       if (!configurado() || !sessao) return;
       clearTimeout(timer);

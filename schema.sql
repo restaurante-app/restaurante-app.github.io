@@ -80,10 +80,12 @@ create table if not exists itens (
   preco_venda numeric(12, 2) not null default 0,   -- 0 = componente (não vendido sozinho)
   perda_pct numeric(6, 2) not null default 0,
   ativo boolean not null default true,
+  custo_estimado numeric(12, 4),           -- prato sem ficha: custo por unidade informado pelo dono
   modificado_em timestamptz not null default now(),
   excluido boolean not null default false,
   sincronizado_em timestamptz not null default clock_timestamp()
 );
+alter table itens add column if not exists custo_estimado numeric(12, 4);
 
 create table if not exists componentes (
   id text primary key,
@@ -123,10 +125,12 @@ create table if not exists comandas (
   fechada_por text,
   cancelada_por text,
   obs text,
+  origem text,                             -- vazio = ao vivo; 'DEPOIS' = venda lançada depois (sem horário)
   modificado_em timestamptz not null default now(),
   excluido boolean not null default false,
   sincronizado_em timestamptz not null default clock_timestamp()
 );
+alter table comandas add column if not exists origem text;
 
 create table if not exists comanda_itens (
   id text primary key,
@@ -166,28 +170,34 @@ create table if not exists despesas (
   id text primary key,
   dia_operacional date not null,
   categoria text not null check (categoria in ('MERCADORIA', 'GAS_CARVAO', 'EMBALAGEM', 'LIMPEZA', 'MANUTENCAO',
-    'FUNCIONARIOS', 'ALUGUEL', 'CONTAS', 'IMPOSTOS', 'OUTROS')),
+    'FUNCIONARIOS', 'ALUGUEL', 'CONTAS', 'IMPOSTOS', 'PROLABORE', 'INVESTIMENTO', 'OUTROS')),
   descricao text,
   valor numeric(12, 2) not null default 0,
   forma text,
   criado_em timestamptz not null default now(),
   usuario_id text,
+  pessoa_id text,                          -- equipe: de quem é o pagamento (vale, salário, retirada do dono)
+  subtipo text,                            -- VALE | CONDUCAO | SALARIO | SEMANA | OUTRO
+  competencia text,                        -- mês ('2026-10') ou semana ('2026-09-28') a que o pagamento se refere
   modificado_em timestamptz not null default now(),
   excluido boolean not null default false,
   sincronizado_em timestamptz not null default clock_timestamp()
 );
 -- banco criado antes das categorias novas e da forma de pagamento: atualiza (pode rodar de novo)
 alter table despesas add column if not exists forma text;
+alter table despesas add column if not exists pessoa_id text;
+alter table despesas add column if not exists subtipo text;
+alter table despesas add column if not exists competencia text;
 alter table despesas drop constraint if exists despesas_categoria_check;
 alter table despesas add constraint despesas_categoria_check check (categoria in ('MERCADORIA', 'GAS_CARVAO', 'EMBALAGEM',
-  'LIMPEZA', 'MANUTENCAO', 'FUNCIONARIOS', 'ALUGUEL', 'CONTAS', 'IMPOSTOS', 'OUTROS'));
+  'LIMPEZA', 'MANUTENCAO', 'FUNCIONARIOS', 'ALUGUEL', 'CONTAS', 'IMPOSTOS', 'PROLABORE', 'INVESTIMENTO', 'OUTROS'));
 
 -- COMPRAS de mercadoria (cada item de insumo atualiza o preço da ficha técnica)
 create table if not exists compras (
   id text primary key,
   dia_operacional date not null,
   fornecedor text,
-  forma text not null default 'DINHEIRO' check (forma in ('DINHEIRO', 'PIX', 'CARTAO', 'PRAZO')),
+  forma text not null default 'DINHEIRO' check (forma in ('DINHEIRO', 'PIX', 'CARTAO', 'CREDITO', 'PRAZO')),
   total numeric(12, 2) not null default 0,
   criado_em timestamptz not null default now(),
   usuario_id text,
@@ -195,10 +205,16 @@ create table if not exists compras (
   pago_dia date,
   pago_forma text,
   obs text,
+  -- como foi paga, em partes: [{forma, valor, vence, pago_dia, pago_forma}]
+  -- (ex.: parte no cartão de crédito com vencimento da fatura e parte em dinheiro)
+  pagamentos jsonb,
   modificado_em timestamptz not null default now(),
   excluido boolean not null default false,
   sincronizado_em timestamptz not null default clock_timestamp()
 );
+alter table compras add column if not exists pagamentos jsonb;
+alter table compras drop constraint if exists compras_forma_check;
+alter table compras add constraint compras_forma_check check (forma in ('DINHEIRO', 'PIX', 'CARTAO', 'CREDITO', 'PRAZO'));
 
 create table if not exists compra_itens (
   id text primary key,
@@ -215,12 +231,48 @@ create table if not exists compra_itens (
   sincronizado_em timestamptz not null default clock_timestamp()
 );
 
+-- EQUIPE: quem trabalha (e o dono, para o pró-labore) e como recebe.
+-- Os pagamentos (vale, condução, salário, semana, retirada) são despesas com pessoa_id.
+create table if not exists pessoas (
+  id text primary key,
+  nome text not null,
+  funcao text,                             -- ex.: Cozinheira, Entregadora, Dono
+  pagamento text not null default 'MENSAL' check (pagamento in ('MENSAL', 'SEMANAL', 'DIARIA', 'PROLABORE')),
+  valor numeric(12, 2) not null default 0, -- salário do mês, valor da semana, da diária ou pró-labore do mês
+  conducao_dia numeric(12, 2) not null default 0,
+  inicio date,
+  fim date,
+  ativo boolean not null default true,
+  obs text,
+  modificado_em timestamptz not null default now(),
+  excluido boolean not null default false,
+  sincronizado_em timestamptz not null default clock_timestamp()
+);
+
+-- PENDÊNCIAS E ANOTAÇÕES do dono (o que falta confirmar, lembretes, o que não tem outro lugar)
+create table if not exists anotacoes (
+  id text primary key,
+  dia date,                                -- dia a que se refere (opcional)
+  tipo text not null default 'PENDENCIA' check (tipo in ('PENDENCIA', 'NOTA')),
+  texto text not null,
+  resolvido boolean not null default false,
+  resolvido_em timestamptz,
+  resolucao text,
+  ref text,                                -- registro ligado (ex.: 'compras:<id>')
+  criado_em timestamptz not null default now(),
+  usuario_id text,
+  modificado_em timestamptz not null default now(),
+  excluido boolean not null default false,
+  sincronizado_em timestamptz not null default clock_timestamp()
+);
+
 -- Gatilho, índice de sincronização e acesso (chave pública do app)
 do $$
 declare t text;
 begin
   foreach t in array array['usuarios', 'config', 'contagens', 'insumos', 'itens', 'componentes', 'historico_precos',
-                           'comandas', 'comanda_itens', 'pagamentos', 'despesas', 'compras', 'compra_itens'] loop
+                           'comandas', 'comanda_itens', 'pagamentos', 'despesas', 'compras', 'compra_itens',
+                           'pessoas', 'anotacoes'] loop
     execute format('drop trigger if exists trg_%1$s_lww on %1$s', t);
     execute format('create trigger trg_%1$s_lww before insert or update on %1$s for each row execute function pari_lww()', t);
     execute format('create index if not exists idx_%1$s_sync on %1$s (sincronizado_em)', t);

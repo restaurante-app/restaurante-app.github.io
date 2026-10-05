@@ -5,14 +5,15 @@
    Publicado em endereço próprio (restaurante-app.github.io). Mesmo assim, por
    garantia: só apaga cache com o prefixo deste app e refaz o cache se sumir. */
 const PREFIXO = 'pari-';
-const CACHE = PREFIXO + 'v22';
+const CACHE = PREFIXO + 'v23';
 const FONTES = PREFIXO + 'fontes'; // fonte Inter (Google Fonts): guardada na 1ª abertura com internet
 // cache: 'reload' = baixa do servidor, nunca do cache HTTP do navegador (senão a versão nova
 // podia ser guardada com arquivos velhos e o celular não via a mudança)
 const ARQUIVOS = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/config.js', './js/core.js', './js/db.js', './js/calc.js', './js/seed.js', './js/ui.js', './js/auth.js',
-  './js/fluxo.js', './js/fichas.js', './js/mesas.js', './js/painel.js', './js/compras.js', './js/analise.js', './js/relatorio.js',
+  './js/fluxo.js', './js/fichas.js', './js/mesas.js', './js/painel.js', './js/compras.js', './js/analise.js',
+  './js/equipe.js', './js/anotacoes.js', './js/caixa.js', './js/importar.js', './js/relatorio.js',
   './js/mais.js', './js/app.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
 ];

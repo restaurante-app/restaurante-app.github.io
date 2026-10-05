@@ -79,11 +79,22 @@ Precisa de internet e da nuvem conectada (função `ler-qr` do Supabase — veja
 **calendário** — cada dia mostra quanto saiu (compras + despesas) e o topo mostra compras e despesas
 do mês; o dia escolhido lista as compras e as despesas; ou use a **busca** ("coca", "heineken", nome do
 fornecedor), que procura em todas as compras pelo nome do produto como veio na nota.
-**A pagar**: compras a prazo por fornecedor, com "Paguei em…".
+**Como pagou**: Dinheiro, Pix, Débito (sai na hora), **Crédito** (entra na fatura do cartão:
+o app sugere o próximo vencimento, que fica em Ajustes → Cartão de crédito) ou **A prazo**
+(com vencimento, se quiser). *Dividir* lança a compra em partes (ex.: parte no crédito e o resto
+em dinheiro; a última parte fica com o que falta).
+**A pagar**: o que está em aberto, por fornecedor (a prazo) e por fatura do cartão, com o
+vencimento ("vence 01/11 (27 dias)"); ao pagar, escolhe-se o dia do pagamento e a forma.
+No caixa, a compra a prazo ou no crédito só sai no dia em que é paga.
 **Resultado do dia ao vivo** (dono):
 
     resultado = vendas − custo do que foi vendido (fichas) − despesas lançadas (inclusive fixos pagos)
-    caixa     = recebido (sem fiado) − compras pagas − despesas
+    caixa     = recebido (sem fiado) − o que foi pago no dia (compras e partes de compras) − despesas
+
+Prato **sem ficha** não tem custo: o lucro sai maior que o real, e o Painel e o Relatório avisam
+quanto foi vendido assim. Até montar a ficha, dá para pôr um **custo estimado** no prato
+(Fichas → Cadastro → item) ou um **% geral** para pratos sem ficha (Ajustes → Fichas); a venda
+já lançada sem custo passa a usar a estimativa.
 
 **Custos** (dono): por insumo, quanto foi comprado × quanto as vendas usaram pela ficha
 (peso bruto, com fator de correção e perda). Sobra grande que se repete = desperdício,
@@ -118,6 +129,35 @@ ficha × real (compras ÷ vendas), bebida junto por canal, projeção do mês e 
 espetos/dia. **Relatório detalhado**: resultado, caixa por forma de pagamento, compras
 por insumo, por canal, por hora, o que foi vendido, contas, despesas, controle de
 cancelamentos; exporta CSV (itens vendidos, contas, compras e gastos) e imprime.
+
+**Despesas do dono** — além de funcionários, aluguel, contas e impostos: **Pró-labore (retirada)**
+(retirada do dono, inclusive coisa pessoal paga com dinheiro do restaurante; conta como custo
+fixo) e **Investimento** (equipamento, obra: sai do caixa, mas fica fora do lucro do mês). Em
+Funcionários e Pró-labore escolhe-se **quem** e o **tipo** (vale, condução, salário, semana,
+diária); o app guarda a que mês ou semana o pagamento se refere.
+
+**Equipe** (dono; Mais → Equipe) — quem trabalha e como recebe (salário mensal, por semana,
+diária ou pró-labore do dono), com a conta de cada um: salário do mês − vales = falta pagar,
+condução paga, semana a semana da entregadora e quanto o dono ainda pode retirar no mês.
+Botões para lançar vale, condução, salário, semana ou retirada (viram despesas do dia).
+
+**Pendências** (dono; Mais → Pendências) — o que falta confirmar e anotações que não têm outro
+lugar no app, com "Resolvido" (e como resolveu) e atalho para a compra, conta ou item ligado.
+
+**Capital e caixa** (dono; Mais → Capital e caixa) — caixa desde a abertura (vendas recebidas −
+compras pagas − equipe − retiradas − despesas = saldo das operações; e o que ainda vai sair e
+entrar) e a **montagem**: tudo que foi gasto antes do dia da abertura (Ajustes → Custos fixos).
+
+**Importar lançamentos** (dono; Mais → Importar lançamentos ou Ajustes → Backup) — lança de uma
+vez um pacote `.json` com compras, vendas por cliente, despesas, equipe, cardápio e pendências
+(ex.: o que foi anotado no caderno antes de usar o app). Antes de lançar, **confere**: mostra os
+totais de cada dia, o que é novo, o que **já está no app** (não lança de novo) e o que é
+**parecido** (mesmo dia e mesmo valor: fica de fora, a não ser que você marque). As compras
+passam pelo caminho normal (atualizam o preço dos insumos, dia a dia); as vendas entram como
+contas fechadas **"lançadas depois"**, sem horário — contam no faturamento, no caixa e nos
+pratos, mas ficam fora das vendas por hora e do Fluxo. **Desfazer** apaga o que a importação
+criou e volta o que ela mudou. Ids fixos: importar duas vezes, ou em dois aparelhos, não duplica.
+Conta reaberta para corrigir continua no dia dela ao fechar de novo.
 
 ## Dados iniciais
 
@@ -162,6 +202,13 @@ sozinha). A pílula no topo mostra **conectar nuvem / online / offline / N pende
 Conflito entre aparelhos: vence a alteração mais recente. Sincroniza a cada 30 s com o
 app aberto, logo depois de cada lançamento e ao voltar para o app.
 
+**Atualizar a nuvem** (quando o app ganha tabela, coluna ou opção nova — v1.7: equipe,
+pendências, pagamento em partes/cartão de crédito, pró-labore, investimento, vendas lançadas
+depois, custo estimado): SQL Editor → cole o `schema.sql` inteiro de novo → *Run* (pode rodar
+quantas vezes quiser). Enquanto isso não é feito, a sincronização **não trava**: o que a nuvem
+ainda não aceita fica guardado no aparelho (Ajustes → Sincronização mostra o que falta) e o
+resto segue normalmente; depois de rodar o SQL, toque em *Sincronizar agora*.
+
 ## Leitura do cupom fiscal (função `ler-qr`) — grátis
 
 O navegador não pode abrir o site da Sefaz direto, então uma Edge Function do Supabase
@@ -197,6 +244,13 @@ com internet; sem ela, o app usa a fonte do sistema.
 O app tem endereço próprio (organização separada), então não divide o armazenamento
 do navegador com o ERP nem com a contagem, que ficam em `agrobras123-lab.github.io`.
 Por garantia, ele só mexe nos próprios dados (prefixo `pari`).
+
+## Testar no computador
+
+`.claude/launch.json` sobe um servidor local (porta 5611). Em `localhost` o service worker e a
+**nuvem ficam desligados** (nada de teste vai para os dados de verdade); para testar a nuvem aí:
+`localStorage.setItem('pari.nuvemLocal', '1')`. Arquivos de teste com dados ficam em `.claude/`
+(fora do Git).
 
 ## Limitações conhecidas
 

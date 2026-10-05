@@ -12,8 +12,72 @@
     { v: 'DINHEIRO', rotulo: 'Dinheiro' }, { v: 'PIX', rotulo: 'Pix' },
     { v: 'CARTAO', rotulo: 'Cartão' }, { v: 'PRAZO', rotulo: 'A prazo' },
   ];
-  const NOME_FORMA = { DINHEIRO: 'Dinheiro', PIX: 'Pix', CARTAO: 'Cartão', PRAZO: 'A prazo', DEBITO: 'Débito', CREDITO: 'Crédito' };
+  // formas de uma parte do pagamento (Cartão = débito/na hora; Crédito = entra na fatura)
+  const FORMAS_PARTE = [
+    { v: 'DINHEIRO', rotulo: 'Dinheiro' }, { v: 'PIX', rotulo: 'Pix' }, { v: 'CARTAO', rotulo: 'Débito' },
+    { v: 'CREDITO', rotulo: 'Crédito' }, { v: 'PRAZO', rotulo: 'A prazo' },
+  ];
+  const NOME_FORMA = { DINHEIRO: 'Dinheiro', PIX: 'Pix', CARTAO: 'Cartão', PRAZO: 'A prazo', DEBITO: 'Débito', CREDITO: 'Cartão de crédito' };
   const UN = { kg: 'kg', L: 'L', un: 'un' };
+  const aPrazoForma = f => f === 'PRAZO' || f === 'CREDITO';
+
+  // ---------------------------------------------------------------
+  //  Pagamento da compra em partes. Compra simples (paga na hora numa forma
+  //  só) usa só forma/pago_*; a prazo, cartão de crédito (sai do caixa no
+  //  vencimento da fatura) e pagamento dividido guardam a lista "pagamentos":
+  //  [{ forma, valor, vence, pago_dia, pago_forma }].
+  // ---------------------------------------------------------------
+  function partes(c) {
+    if (Array.isArray(c.pagamentos) && c.pagamentos.length) return c.pagamentos;
+    const valor = +c.total || 0;
+    if (aPrazoForma(c.forma)) return [{ forma: c.forma, valor, vence: null, pago_dia: c.pago_em ? c.pago_dia : null, pago_forma: c.pago_em ? c.pago_forma : null }];
+    return [{ forma: c.forma, valor, vence: null, pago_dia: c.pago_dia || c.dia_operacional, pago_forma: c.pago_forma || c.forma }];
+  }
+  const partesAbertas = c => partes(c).filter(p => !p.pago_dia);
+  const valorAberto = c => P.round(partesAbertas(c).reduce((s, p) => s + (+p.valor || 0), 0), 2);
+  // dinheiro que saiu do caixa por esta compra: [{ dia, valor, forma }]
+  const saidas = c => partes(c).filter(p => p.pago_dia).map(p => ({ dia: p.pago_dia, valor: +p.valor || 0, forma: p.pago_forma || p.forma }));
+  // meio-dia do dia (horário local) em ISO — para datas lançadas sem horário
+  const meioDia = dia => { const [y, m, d] = dia.split('-').map(Number); return new Date(y, m - 1, d, 12).toISOString(); };
+  // campos antigos (forma/pago_*) a partir das partes — para os aparelhos com versão antiga:
+  // forma = A prazo se ainda deve ao fornecedor, senão a da maior parte; pago_* só quando tudo foi pago
+  function legado(ps) {
+    const maior = ps.reduce((a, b) => ((+b.valor || 0) > (+a.valor || 0) ? b : a));
+    const forma = ps.some(p => p.forma === 'PRAZO' && !p.pago_dia) ? 'PRAZO' : maior.forma;
+    if (ps.some(p => !p.pago_dia)) return { forma, pago_em: null, pago_dia: null, pago_forma: null };
+    const ult = ps.reduce((a, b) => (b.pago_dia > a.pago_dia ? b : a));
+    return { forma, pago_em: ult.pago_em || meioDia(ult.pago_dia), pago_dia: ult.pago_dia, pago_forma: ult.pago_forma || ult.forma };
+  }
+  // Partes do pagamento a partir do formulário: d.partes (dividido) ou d.forma (+ d.vence).
+  // Parte paga na hora: pago no dia da compra. A prazo/crédito: aberta (ou já paga, se a
+  // compra editada já tinha essa parte paga). A última parte fica com o que falta do total.
+  function montarPartes(d, total, dia, criado, ant) {
+    const velhas = ant ? partes(ant).filter(p => p.pago_dia && aPrazoForma(p.forma)) : [];
+    const base = d.partes && d.partes.length ? d.partes : [{ forma: d.forma, valor: total, vence: d.vence || null }];
+    let resto = total;
+    return base.map((p, i) => {
+      const valor = i === base.length - 1 ? P.round(resto, 2) : P.round(+p.valor || 0, 2);
+      resto -= valor;
+      if (!aPrazoForma(p.forma)) return { forma: p.forma, valor, vence: null, pago_dia: p.pago_dia || dia, pago_forma: p.pago_forma || p.forma, pago_em: p.pago_em || criado };
+      const ja = p.pago_dia ? p : velhas.find(v => v.forma === p.forma && (v.vence || null) === (p.vence || null));
+      if (ja && velhas.includes(ja)) velhas.splice(velhas.indexOf(ja), 1);
+      return { forma: p.forma, valor, vence: p.vence || null, pago_dia: ja ? ja.pago_dia : null, pago_forma: ja ? ja.pago_forma : null, pago_em: ja ? ja.pago_em || null : null };
+    });
+  }
+  // próximo vencimento da fatura do cartão (dia do mês em Ajustes → cartão; padrão dia 1)
+  function proximaFatura(dia) {
+    const dv = Math.min(28, Math.max(1, +P.cfg('cartao').vencimento_dia || 1));
+    const d = P.Dia.parse(dia || P.Dia.hoje());
+    const v = new Date(d.getFullYear(), d.getMonth() + (d.getDate() >= dv ? 1 : 0), dv);
+    const pad = n => String(n).padStart(2, '0');
+    return v.getFullYear() + '-' + pad(v.getMonth() + 1) + '-' + pad(v.getDate());
+  }
+  const rotuloVence = iso => { const d = P.Dia.parse(iso); return String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0'); };
+  function quandoVence(iso) {
+    if (!iso) return '';
+    const dias = Math.round((P.Dia.parse(iso) - P.Dia.parse(P.Dia.hoje())) / 86400000);
+    return dias < 0 ? 'venceu ' + rotuloVence(iso) : dias === 0 ? 'vence hoje' : dias === 1 ? 'vence amanhã' : 'vence ' + rotuloVence(iso) + ' (' + dias + ' dias)';
+  }
 
   // ---------------------------------------------------------------
   //  Dados
@@ -30,7 +94,8 @@
     return cache;
   }
   const itensDe = id => idx().itens.get(id) || [];
-  const aPagar = () => P.Store.all('compras').filter(c => c.forma === 'PRAZO' && !c.pago_em);
+  // compras com alguma parte ainda não paga (fornecedor a prazo ou fatura do cartão)
+  const aPagar = () => P.Store.all('compras').filter(c => partesAbertas(c).length);
   const doDia = dia => P.Store.all('compras').filter(c => c.dia_operacional === dia).sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1));
   const nomeCompra = c => c.fornecedor || 'Compra sem fornecedor';
   function resumoItens(c) {
@@ -56,25 +121,27 @@
   // Grava a compra (nova ou edição) e atualiza o preço dos insumos comprados
   function salvar(d, idExistente) {
     const u = P.Auth.usuario();
-    const antes = P.Calc.snapshot();
+    const antes = d.silencioso ? null : P.Calc.snapshot();
     const agora = P.agoraISO();
     const ant = idExistente ? P.Store.get('compras', idExistente) : null;
-    const id = ant ? ant.id : P.uuid();
+    const id = ant ? ant.id : d.id || P.uuid(); // d.id: importação (id fixo, não duplica)
     const dia = d.dia || (ant ? ant.dia_operacional : P.Dia.diaOperacional(agora));
     if (ant) itensDe(id).forEach(l => P.Store.remove('compra_itens', l.id));
     const total = P.round(d.linhas.reduce((s, l) => s + (+l.valor || 0), 0), 2);
-    const criado = ant ? ant.criado_em : agora;
-    // pago na hora (dinheiro/pix/cartão) ou a prazo (fica em "A pagar" até marcar como pago)
-    let pg = { pago_em: null, pago_dia: null, pago_forma: null };
-    if (d.forma !== 'PRAZO') pg = { pago_em: criado, pago_dia: dia, pago_forma: d.forma };
-    else if (ant && ant.forma === 'PRAZO' && ant.pago_em) pg = { pago_em: ant.pago_em, pago_dia: ant.pago_dia, pago_forma: ant.pago_forma };
+    // compra de outro dia lançada agora: o horário fica no meio do dia da compra
+    const criado = ant ? ant.criado_em : d.criado_em || (dia === P.Dia.diaOperacional(agora) ? agora : meioDia(dia));
+    // pago na hora (dinheiro/pix/cartão), a prazo ou no crédito (fica em "A pagar"), ou dividido
+    const ps = montarPartes(d, total, dia, criado, ant);
+    const simples = ps.length === 1 && !aPrazoForma(ps[0].forma);
+    const pg = simples ? { forma: ps[0].forma, pago_em: criado, pago_dia: dia, pago_forma: ps[0].forma } : legado(ps);
     const compra = P.Store.put('compras', Object.assign({
-      id, dia_operacional: dia, fornecedor: (d.fornecedor || '').trim() || null, forma: d.forma, total,
+      id, dia_operacional: dia, fornecedor: (d.fornecedor || '').trim() || null, total,
       criado_em: criado, usuario_id: ant ? ant.usuario_id : (u && u.id), obs: d.obs || null,
+      pagamentos: simples ? null : ps,
     }, pg));
     d.linhas.forEach((l, i) => P.Store.put('compra_itens', {
       // guarda o nome como veio na nota (ex.: "COCA-COLA LATA 12X350ML"); o insumo fica no insumo_id
-      id: P.uuid(), compra_id: id, insumo_id: l.insumo_id || null, descricao: l.lido || l.descricao,
+      id: d.idLinha ? d.idLinha(i) : P.uuid(), compra_id: id, insumo_id: l.insumo_id || null, descricao: l.lido || l.descricao,
       quantidade: P.round(l.quantidade, 3), unidade: l.unidade, preco_unit: P.round(l.preco_unit, 4), valor: P.round(l.valor, 2), ordem: i,
     }));
     // preço vivo: preço médio pago em cada insumo desta compra vira o preço do insumo
@@ -92,25 +159,36 @@
       porInsumo.set(l.insumo_id, g);
     });
     const mudancas = [];
+    const quando = d.criado_em || agora; // importação: o preço vale desde o dia da compra
     porInsumo.forEach((g, insId) => {
       const ins = P.Store.get('insumos', insId);
       if (!ins) return;
       const novo = P.round(g.v / g.q, 4);
       if (P.round(novo, 2) !== P.round(ins.preco, 2)) {
         mudancas.push({ ins, de: +ins.preco, para: novo });
-        P.Store.put('insumos', Object.assign({}, ins, { preco: novo, atualizado_em: agora }));
-        P.Store.put('historico_precos', { id: P.uuid(), insumo_id: insId, preco: novo, data: agora });
+        P.Store.put('insumos', Object.assign({}, ins, { preco: novo, atualizado_em: quando }));
+        P.Store.put('historico_precos', { id: d.idHist ? d.idHist(insId) : P.uuid(), insumo_id: insId, preco: novo, data: quando });
       } else {
-        P.Store.put('insumos', Object.assign({}, ins, { atualizado_em: agora }));
+        P.Store.put('insumos', Object.assign({}, ins, { atualizado_em: quando }));
       }
     });
-    const efeito = P.Fichas.medirEfeito(antes);
+    const efeito = d.silencioso ? null : P.Fichas.medirEfeito(antes); // importação: sem aviso de food cost
     return { compra, mudancas, efeito };
   }
-  function pagar(compras, forma) {
+  // Marca como pago o que está em aberto nas compras (todas as partes abertas, ou só as
+  // que passam no filtro — ex.: só a fatura do cartão de um vencimento), no dia escolhido.
+  function pagar(compras, forma, dia, filtro) {
     const agora = P.agoraISO();
-    const dia = P.Dia.diaOperacional(agora);
-    compras.forEach(c => P.Store.put('compras', Object.assign({}, c, { pago_em: agora, pago_dia: dia, pago_forma: forma })));
+    dia = dia || P.Dia.diaOperacional(agora);
+    const quando = dia === P.Dia.diaOperacional(agora) ? agora : meioDia(dia);
+    compras.forEach(c => {
+      const atual = P.Store.get('compras', c.id) || c;
+      const temLista = Array.isArray(atual.pagamentos) && atual.pagamentos.length;
+      const ps = partes(atual).map(p => (!p.pago_dia && (!filtro || filtro(p)) ? Object.assign({}, p, { pago_dia: dia, pago_forma: forma, pago_em: quando }) : p));
+      // compra a prazo antiga (sem a lista): continua só com os campos de antes
+      if (!temLista && ps.length === 1) P.Store.put('compras', Object.assign({}, atual, { pago_em: quando, pago_dia: dia, pago_forma: forma }));
+      else P.Store.put('compras', Object.assign({}, atual, { pagamentos: ps }, legado(ps)));
+    });
   }
 
   // ---------------------------------------------------------------
@@ -137,10 +215,12 @@
         dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), h('small', null, P.Dia.rotuloCurto(dia) + ' ▾')),
       h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo dia', disabled: dia >= hoje, onClick: () => onMuda(P.Dia.seguinte(dia)) }, P.UI.icone('avancar')));
   }
-  // Calendário do mês: cada dia mostra quanto saiu (compras + despesas); toque escolhe o dia
-  function calendario(diaAtual, onEscolher) {
+  // Calendário do mês: cada dia mostra quanto saiu (compras + despesas); toque escolhe o dia.
+  // o.futuro: para vencimento (deixa escolher dias que ainda vão chegar, inclusive domingo).
+  function calendario(diaAtual, onEscolher, o) {
+    o = o || {};
     const hoje = P.Dia.hoje();
-    let mes = P.Dia.mes(diaAtual);
+    let mes = P.Dia.mes(diaAtual || hoje);
     const totais = new Map(), soCompras = new Map();
     const soma = (m, dia, v) => m.set(dia, (m.get(dia) || 0) + (+v || 0));
     P.Store.all('compras').forEach(c => { soma(totais, c.dia_operacional, c.total); soma(soCompras, c.dia_operacional, c.total); });
@@ -162,20 +242,20 @@
         totMes += t;
         comprasMes += soCompras.get(iso) || 0;
         celulas.push(h('button', {
-          type: 'button', disabled: domingo || iso > hoje,
-          class: 'cal-d' + (t ? ' com' : '') + (iso === diaAtual ? ' sel' : '') + (iso === hoje ? ' hoje' : ''),
+          type: 'button', disabled: o.futuro ? iso < hoje : domingo || iso > hoje,
+          class: 'cal-d' + (t && !o.futuro ? ' com' : '') + (iso === diaAtual ? ' sel' : '') + (iso === hoje ? ' hoje' : ''),
           onClick: () => { sh.fechar(); onEscolher(iso); },
-        }, h('b', null, d), t ? h('small', null, P.brl0(t).replace('R$ ', '')) : null));
+        }, h('b', null, d), t && !o.futuro ? h('small', null, P.brl0(t).replace('R$ ', '')) : null));
       }
       corpo.replaceChildren(
         h('div', { class: 'cal-top' },
-          h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Mês anterior', onClick: () => mudaMes(-1) }, P.UI.icone('voltar')),
-          h('div', { class: 'cal-mes' }, P.Dia.rotuloMes(mes), h('small', null, totMes ? 'compras ' + P.brl(comprasMes) + ' · despesas ' + P.brl(totMes - comprasMes) : 'nada lançado no mês')),
-          h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo mês', disabled: mes >= P.Dia.mes(hoje), onClick: () => mudaMes(1) }, P.UI.icone('avancar'))),
+          h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Mês anterior', disabled: !!o.futuro && mes <= P.Dia.mes(hoje), onClick: () => mudaMes(-1) }, P.UI.icone('voltar')),
+          h('div', { class: 'cal-mes' }, P.Dia.rotuloMes(mes), o.futuro ? null : h('small', null, totMes ? 'compras ' + P.brl(comprasMes) + ' · despesas ' + P.brl(totMes - comprasMes) : 'nada lançado no mês')),
+          h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo mês', disabled: !o.futuro && mes >= P.Dia.mes(hoje), onClick: () => mudaMes(1) }, P.UI.icone('avancar'))),
         h('div', { class: 'cal-grade' }, ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'].map(s => h('span', { class: 'cal-sem' }, s)), celulas),
-        h('button', { type: 'button', class: 'btn bloco', onClick: () => { sh.fechar(); onEscolher(hoje); } }, 'Ir para hoje'));
+        ...(o.futuro ? [] : [h('button', { type: 'button', class: 'btn bloco', onClick: () => { sh.fechar(); onEscolher(hoje); } }, 'Ir para hoje')]));
     }
-    const sh = P.UI.sheet(corpo, { titulo: 'Escolha o dia' });
+    const sh = P.UI.sheet(corpo, { titulo: o.titulo || 'Escolha o dia' });
     desenhar();
   }
   // Busca em todas as compras: fornecedor, produto (nome da nota) ou insumo
@@ -195,8 +275,20 @@
     });
     return out.sort((a, b) => (a.c.criado_em < b.c.criado_em ? 1 : -1));
   }
-  const chipForma = c => h('span', { class: 'tag ' + (c.forma === 'PRAZO' ? (c.pago_em ? 'ok' : 'aviso') : 'neutra') },
-    c.forma === 'PRAZO' ? (c.pago_em ? 'pago ' + P.Dia.rotuloCurto(c.pago_dia) : 'a pagar') : NOME_FORMA[c.forma] || c.forma);
+  function chipForma(c) {
+    const ps = partes(c), ab = ps.filter(p => !p.pago_dia);
+    const tag = (cls, txt) => h('span', { class: 'tag ' + cls }, txt);
+    if (ab.length) {
+      const v = ab.map(p => p.vence).filter(Boolean).sort()[0];
+      return tag('aviso', (ab.every(p => p.forma === 'CREDITO') ? 'crédito' : 'a pagar') + (v ? ' · ' + rotuloVence(v) : ''));
+    }
+    if (ps.length > 1) return tag('neutra', 'dividido');
+    return aPrazoForma(ps[0].forma) ? tag('ok', 'pago ' + P.Dia.rotuloCurto(ps[0].pago_dia)) : tag('neutra', NOME_FORMA[ps[0].forma] || ps[0].forma);
+  }
+  // "Cartão de crédito R$ 650,00, vence 01/11 (27 dias) + Dinheiro R$ 308,48"
+  const textoPartes = c => partes(c).map(p => (NOME_FORMA[p.forma] || p.forma) + ' ' + P.brl(p.valor) +
+    (p.pago_dia ? (aPrazoForma(p.forma) ? ', pago ' + P.Dia.rotuloCurto(p.pago_dia) + (p.pago_forma ? ' em ' + (NOME_FORMA[p.pago_forma] || p.pago_forma).toLowerCase() : '') : '')
+      : ', ' + (p.vence ? quandoVence(p.vence) : 'a pagar'))).join(' + ');
 
   // Resultado ao vivo (dono): vendas − custo do vendido − despesas lançadas; e o caixa
   function cardResultado(dia) {
@@ -636,7 +728,7 @@
       const total = cs.reduce((s, c) => s + (+c.total || 0), 0);
       const ds = P.Store.all('despesas').filter(x => x.dia_operacional === dia && P.Mesas.despVisivel(x)).sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1));
       const totDesp = ds.reduce((s, x) => s + (+x.valor || 0), 0);
-      const devendo = aPagar().reduce((s, c) => s + (+c.total || 0), 0);
+      const devendo = aPagar().reduce((s, c) => s + valorAberto(c), 0);
       corpo.appendChild(h('div', { class: 'fx-resumo' },
         h('div', { class: 'fx-tot' }, h('small', null, 'Comprado · ' + cs.length + (cs.length === 1 ? ' compra' : ' compras')), h('b', null, P.brl(total))),
         h('a', { class: 'fx-formas link', href: '#/mesas/despesas' }, h('span', { class: 'fx-f' }, 'Despesas do dia ', h('b', null, P.brl(totDesp))), h('span', { class: 'fx-f' }, 'Saiu no dia ', h('b', null, P.brl(total + totDesp))), P.UI.icone('avancar')),
@@ -758,9 +850,12 @@
     view.className = 'v-cp-form';
     const ant = params.id ? P.Store.get('compras', params.id) : null;
     if (params.id && !ant) { view.append(voltar('#/compras', 'Compras'), P.UI.vazio('Compra não encontrada.')); return {}; }
+    const psAnt = ant ? partes(ant) : null;
     const d = {
       fornecedor: ant ? ant.fornecedor || '' : '',
-      forma: ant ? ant.forma : 'DINHEIRO',
+      forma: psAnt && psAnt.length === 1 ? psAnt[0].forma : 'DINHEIRO',
+      vence: psAnt && psAnt.length === 1 ? psAnt[0].vence || null : null,
+      partes: psAnt && psAnt.length > 1 ? psAnt.map(p => Object.assign({}, p)) : null, // pagamento dividido
       dia: ant ? ant.dia_operacional : diaLista && diaLista <= P.Dia.hoje() ? diaLista : P.Dia.hoje(),
       obs: ant ? ant.obs || null : null,
       linhas: ant ? itensDe(ant.id).map(l => ({ insumo_id: l.insumo_id, descricao: l.descricao, quantidade: +l.quantidade, unidade: l.unidade, preco_unit: +l.preco_unit, valor: +l.valor })) : [],
@@ -772,8 +867,75 @@
     const elBarra = h('div', { class: 'barra-acao' });
     const elAviso = h('div');
     let totalNota = null;
-    const mkSegForma = () => P.UI.seg(FORMAS, d.forma, v => { d.forma = v; }, 'seg-p');
-    let segForma = mkSegForma();
+    const elPag = h('div', { class: 'cp-pag' });
+    const totalLinhas = () => P.round(d.linhas.reduce((s, l) => s + (+l.valor || 0), 0), 2);
+    const DICA_FORMA = {
+      DINHEIRO: 'Sai do caixa no dia da compra.', PIX: 'Sai do caixa no dia da compra.', CARTAO: 'Cartão de débito: sai na hora.',
+      CREDITO: 'Entra na fatura do cartão: fica em Compras → A pagar e só sai do caixa quando a fatura for paga.',
+      PRAZO: 'Fica em Compras → A pagar até você marcar como pago.',
+    };
+    // botão de vencimento (fatura do cartão ou conta a prazo)
+    function botaoVence(p, opcional) {
+      return h('button', { type: 'button', class: 'btn mini cp-vence', onClick: () => calendario(p.vence || (p.forma === 'CREDITO' ? proximaFatura(d.dia) : P.Dia.hoje()), iso => { p.vence = iso; desenharPag(); }, { futuro: true, titulo: 'Vence em' }) },
+        P.UI.icone('calendario'), p.vence ? 'vence ' + rotuloVence(p.vence) : opcional ? 'vencimento (opcional)' : 'vencimento');
+    }
+    function desenharPag() {
+      const total = totalLinhas();
+      if (!d.partes) {
+        const p = d;
+        elPag.replaceChildren(...[
+          P.UI.seg(FORMAS_PARTE, d.forma, v => {
+            d.forma = v;
+            if (v === 'CREDITO') d.vence = d.vence || proximaFatura(d.dia);
+            if (!aPrazoForma(v)) d.vence = null;
+            desenharPag();
+          }, 'seg-p seg-cat'),
+          aPrazoForma(d.forma) ? h('div', { class: 'row gap cp-pag-v' }, botaoVence(p, d.forma === 'PRAZO')) : null,
+          h('small', { class: 'campo-d' }, DICA_FORMA[d.forma] || ''),
+          h('button', { type: 'button', class: 'cp-galeria', onClick: () => {
+            d.partes = [{ forma: d.forma, valor: 0, vence: d.vence }, { forma: d.forma === 'DINHEIRO' ? 'CREDITO' : 'DINHEIRO', valor: 0, vence: null }];
+            if (d.partes[1].forma === 'CREDITO') d.partes[1].vence = proximaFatura(d.dia);
+            desenharPag();
+          } }, 'Pagou parte de um jeito e parte de outro? Dividir'),
+        ].filter(Boolean));
+        return;
+      }
+      // dividido: cada parte com forma e valor; a última fica com o que falta
+      let soma = 0;
+      const linhas = d.partes.map((p, i) => {
+        const ultima = i === d.partes.length - 1;
+        const valor = ultima ? P.round(total - soma, 2) : +p.valor || 0;
+        if (!ultima) soma += valor;
+        return h('div', { class: 'cp-parte' },
+          h('div', { class: 'cp-parte-top' },
+            h('b', null, 'Parte ' + (i + 1)),
+            ultima ? h('span', { class: 'cp-parte-v' + (valor <= 0 ? ' t-vermelho' : '') }, P.brl(valor), h('small', null, ' (o que falta)'))
+              : h('button', { type: 'button', class: 'btn valor', onClick: async () => {
+                const v = await P.UI.pedirNumero({ titulo: 'Parte ' + (i + 1) + ' — valor', valor: p.valor || null, decimais: 2, prefixo: 'R$ ' });
+                if (v != null) { p.valor = v; desenharPag(); }
+              } }, p.valor ? P.brl(p.valor) : 'valor'),
+            d.partes.length > 2 ? h('button', { type: 'button', class: 'btn ic', 'aria-label': 'Tirar parte', onClick: () => { d.partes.splice(i, 1); desenharPag(); } }, P.UI.icone('x')) : null),
+          P.UI.seg(FORMAS_PARTE, p.forma, v => {
+            p.forma = v;
+            if (v === 'CREDITO') p.vence = p.vence || proximaFatura(d.dia);
+            if (!aPrazoForma(v)) p.vence = null;
+            desenharPag();
+          }, 'seg-p seg-cat'),
+          aPrazoForma(p.forma) ? botaoVence(p, p.forma === 'PRAZO') : null);
+      });
+      elPag.replaceChildren(...linhas,
+        h('div', { class: 'row gap' },
+          h('button', { type: 'button', class: 'btn grow', onClick: () => { d.partes.splice(d.partes.length - 1, 0, { forma: 'DINHEIRO', valor: 0, vence: null }); desenharPag(); } }, P.UI.icone('mais'), 'Outra parte'),
+          h('button', { type: 'button', class: 'btn grow', onClick: () => { const p0 = d.partes[0]; d.forma = p0.forma; d.vence = p0.vence || null; d.partes = null; desenharPag(); } }, 'Uma forma só')),
+        h('small', { class: 'campo-d' }, 'Ex.: R$ 650 no cartão de crédito (fatura) e o resto em dinheiro. A parte a prazo ou no crédito fica em A pagar.'));
+    }
+    // dividido: as partes (menos a última) precisam ter valor e caber no total
+    function pagOk() {
+      if (!d.partes) return true;
+      const total = totalLinhas();
+      const fixas = d.partes.slice(0, -1);
+      return fixas.every(p => +p.valor > 0) && P.round(total - fixas.reduce((s, p) => s + (+p.valor || 0), 0), 2) > 0;
+    }
     const bDia = h('button', { type: 'button', class: 'btn bloco cp-dia-f', onClick: () => calendario(d.dia, mudaDia) });
     const tDia = h('small');
     function mudaDia(iso) {
@@ -813,6 +975,7 @@
       elBarra.replaceChildren(
         h('div', { class: 'barra-tot' }, h('small', null, d.linhas.length + (d.linhas.length === 1 ? ' item' : ' itens')), h('b', null, P.brl(total))),
         h('button', { type: 'button', class: 'btn primario barra-btn', disabled: !d.linhas.length, onClick: salvarCompra }, P.UI.icone('check'), ant ? 'Salvar alterações' : 'Salvar compra'));
+      if (d.partes) desenharPag(); // dividido: a última parte acompanha o total
     }
     async function adicionar() {
       const freq = frequencia();
@@ -908,7 +1071,11 @@
       if (ja && !(await P.UI.confirmar('Essa nota já foi lançada em ' + P.Dia.rotuloCurto(ja.dia_operacional) + ' (' + P.brl(ja.total) + '). Lançar de novo?', { ok: 'Lançar de novo' }))) return;
       if (nota.fornecedor && !d.fornecedor.trim()) { d.fornecedor = nota.fornecedor; inForn.value = d.fornecedor; }
       if (nota.dia && nota.dia !== d.dia) mudaDia(nota.dia);
-      if (nota.forma && nota.forma !== d.forma) { d.forma = nota.forma; const s2 = mkSegForma(); segForma.replaceWith(s2); segForma = s2; }
+      if (nota.forma && !d.partes && nota.forma !== d.forma) {
+        d.forma = nota.forma;
+        d.vence = d.forma === 'CREDITO' ? proximaFatura(d.dia) : null;
+        desenharPag();
+      }
       if (nota.chave) d.obs = [d.obs, 'NFC-e ' + nota.chave].filter(Boolean).join(' · ');
       const novas = linhasDaNota(nota);
       d.linhas = d.linhas.concat(novas);
@@ -932,6 +1099,7 @@
     }
     function salvarCompra() {
       if (!d.linhas.length) return;
+      if (!pagOk()) { P.UI.toast('Pagamento dividido: ponha o valor de cada parte (a última fica com o resto, que precisa ser maior que zero).', { tipo: 'perigo', ms: 5000 }); return; }
       lembrarProdutos();
       const r = salvar(d, ant && ant.id);
       diaLista = r.compra.dia_operacional;
@@ -954,10 +1122,9 @@
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'De quem'), inForn, chipsForn),
         h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'Itens'), elLinhas,
           h('button', { type: 'button', class: 'btn bloco cp-add', onClick: adicionar }, P.UI.icone('mais'), 'Adicionar item')),
-        h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'Como pagou'),
-          segForma,
-          h('small', { class: 'campo-d' }, '"A prazo" fica em Compras → A pagar até você marcar como pago.'))),
+        h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'Como pagou'), elPag)),
       elBarra);
+    desenharPag();
     desenharLinhas();
     if (!ant && fotoPendente) { const f = fotoPendente; fotoPendente = null; if (f === 'leitor') usarLeitor(); else if (f === 'colar') usarColar(); else usarNota({ foto: f }); }
     else if (!ant) setTimeout(() => { if (!d.linhas.length && location.hash === '#/compras/nova') adicionar(); }, 250);
@@ -966,29 +1133,29 @@
 
   // Depois de salvar: o que mudou de preço e o efeito nos pratos
   function mostrarResultado(r) {
-    const partes = [];
+    const blocos = [];
     // o que nesta compra está fora do normal (preço, quantidade, compra repetida)
     const fora = P.Analise ? P.Analise.daCompra(r.compra.id) : [];
     if (fora.length) {
-      partes.push(h('div', { class: 'secao' }, 'Confira'));
-      fora.forEach(a => partes.push(h('div', { class: 'banner ' + (a.nivel === 'alto' ? 'perigo' : 'aviso') }, P.UI.icone('alerta'),
+      blocos.push(h('div', { class: 'secao' }, 'Confira'));
+      fora.forEach(a => blocos.push(h('div', { class: 'banner ' + (a.nivel === 'alto' ? 'perigo' : 'aviso') }, P.UI.icone('alerta'),
         h('span', { class: 'banner-t' }, h('b', null, a.titulo), h('br'), a.texto))));
     }
     if (r.mudancas.length) {
-      partes.push(h('div', { class: 'secao' }, 'Preços atualizados nas fichas'));
-      partes.push(h('div', { class: 'rs-itens' }, r.mudancas.map(m => {
+      blocos.push(h('div', { class: 'secao' }, 'Preços atualizados nas fichas'));
+      blocos.push(h('div', { class: 'rs-itens' }, r.mudancas.map(m => {
         const dif = m.de > 0 ? (m.para / m.de - 1) * 100 : 0;
         return h('div', { class: 'rs-l cp' }, h('span', { class: 'rs-n' }, m.ins.nome),
           h('span', { class: 'rs-v' }, P.Fichas.precoFmt(m.de) + ' → ' + P.Fichas.precoFmt(m.para), h('em', { class: dif > 0 ? 't-vermelho' : 't-verde' }, ' ' + (dif > 0 ? '+' : '') + P.num(dif, 1) + '%')));
       })));
-      partes.push(h('div', { class: 'secao' }, 'Efeito na margem dos pratos'));
-      P.Fichas.frasesEfeito(r.efeito).forEach(n => partes.push(n));
+      blocos.push(h('div', { class: 'secao' }, 'Efeito na margem dos pratos'));
+      P.Fichas.frasesEfeito(r.efeito).forEach(n => blocos.push(n));
     } else {
-      partes.push(h('div', { class: 'efeito neutro' }, 'Nenhum preço mudou — fichas continuam iguais.'));
+      blocos.push(h('div', { class: 'efeito neutro' }, 'Nenhum preço mudou — fichas continuam iguais.'));
     }
     const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
-      h('div', { class: 'cp-ok' }, P.UI.icone('check'), h('div', null, h('b', null, 'Compra salva · ' + P.brl(r.compra.total)), h('small', null, nomeCompra(r.compra) + ' · ' + NOME_FORMA[r.compra.forma]))),
-      partes,
+      h('div', { class: 'cp-ok' }, P.UI.icone('check'), h('div', null, h('b', null, 'Compra salva · ' + P.brl(r.compra.total)), h('small', null, nomeCompra(r.compra) + ' · ' + textoPartes(r.compra)))),
+      blocos,
       h('button', { type: 'button', class: 'btn primario bloco', onClick: () => sh.fechar() }, 'Ok')),
     { titulo: 'Compra lançada' });
   }
@@ -1008,14 +1175,16 @@
         h('div', { class: 'rs-tit' }, nomeCompra(c)),
         h('div', { class: 'rs-sub' }, P.Dia.rotulo(c.dia_operacional) + ' · ' + P.Dia.hora(c.criado_em) + (u ? ' · lançada por ' + u.nome : '')),
         h('div', { class: 'rs-total' }, P.brl(c.total)),
-        h('div', { class: 'row gap' }, chipForma(c), c.forma === 'PRAZO' && c.pago_em ? h('span', { class: 'tag neutra' }, 'pago em ' + (NOME_FORMA[c.pago_forma] || '')) : null)));
+        h('div', { class: 'row gap' }, chipForma(c)),
+        h('div', { class: 'rs-sub cp-partes' }, textoPartes(c)),
+        c.obs ? h('div', { class: 'rs-obs' }, c.obs) : null));
       corpo.appendChild(h('div', { class: 'secao' }, 'Itens'));
       corpo.appendChild(h('div', { class: 'rs-itens' }, itensDe(c.id).map(l => h('div', { class: 'rs-l cp' },
         h('span', { class: 'rs-n' }, l.descricao, h('small', null, P.numAuto(l.quantidade) + ' ' + (UN[l.unidade] || l.unidade) + ' × ' + P.Fichas.precoFmt(l.preco_unit) +
           ((ins => (ins && P.UI.semAcento(ins.nome) !== P.UI.semAcento(l.descricao) ? ' · ficha: ' + ins.nome : ''))(l.insumo_id && P.Store.get('insumos', l.insumo_id))))),
         h('span', { class: 'rs-v' }, P.brl(l.valor))))));
       const acoes = h('div', { class: 'row gap acoes' });
-      if (c.forma === 'PRAZO' && !c.pago_em) acoes.appendChild(h('button', { type: 'button', class: 'btn primario grow', onClick: () => pagarSheet([c], nomeCompra(c)) }, P.UI.icone('check'), 'Marcar como pago'));
+      if (partesAbertas(c).length) acoes.appendChild(h('button', { type: 'button', class: 'btn primario grow', onClick: () => pagarSheet([c], nomeCompra(c)) }, P.UI.icone('check'), 'Marcar como pago'));
       acoes.appendChild(h('a', { class: 'btn grow', href: '#/compras/editar/' + c.id }, P.UI.icone('lapis'), 'Editar'));
       if (P.Auth.isDono()) acoes.appendChild(h('button', { type: 'button', class: 'btn perigo', 'aria-label': 'Excluir', onClick: async () => {
         if (!(await P.UI.confirmar('Excluir esta compra de ' + P.brl(c.total) + '? Os preços das fichas não voltam atrás.', { ok: 'Excluir', perigo: true }))) return;
@@ -1033,43 +1202,77 @@
   // ---------------------------------------------------------------
   //  TELA: A PAGAR (compras a prazo)
   // ---------------------------------------------------------------
-  function pagarSheet(compras, nome) {
-    const tot = compras.reduce((s, c) => s + (+c.total || 0), 0);
+  // Folha "Pagar": o que está em aberto (de um fornecedor ou de uma fatura), o dia em que
+  // foi pago (hoje ou outro) e a forma. filtro: só as partes que entram neste pagamento.
+  function pagarSheet(compras, nome, filtro) {
+    let dia = P.Dia.hoje();
+    const abertas = c => partesAbertas(c).filter(p => !filtro || filtro(p));
+    const somaC = c => abertas(c).reduce((s, p) => s + (+p.valor || 0), 0);
+    const tot = P.round(compras.reduce((s, c) => s + somaC(c), 0), 2);
+    const bDia = h('button', { type: 'button', class: 'btn bloco cp-dia-f' });
+    const mostrarDia = () => bDia.replaceChildren(P.UI.icone('calendario'), h('span', null, 'Pago ' + (dia === P.Dia.hoje() ? 'hoje · ' : 'em ') + P.Dia.rotulo(dia)), h('small', null, 'trocar ▾'));
+    bDia.addEventListener('click', () => calendario(dia, x => { dia = x; mostrarDia(); }, { titulo: 'Dia do pagamento' }));
+    mostrarDia();
+    const credito = compras.some(c => abertas(c).some(p => p.forma === 'CREDITO'));
+    const formas = FORMAS.filter(f => f.v !== 'PRAZO' && !(credito && f.v === 'CARTAO'));
     const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
-      h('div', { class: 'rs-itens' }, compras.map(c => h('div', { class: 'rs-l' },
-        h('span', { class: 'rs-h' }, P.Dia.rotuloCurto(c.dia_operacional)), h('span', { class: 'rs-n' }, resumoItens(c)), h('span', { class: 'rs-v' }, P.brl(c.total))))),
+      h('div', { class: 'rs-itens' }, compras.map(c => {
+        const v = abertas(c).map(p => p.vence).filter(Boolean).sort()[0];
+        return h('div', { class: 'rs-l' },
+          h('span', { class: 'rs-h' }, P.Dia.rotuloCurto(c.dia_operacional)),
+          h('span', { class: 'rs-n' }, (credito ? nomeCompra(c) + ' · ' : '') + resumoItens(c), v ? h('small', null, quandoVence(v)) : null),
+          h('span', { class: 'rs-v' }, P.brl(somaC(c))));
+      })),
+      bDia,
       h('div', { class: 'secao' }, 'Paguei ' + P.brl(tot) + ' em:'),
-      h('div', { class: 'pg-formas' }, FORMAS.filter(f => f.v !== 'PRAZO').map(f => h('button', { type: 'button', class: 'pg-forma f-' + f.v.toLowerCase(), onClick: () => {
-        const antes = compras.map(c => Object.assign({}, c));
-        pagar(compras, f.v);
+      h('div', { class: 'pg-formas' }, formas.map(f => h('button', { type: 'button', class: 'pg-forma f-' + f.v.toLowerCase(), onClick: () => {
+        const antes = compras.map(c => Object.assign({}, P.Store.get('compras', c.id) || c));
+        pagar(compras, f.v, dia, filtro);
         P.vibrar([20, 40, 20]);
         sh.fechar();
-        P.UI.toast(nome + ': ' + P.brl(tot) + ' pago (' + f.rotulo + ')', { acao: { rotulo: 'Desfazer', fn: () => antes.forEach(c => P.Store.put('compras', c)) } });
+        P.UI.toast(nome + ': ' + P.brl(tot) + ' pago (' + f.rotulo + (dia !== P.Dia.hoje() ? ', ' + P.Dia.rotuloCurto(dia) : '') + ')', { acao: { rotulo: 'Desfazer', fn: () => antes.forEach(c => P.Store.put('compras', c)) } });
       } }, h('span', { class: 'pg-ic' }, P.UI.icone(P.Mesas.ICONE_FORMA[f.v])), f.rotulo)))),
     { titulo: 'Pagar ' + nome });
+  }
+  // o que está em aberto, agrupado: por fornecedor (a prazo) e por fatura do cartão (vencimento)
+  function contasAPagar() {
+    const g = new Map();
+    aPagar().forEach(c => partesAbertas(c).forEach(p => {
+      const credito = p.forma === 'CREDITO';
+      const k = credito ? 'cr|' + (p.vence || '') : 'fo|' + P.UI.semAcento(c.fornecedor || 'Sem fornecedor');
+      if (!g.has(k)) {
+        g.set(k, {
+          credito, vence: credito ? p.vence || null : null, total: 0, compras: [], venceMin: null,
+          nome: credito ? (P.cfg('cartao').nome ? 'Cartão ' + P.cfg('cartao').nome : 'Cartão de crédito') + (p.vence ? ' · fatura ' + rotuloVence(p.vence) : '') : (c.fornecedor || 'Sem fornecedor'),
+        });
+      }
+      const x = g.get(k);
+      x.total = P.round(x.total + (+p.valor || 0), 2);
+      if (!x.compras.includes(c)) x.compras.push(c);
+      if (p.vence && (!x.venceMin || p.vence < x.venceMin)) x.venceMin = p.vence;
+    }));
+    return [...g.values()].sort((a, b) => ((a.venceMin || '9999') < (b.venceMin || '9999') ? -1 : (a.venceMin || '9999') > (b.venceMin || '9999') ? 1 : b.total - a.total));
   }
   function telaPagar(view) {
     view.className = 'v-compras';
     const corpo = h('div');
     function desenhar() {
       corpo.innerHTML = '';
-      const grupos = new Map();
-      aPagar().forEach(c => {
-        const nome = c.fornecedor || 'Sem fornecedor';
-        const k = P.UI.semAcento(nome);
-        if (!grupos.has(k)) grupos.set(k, { nome, total: 0, compras: [] });
-        const g = grupos.get(k);
-        g.total += +c.total || 0;
-        g.compras.push(c);
-      });
-      const lista = [...grupos.values()].sort((a, b) => b.total - a.total);
+      const lista = contasAPagar();
       const tot = lista.reduce((s, g) => s + g.total, 0);
-      corpo.appendChild(h('div', { class: 'fx-resumo' }, h('div', { class: 'fx-tot' }, h('small', null, lista.length + (lista.length === 1 ? ' fornecedor' : ' fornecedores') + ' a pagar'), h('b', { class: tot ? 't-amarelo' : null }, P.brl(tot)))));
-      if (!lista.length) { corpo.appendChild(P.UI.vazio('Nada a pagar. Compras lançadas como "A prazo" aparecem aqui.', 'check')); return; }
+      const nForn = lista.filter(g => !g.credito).length, nFat = lista.filter(g => g.credito).length;
+      corpo.appendChild(h('div', { class: 'fx-resumo' }, h('div', { class: 'fx-tot' },
+        h('small', null, [nForn ? nForn + (nForn === 1 ? ' fornecedor' : ' fornecedores') : null, nFat ? nFat + (nFat === 1 ? ' fatura de cartão' : ' faturas de cartão') : null].filter(Boolean).join(' · ') + (lista.length ? ' a pagar' : 'Nada a pagar')),
+        h('b', { class: tot ? 't-amarelo' : null }, P.brl(tot)))));
+      if (!lista.length) { corpo.appendChild(P.UI.vazio('Nada a pagar. Compras "A prazo" e no cartão de crédito aparecem aqui até você marcar como pago.', 'check')); return; }
       corpo.appendChild(h('div', { class: 'ms-lista' }, lista.map(g => {
         const desde = g.compras.map(c => c.dia_operacional).sort()[0];
-        return h('button', { type: 'button', class: 'ms-card', onClick: () => pagarSheet(g.compras, g.nome) },
-          h('div', { class: 'ms-card-n' }, g.nome, h('small', null, g.compras.length + (g.compras.length === 1 ? ' compra' : ' compras') + ' · desde ' + P.Dia.rotuloCurto(desde))),
+        const filtro = g.credito ? (p => p.forma === 'CREDITO' && (p.vence || null) === g.vence) : (p => p.forma !== 'CREDITO');
+        const vencido = g.venceMin && g.venceMin < P.Dia.hoje();
+        return h('button', { type: 'button', class: 'ms-card', onClick: () => pagarSheet(g.compras, g.nome, filtro) },
+          h('span', { class: 'av-f', 'aria-hidden': 'true' }, P.UI.icone(g.credito ? 'cartao' : 'prazo')),
+          h('div', { class: 'ms-card-n' }, g.nome, h('small', { class: vencido ? 't-vermelho' : null },
+            (g.venceMin ? quandoVence(g.venceMin) + ' · ' : '') + g.compras.length + (g.compras.length === 1 ? ' compra' : ' compras') + ' · desde ' + P.Dia.rotuloCurto(desde))),
           h('b', { class: 't-amarelo' }, P.brl(g.total)));
       })));
     }
@@ -1106,7 +1309,7 @@
       fat += +c.total || 0;
       P.Mesas.linhas(c.id).forEach(l => {
         const q = +l.quantidade || 0;
-        cmv += q * (+l.cmv_unit || 0);
+        cmv += q * P.Calc.cmvLinha(l);
         vendido.set(l.item_id, (vendido.get(l.item_id) || 0) + q);
       });
     });
@@ -1206,5 +1409,8 @@
   P.UI.rota('compras/pagar', { titulo: 'A pagar', tab: 'compras', render: telaPagar });
   P.UI.rota('compras/custos', { titulo: 'Custos', tab: 'compras', dono: true, render: telaCustos });
 
-  P.Compras = { subnav: subnavCompras, calendario, itensDe, aPagar, doDia, salvar, pagar, custos, variacoes, NOME_FORMA, cardResultado };
+  P.Compras = {
+    subnav: subnavCompras, calendario, itensDe, aPagar, doDia, salvar, pagar, custos, variacoes, NOME_FORMA, cardResultado,
+    partes, partesAbertas, valorAberto, saidas, textoPartes, contasAPagar, proximaFatura, meioDia, rotuloVence, quandoVence, aPrazoForma,
+  };
 })();

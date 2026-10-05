@@ -182,6 +182,7 @@
     const out = [];
     if (!(r.fat > 0)) return { alertas: out, semVendas: true, r };
     const longo = dias.length >= 26;
+    const naoUsados = []; // comprados que nenhuma ficha de prato vendido usa: falta ficha, não é sobra
     r.lista.forEach(g => {
       const un = unid(g.ins.unidade);
       const q = v => P.numAuto(v, 2) + ' ' + un;
@@ -189,13 +190,13 @@
       if (g.qC > 0) {
         const sobra = g.qC - g.qU;
         const valor = sobra * pm;
-        if (sobra / g.qC * 100 >= LIM.sobraPct && valor >= LIM.sobraMin) {
+        if (g.qU <= 0.0001) naoUsados.push({ nome: g.ins.nome, v: g.vC });
+        else if (sobra / g.qC * 100 >= LIM.sobraPct && valor >= LIM.sobraMin) {
           out.push({
             id: 'sobra:' + g.ins.id, tipo: 'sobra', nivel: 'atencao', impacto: valor,
             titulo: g.ins.nome + ': comprou bem mais do que as vendas usaram',
             texto: 'Comprou ' + q(g.qC) + ' (' + P.brl(g.vC) + '). Pela ficha, as vendas usaram ' + q(g.qU) + '. Sobraram ' + q(sobra) + ' (' + P.brl(valor) + ').',
-            dica: g.qU <= 0.0001 ? 'Nenhum prato vendido usou ' + g.ins.nome + ' no período: confira se os pratos que levam ele têm ficha técnica e se as vendas estão sendo lançadas.'
-              : 'Pode ser estoque para os próximos dias, perda, porção maior que a ficha ou venda sem comanda. Se acontece todo mês, é dinheiro indo embora.',
+            dica: 'Pode ser estoque para os próximos dias, perda, porção maior que a ficha ou venda sem comanda. Se acontece todo mês, é dinheiro indo embora.',
           });
         }
       }
@@ -210,6 +211,16 @@
         });
       }
     });
+    if (naoUsados.length) {
+      naoUsados.sort((a, b) => b.v - a.v);
+      const tot = naoUsados.reduce((s, x) => s + x.v, 0);
+      out.push({
+        id: 'nao_usado', tipo: 'nao_usado', nivel: 'info', impacto: tot,
+        titulo: P.brl(tot) + ' em insumos que nenhum prato vendido usa pela ficha',
+        texto: naoUsados.slice(0, 8).map(x => x.nome + ' ' + P.brl0(x.v)).join(' · ') + (naoUsados.length > 8 ? ' e mais ' + (naoUsados.length - 8) : ''),
+        dica: 'O app só compara o comprado com o usado quando o prato vendido tem ficha técnica. Monte a ficha dos pratos que levam esses insumos (Fichas → Cadastro); bebida ainda não vendida e estoque também aparecem aqui.',
+      });
+    }
     return { alertas: out, semVendas: false, r };
   }
 
@@ -305,7 +316,8 @@
       const f = P.Calc.ficha(it);
       const v = vend.get(it.id) || { q: 0, fat: 0, cmvVenda: 0, qComCmv: 0 };
       const preco = +it.preco_venda || 0;
-      const semF = !(f.bruto > 0);
+      // sem ficha mas com custo estimado (pelo dono ou % de Ajustes): avalia pela estimativa
+      const semF = f.semFicha && !f.estimado;
       let classe = 'compensa';
       if (semF) classe = 'sem_ficha';
       else if (!(f.margem > 0)) classe = 'prejuizo';
@@ -314,8 +326,8 @@
       // custo das vendas: o gravado na hora da venda; sem ele, o custo de hoje
       const cmvTotal = semF ? null : v.cmvVenda + (v.q - v.qComCmv) * f.cmv;
       const cmvMedVenda = v.qComCmv > 0 ? v.cmvVenda / v.qComCmv : null;
-      const mudou = !semF && cmvMedVenda ? (f.cmv / cmvMedVenda - 1) * 100 : null;
-      const alvo = !semF && preco > 0 && f.fc > cfg.verde_ate ? P.Calc.paraAlvo(it, P.Calc.componentesDe(it.id), preco, it.perda_pct) : null;
+      const mudou = !f.semFicha && cmvMedVenda ? (f.cmv / cmvMedVenda - 1) * 100 : null;
+      const alvo = !f.semFicha && preco > 0 && f.fc > cfg.verde_ate ? P.Calc.paraAlvo(it, P.Calc.componentesDe(it.id), preco, it.perda_pct) : null;
       return { it, f, v, preco, semF, classe, lucro: cmvTotal == null ? null : v.fat - cmvTotal, cmvMedVenda, mudou, alvo, quad: null };
     });
     // vende bem / ganha bem, comparando com os outros da mesma categoria (só com vendas no período)
@@ -475,10 +487,11 @@
       if (!p.semF) {
         linhas.push(h('div', { class: 'mg-det' },
           h('span', null, 'Preço ', h('b', null, P.brl(p.preco))),
-          h('span', null, 'Custo ', h('b', null, P.brl(p.f.cmv))),
+          h('span', null, p.f.estimado ? 'Custo estimado ' : 'Custo ', h('b', null, P.brl(p.f.cmv))),
           h('span', null, 'Margem ', h('b', { class: p.f.margem > 0 ? null : 't-vermelho' }, P.brl(p.f.margem))),
           h('span', null, 'Food cost ', h('b', null, P.pct(p.f.fc, 0)))));
-      } else linhas.push(h('div', { class: 'az-p-txt' }, 'Sem ficha técnica: o app não sabe quanto custa, então não dá para saber se compensa. Toque para montar a ficha.'));
+        if (p.f.estimado) linhas.push(h('div', { class: 'az-p-txt' }, 'Sem ficha técnica: o custo é uma estimativa. Monte a ficha para ter o custo certo.'));
+      } else linhas.push(h('div', { class: 'az-p-txt' }, 'Sem ficha técnica: o app não sabe quanto custa, então não dá para saber se compensa. Toque para montar a ficha ou pôr um custo estimado.'));
       linhas.push(h('div', { class: 'az-p-txt' }, p.v.q > 0
         ? ['Vendeu ', h('b', null, P.numAuto(p.v.q, 1)), ' · faturou ', h('b', null, P.brl0(p.v.fat)), p.lucro != null ? [' · deixou ', h('b', { class: p.lucro >= 0 ? 't-verde' : 't-vermelho' }, P.brl0(p.lucro))] : null]
         : 'Nenhuma venda neste período.'));

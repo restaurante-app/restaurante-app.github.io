@@ -28,15 +28,23 @@
     const I = P.Calc.idx();
     const r = {
       fat: 0, cmv: 0, desconto: 0, mercadoria: 0, compras: 0, nCompras: 0, outras: 0, fixoPago: 0, espetos: 0, comandas: 0,
-      entrou: 0, saiu: 0, dias: new Set(), canal: {},
+      entrou: 0, saiu: 0, investimento: 0, dias: new Set(), canal: {},
+      fatSemCusto: 0,  // vendido de itens sem ficha e sem estimativa (o custo deles não entra no lucro)
+      cmvEstimado: 0,  // parte do custo que é estimativa (prato sem ficha)
     };
     CANAIS.forEach(c => { r.canal[c] = { fat: 0, cmv: 0, bebidas: 0, pratos: 0, itens: 0, comandas: 0, comBebida: 0 }; });
-    function soma(canal, itemId, q, preco, cmvU) {
+    function soma(canal, l) {
+      const itemId = l.item_id, q = +l.quantidade || 0, preco = +l.preco_unit || 0;
+      const cmvU = P.Calc.cmvLinha(l);
       const c = r.canal[canal] || r.canal.SALAO;
       const fat = q * preco, cmv = q * cmvU;
       c.fat += fat; c.cmv += cmv; c.itens += q;
       r.fat += fat; r.cmv += cmv;
       const it = I.itens.get(itemId);
+      if (!(+l.cmv_unit > 0)) {
+        const f = it && P.Calc.ficha(it);
+        if (f && f.semFicha) { if (cmvU > 0) r.cmvEstimado += cmv; else r.fatSemCusto += fat; }
+      }
       const cat = it && it.categoria;
       if (cat === 'BEBIDA') c.bebidas += q;
       if (cat === 'PRATO') c.pratos += q;
@@ -48,7 +56,7 @@
       const k = r.canal[cm.canal] ? cm.canal : 'SALAO';
       let temBebida = false;
       P.Mesas.linhas(cm.id).forEach(l => {
-        if (soma(k, l.item_id, +l.quantidade || 0, +l.preco_unit || 0, +l.cmv_unit || 0) === 'BEBIDA') temBebida = true;
+        if (soma(k, l) === 'BEBIDA') temBebida = true;
       });
       const d = +cm.desconto || 0;
       r.fat -= d; r.canal[k].fat -= d; r.desconto += d;
@@ -60,15 +68,17 @@
     P.Store.all('despesas').forEach(d => {
       if (!set.has(d.dia_operacional)) return;
       if (d.categoria === 'MERCADORIA') r.mercadoria += +d.valor || 0;
+      else if (P.Mesas.DESP_FORA.has(d.categoria)) r.investimento += +d.valor || 0; // investimento: só caixa
       else {
         r.outras += +d.valor || 0;
-        if (P.Mesas.DESP_FIXA.has(d.categoria)) r.fixoPago += +d.valor || 0; // salários, aluguel, contas, impostos
+        if (P.Mesas.DESP_FIXA.has(d.categoria)) r.fixoPago += +d.valor || 0; // salários, aluguel, contas, impostos, pró-labore
       }
       r.saiu += +d.valor || 0;
     });
     P.Store.all('compras').forEach(c => {
       if (set.has(c.dia_operacional)) { r.compras += +c.total || 0; r.nCompras++; }
-      if (c.pago_em && set.has(c.pago_dia)) r.saiu += +c.total || 0;
+      // caixa: o que foi pago em cada dia (compra a prazo ou no crédito sai quando paga)
+      P.Compras.saidas(c).forEach(s => { if (set.has(s.dia)) r.saiu += s.valor; });
     });
     r.mercadoria += r.compras;
     P.Store.all('pagamentos').forEach(p => {
@@ -89,7 +99,7 @@
     return {
       fat: r.fat, cmv: r.cmv, outras: r.outras, fixoPago: r.fixoPago, compras: r.compras, entrou: r.entrou, saiu: r.saiu, ag: r,
       resultado: r.fat - r.cmv - r.outras,
-      temMovimento: r.dias.size > 0 || r.compras > 0 || r.outras > 0,
+      temMovimento: r.dias.size > 0 || r.compras > 0 || r.outras > 0 || r.investimento > 0,
     };
   }
 
@@ -164,6 +174,7 @@
           h('a', { class: 'pn-caixa', href: '#/compras' }, P.UI.icone('caixa'),
             h('span', null, 'Caixa ', h('b', null, P.brl0(res.entrou)), ' entrou · ', h('b', null, P.brl0(res.saiu)), ' saiu'),
             valorCor(P.brl0(saldoCx), saldoCx >= 0 ? 'verde' : 'vermelho')),
+          avisoSemCusto(rd),
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado neste dia.'), h('a', { href: '#/mesas', class: 'btn mini primario' }, 'Abrir mesas'))));
 
       // ---------- SEMANA (6 dias operacionais = 1 semana do mercado) ----------
@@ -233,10 +244,17 @@
             mini('Projeção fat.', P.brl0(projFat)),
             mini('Margem líq.', P.pct(margem, 1), margem == null ? null : margem >= 0 ? 'verde' : 'vermelho')),
           h('div', { class: 'pn-txt' }, 'Fixos lançados ', h('b', null, P.brl0(rm.fixoPago)), ' de ', h('b', null, P.brl0(fixoM)), ' previstos (base em Ajustes)'),
+          avisoSemCusto(rm),
           escada(rm.espetos / nM),
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nenhum dia com venda neste mês.'))));
     }
 
+    // pratos vendidos sem ficha e sem custo estimado: o lucro mostrado não desconta o custo deles
+    function avisoSemCusto(r) {
+      if (!(r.fatSemCusto > 0.5)) return null;
+      return h('a', { class: 'pn-aviso', href: '#/fichas' }, P.UI.icone('alerta'),
+        h('span', null, h('b', null, P.brl0(r.fatSemCusto)), ' vendidos de pratos sem custo (sem ficha) — o lucro está maior que o real. Toque para pôr o custo.'));
+    }
     function escada(media) {
       const deg = (cfg('escada_espetos').degraus || []).slice().sort((a, b) => a.espetos - b.espetos);
       if (!deg.length) return null;
@@ -335,7 +353,10 @@
           linha('Pendentes de envio', String(n)),
           linha('Última sincronização', P.Sync.ultimoSync ? P.Dia.hora(P.Sync.ultimoSync) : '—'),
           P.Sync.ultimoErro ? h('div', { class: 'aj-erro' }, P.Sync.ultimoErro) : null,
-          h('button', { type: 'button', class: 'btn bloco', onClick: async () => { const ok = await P.Sync.rodar(); P.UI.toast(ok ? 'Sincronizado' : 'Não deu agora — os dados continuam salvos no aparelho', { tipo: ok ? '' : 'perigo' }); desenhar(); } }, P.UI.icone('refresh'), 'Sincronizar agora'),
+          P.Sync.falta().length ? h('div', { class: 'aj-erro' },
+            'A nuvem precisa ser atualizada para receber tudo: rode o arquivo schema.sql no Supabase (SQL Editor → colar → Run). Até lá, isto fica guardado só neste aparelho: ',
+            h('b', null, P.Sync.falta().join(' · ')), '.') : null,
+          h('button', { type: 'button', class: 'btn bloco', onClick: async () => { const ok = await P.Sync.agora(); P.UI.toast(ok ? (P.Sync.falta().length ? 'Sincronizado, mas a nuvem ainda não aceita tudo (veja abaixo)' : 'Sincronizado') : 'Não deu agora — os dados continuam salvos no aparelho', { tipo: ok && !P.Sync.falta().length ? '' : 'perigo' }); desenhar(); } }, P.UI.icone('refresh'), 'Sincronizar agora'),
           dono ? h('button', { type: 'button', class: 'btn perigo bloco', onClick: async () => {
             if (!(await P.UI.confirmar('Desconectar este aparelho da nuvem? Os dados continuam aqui, mas param de sincronizar até conectar de novo.' + (n ? ' Há ' + n + ' registros ainda não enviados.' : ''), { ok: 'Desconectar', perigo: true }))) return;
             P.Sync.sair();
@@ -356,7 +377,19 @@
         linha('Pró-labore + INSS', P.brl(cf.prolabore_inss), editar('custos_fixos', 'prolabore_inss', Object.assign({ titulo: 'Pró-labore + INSS' }, money))),
         linha('Outros fixos', P.brl(cf.outros), editar('custos_fixos', 'outros', Object.assign({ titulo: 'Outros custos fixos' }, money))),
         linha('Total por mês', P.brl(fixoMensal())),
-        linha('Dias operacionais no mês', String(diasMes()), editar('operacao', 'dias_mes', { titulo: 'Dias operacionais no mês', decimais: 0, maxInteiros: 2 }), 'custo fixo por dia: ' + P.brl(fixoMensal() / diasMes()))));
+        linha('Dias operacionais no mês', String(diasMes()), editar('operacao', 'dias_mes', { titulo: 'Dias operacionais no mês', decimais: 0, maxInteiros: 2 }), 'custo fixo por dia: ' + P.brl(fixoMensal() / diasMes())),
+        linha('Abertura do restaurante', cfg('operacao').abertura ? P.Dia.rotulo(cfg('operacao').abertura) + '/' + cfg('operacao').abertura.slice(0, 4) : '—', () => {
+          P.Compras.calendario(cfg('operacao').abertura || P.Dia.hoje(), iso => { const o = cfg('operacao'); o.abertura = iso; P.salvarCfg('operacao', o); desenhar(); }, { titulo: 'Dia em que o restaurante abriu' });
+        }, 'o que foi gasto antes é capital de montagem (Mais → Capital e caixa)')));
+      const ca = cfg('cartao');
+      corpo.appendChild(secao('Cartão de crédito',
+        h('small', { class: 'campo-d' }, 'Compra no crédito fica em Compras → A pagar e só sai do caixa quando a fatura é paga.'),
+        linha('Cartão', ca.nome || 'Cartão de crédito', async () => {
+          const nome = await pedirTexto('Nome do cartão', ca.nome || '', 'Ex.: Atacadão');
+          if (nome == null) return;
+          ca.nome = nome || null; P.salvarCfg('cartao', ca); desenhar();
+        }),
+        linha('Fatura vence todo dia', String(ca.vencimento_dia || 1), editar('cartao', 'vencimento_dia', { titulo: 'Dia do vencimento da fatura', decimais: 0, maxInteiros: 2 }))));
 
       const m = cfg('metas');
       const pct = t => ({ titulo: t, decimais: 1, sufixo: '%', maxInteiros: 3 });
@@ -396,7 +429,10 @@
         linha('Semáforo verde até', P.pct(fi.verde_ate, 0), editar('fichas', 'verde_ate', pct('Verde até (food cost)'))),
         linha('Vermelho acima de', P.pct(fi.vermelho_acima, 0), editar('fichas', 'vermelho_acima', pct('Vermelho acima de'))),
         linha('Perda operacional padrão', P.pct(fi.perda_padrao, 1), editar('fichas', 'perda_padrao', pct('Perda operacional padrão'))),
-        linha('Aviso de preço velho', fi.dias_preco_velho + ' dias', editar('fichas', 'dias_preco_velho', { titulo: 'Avisar preço com mais de (dias)', decimais: 0 }))));
+        linha('Aviso de preço velho', fi.dias_preco_velho + ' dias', editar('fichas', 'dias_preco_velho', { titulo: 'Avisar preço com mais de (dias)', decimais: 0 })),
+        linha('Prato sem ficha: custo estimado', +fi.custo_sem_ficha_pct > 0 ? P.pct(fi.custo_sem_ficha_pct, 0) + ' do preço' : 'não estimar',
+          editar('fichas', 'custo_sem_ficha_pct', Object.assign(pct('Custo estimado de prato sem ficha (% do preço)'), { sub: '0 = não estimar. Vale só para prato sem ficha e sem custo estimado próprio (Fichas → Cadastro).' })),
+          'para o lucro não sair maior que o real enquanto as fichas não são montadas')));
 
       const us = P.Store.all('usuarios').sort((a, b) => (a.papel === b.papel ? a.nome.localeCompare(b.nome, 'pt-BR') : a.papel === 'DONO' ? -1 : 1));
       corpo.appendChild(secao('Pessoas e PINs',
@@ -427,6 +463,8 @@
         try {
           const obj = JSON.parse(await f.text());
           if (!obj || obj.app !== 'pari-restaurante') throw new Error('Arquivo não é um backup deste app.');
+          // pacote de lançamentos (relatório): vai para a conferência antes de lançar
+          if (obj.tipo === 'lancamentos') { arquivo.value = ''; P.Importar.abrir(obj); return; }
           const n2 = P.Store.importar(obj);
           P.UI.toast(n2 + ' registros restaurados');
           desenhar();
@@ -440,6 +478,7 @@
             P.UI.baixar('pari-backup-' + P.Dia.hoje() + '.json', JSON.stringify(P.Store.exportar()), 'application/json');
           } }, P.UI.icone('download'), 'Exportar'),
           h('button', { type: 'button', class: 'btn grow', onClick: () => arquivo.click() }, P.UI.icone('upload'), 'Importar')),
+        h('a', { class: 'btn bloco', href: '#/importar' }, P.UI.icone('upload'), 'Importar lançamentos (relatório)'),
         arquivo));
 
       corpo.appendChild(h('div', { class: 'aj-rodape' },
