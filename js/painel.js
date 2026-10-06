@@ -143,6 +143,10 @@
       const metaDia = metaMes / D;
       const hoje = P.Dia.hoje();
 
+      // gás perto de acabar (pela média dos botijões anteriores)
+      const gas = dia === hoje && P.Gas ? P.Gas.aviso() : null;
+      if (gas) wrap.appendChild(h('a', { class: 'pn-aviso pn-gas', href: '#/gas' }, P.UI.icone('fogo'), h('span', null, gas)));
+
       // ---------- DIA ----------
       const res = resultadoDia(dia);
       const rd = res.ag;

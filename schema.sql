@@ -266,13 +266,29 @@ create table if not exists anotacoes (
   sincronizado_em timestamptz not null default clock_timestamp()
 );
 
+-- GÁS: cada botijão, do dia em que foi ligado ao dia em que acabou (quanto dura, custo por dia)
+create table if not exists botijoes (
+  id text primary key,
+  inicio date not null,                    -- dia em que começou a usar
+  fim date,                                -- dia em que acabou (vazio = em uso)
+  tamanho text,                            -- P13 | P20 | P45
+  valor numeric(12, 2) not null default 0,
+  despesa_id text,                         -- despesa da compra (Gás / carvão)
+  obs text,
+  criado_em timestamptz not null default now(),
+  usuario_id text,
+  modificado_em timestamptz not null default now(),
+  excluido boolean not null default false,
+  sincronizado_em timestamptz not null default clock_timestamp()
+);
+
 -- Gatilho, índice de sincronização e acesso (chave pública do app)
 do $$
 declare t text;
 begin
   foreach t in array array['usuarios', 'config', 'contagens', 'insumos', 'itens', 'componentes', 'historico_precos',
                            'comandas', 'comanda_itens', 'pagamentos', 'despesas', 'compras', 'compra_itens',
-                           'pessoas', 'anotacoes'] loop
+                           'pessoas', 'anotacoes', 'botijoes'] loop
     execute format('drop trigger if exists trg_%1$s_lww on %1$s', t);
     execute format('create trigger trg_%1$s_lww before insert or update on %1$s for each row execute function pari_lww()', t);
     execute format('create index if not exists idx_%1$s_sync on %1$s (sincronizado_em)', t);

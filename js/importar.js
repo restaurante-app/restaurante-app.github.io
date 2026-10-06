@@ -7,6 +7,7 @@
    Lança pelos mesmos caminhos do app (a compra atualiza o preço dos insumos;
    a venda entra como conta fechada "lançada depois", sem horário).
    Ids fixos: importar duas vezes (ou em dois aparelhos) não duplica.
+   Também: botijões do gás, cardápio da semana (ajuste) e pendências antigas que o pacote resolve.
    "Desfazer" apaga o que esta importação criou e volta o que ela mudou. */
 (function () {
   'use strict';
@@ -33,7 +34,7 @@
   function validar(pk) {
     if (!pk || pk.app !== 'pari-restaurante' || pk.tipo !== 'lancamentos') throw new Error('Este arquivo não é um pacote de lançamentos do app.');
     if (!pk.id || !/^[a-z0-9-]{2,24}$/i.test(pk.id)) throw new Error('Pacote sem identificação.');
-    ['insumos', 'itens', 'desativar', 'pessoas', 'compras', 'vendas', 'despesas', 'anotacoes', 'limpeza'].forEach(k => { pk[k] = Array.isArray(pk[k]) ? pk[k] : []; });
+    ['insumos', 'itens', 'desativar', 'pessoas', 'compras', 'vendas', 'despesas', 'anotacoes', 'limpeza', 'botijoes', 'resolver'].forEach(k => { pk[k] = Array.isArray(pk[k]) ? pk[k] : []; });
     return pk;
   }
   // item/insumo/pessoa do pacote → o que já existe no app (pelo id ou pelo nome)
@@ -47,8 +48,11 @@
     });
     return m;
   }
+  // referência a registro: '@d13' = o registro d13 deste pacote; sem @ = id do app (ex.: de um pacote anterior)
+  const refId = (pk, r) => (r ? (String(r).startsWith('@') ? idDe(pk, String(r).slice(1)) : String(r)) : null);
+  const NOME_CFG = { cardapio_semana: 'Cardápio de cada dia da semana', operacao: 'Operação (abertura, dias por mês)', cartao: 'Cartão de crédito' };
   function conferir(pk) {
-    const c = { problemas: [], cadastro: [], compras: [], vendas: [], despesas: [], anotacoes: [], limpeza: [], desativar: [], porDia: new Map() };
+    const c = { problemas: [], cadastro: [], compras: [], vendas: [], despesas: [], anotacoes: [], limpeza: [], desativar: [], botijoes: [], resolver: [], porDia: new Map() };
     const mapaIns = mapear('insumos', pk.insumos);
     const mapaItem = mapear('itens', pk.itens.filter(x => x.nome));
     const mapaPes = mapear('pessoas', pk.pessoas);
@@ -66,6 +70,7 @@
       if (!ja && !x.nome) { c.problemas.push('Item ' + x.id + ' para atualizar não existe no app.'); return; }
       if (!ja) { c.cadastro.push({ tipo: 'item', x, status: 'novo', texto: 'Novo no cardápio: ' + x.nome + ' · ' + P.brl(x.preco_venda) + (x.componentes && x.componentes.length ? ' (com ficha)' : '') + (x.ativo === false ? ' (inativo)' : '') }); return; }
       const muda = [];
+      if (x.ativo === true && ja.ativo === false) muda.push('volta ao cardápio (estava desativado)');
       if (x.preco_venda != null && cents(x.preco_venda) !== cents(ja.preco_venda)) muda.push('preço ' + P.brl(ja.preco_venda) + ' → ' + P.brl(x.preco_venda));
       if (x.componentes && x.componentes.length && !P.Calc.componentesDe(ja.id).length) muda.push('ganha ficha (' + x.componentes.length + ' componente' + (x.componentes.length > 1 ? 's' : '') + ')');
       c.cadastro.push({ tipo: 'item', x, status: muda.length ? 'muda' : 'ja', texto: ja.nome + (muda.length ? ': ' + muda.join(' · ') : ' — já está igual') });
@@ -77,6 +82,32 @@
     pk.desativar.forEach(x => {
       const it = S().get('itens', x.id);
       if (it && it.ativo !== false) c.desativar.push({ x, it, texto: it.nome + ' · ' + P.brl(it.preco_venda) });
+    });
+    Object.keys(pk.config || {}).forEach(ch => {
+      const v = pk.config[ch];
+      const dias = ch === 'cardapio_semana' && v && v.dias ? Object.keys(v.dias).sort().map(d => P.Cardapio.NOME[d] + ' (' + v.dias[d].length + ')').join(', ') : '';
+      const atual = P.cfg(ch);
+      const igual = JSON.stringify(Object.assign({}, atual, v)) === JSON.stringify(atual);
+      c.cadastro.push({ tipo: 'config', status: igual ? 'ja' : 'muda', texto: (NOME_CFG[ch] || 'Ajuste ' + ch) + (dias ? ': ' + dias : '') });
+    });
+    // gás: botijões (a despesa da compra pode ser deste pacote, '@d01', ou de um anterior)
+    pk.botijoes.forEach(x => {
+      const id = idDe(pk, x.ref);
+      const desp = refId(pk, x.despesa);
+      const despOk = !desp || S().get('despesas', desp) || (String(x.despesa).startsWith('@') && pk.despesas.some(d => idDe(pk, d.ref) === desp));
+      const ja = S().get('botijoes', id) || S().all('botijoes').find(b => b.inicio === x.inicio);
+      const it = { x, id, despesa: despOk ? desp : null, status: ja ? 'ja' : 'novo' };
+      c.botijoes.push(it);
+      c.cadastro.push({ tipo: 'gas', status: it.status, texto: 'Gás: botijão ' + P.Gas.nomeTam(x.tamanho) + ' ligado ' + P.Dia.rotulo(x.inicio) + (x.fim ? ', acabou ' + P.Dia.rotulo(x.fim) : ', em uso') + (+x.valor ? ' · ' + P.brl(x.valor) : '') +
+        (desp && !despOk ? ' (a despesa ' + desp + ' não está no app: fica sem ligar)' : '') });
+    });
+    // pendências de antes que este pacote resolve
+    pk.resolver.forEach(x => {
+      const a = S().get('anotacoes', refId(pk, x.anotacao));
+      if (!a) return;
+      const it = { x, a, status: a.resolvido ? 'ja' : 'muda' };
+      c.resolver.push(it);
+      c.cadastro.push({ tipo: 'resolver', status: it.status, texto: 'Resolve a pendência: ' + a.texto.slice(0, 90) + (a.texto.length > 90 ? '…' : '') + (a.resolvido ? ' (já estava resolvida)' : '') });
     });
 
     // compras
@@ -124,7 +155,7 @@
       const d = diaDe(x.dia);
       let status = 'novo', parecido = null;
       if (S().get('despesas', id)) status = 'ja';
-      else {
+      else if (!x.distinto) { // distinto: o relatório já conferiu que não é a despesa parecida (ex.: condução de outro dia)
         parecido = despApp.find(o => o.dia_operacional === d && cents(o.valor) === cents(x.valor) && o.categoria === x.categoria);
         if (parecido) status = 'parecido';
       }
@@ -172,7 +203,7 @@
     const itemId = id => c.mapaItem.get(id) || id;
     const insId = id => (id ? c.mapaIns.get(id) || id : null);
     const pesId = id => (id ? c.mapaPes.get(id) || id : null);
-    const n = { config: 0, insumos: 0, itens: 0, precos: 0, pessoas: 0, compras: 0, vendas: 0, despesas: 0, anotacoes: 0, limpeza: 0, desativados: 0 };
+    const n = { config: 0, insumos: 0, itens: 0, precos: 0, reativados: 0, pessoas: 0, compras: 0, vendas: 0, despesas: 0, anotacoes: 0, limpeza: 0, desativados: 0, botijoes: 0, resolvidas: 0 };
 
     // configurações (junta com o que já existe)
     Object.keys(pk.config || {}).forEach(ch => {
@@ -194,10 +225,16 @@
       if (!ja) {
         criar('itens', { id: x.id, nome: x.nome, categoria: x.categoria, preco_venda: +x.preco_venda || 0, perda_pct: x.perda_pct != null ? +x.perda_pct : 0, ativo: x.ativo !== false, custo_estimado: x.custo_estimado || null });
         n.itens++;
-      } else if (x.preco_venda != null && cents(x.preco_venda) !== cents(ja.preco_venda)) {
-        guardarAntes('itens', ja);
-        S().put('itens', Object.assign({}, ja, { preco_venda: +x.preco_venda }));
-        n.precos++;
+      } else {
+        // preço que mudou e prato desativado que volta ao cardápio
+        const mudaPreco = x.preco_venda != null && cents(x.preco_venda) !== cents(ja.preco_venda);
+        const reativa = x.ativo === true && ja.ativo === false;
+        if (mudaPreco || reativa) {
+          guardarAntes('itens', ja);
+          S().put('itens', Object.assign({}, ja, mudaPreco ? { preco_venda: +x.preco_venda } : null, reativa ? { ativo: true } : null));
+          if (mudaPreco) n.precos++;
+          if (reativa) n.reativados++;
+        }
       }
       const alvo = itemId(x.id);
       if (x.componentes && x.componentes.length && !P.Calc.componentesDe(alvo).length) {
@@ -317,6 +354,21 @@
       });
       n.anotacoes++;
     });
+    // gás: botijões (depois das despesas, para a da compra já existir)
+    c.botijoes.filter(b => b.status === 'novo').forEach(b => {
+      const x = b.x;
+      criar('botijoes', { id: b.id, inicio: x.inicio, fim: x.fim || null, tamanho: x.tamanho || null, valor: P.round(+x.valor || 0, 2), despesa_id: b.despesa,
+        obs: x.obs || null, criado_em: P.agoraISO(), usuario_id: uid });
+      n.botijoes++;
+    });
+    // pendências de antes resolvidas por este pacote
+    c.resolver.filter(r => r.status === 'muda').forEach(({ x, a }) => {
+      const atual = S().get('anotacoes', a.id);
+      if (!atual || atual.resolvido) return;
+      guardarAntes('anotacoes', atual);
+      S().put('anotacoes', Object.assign({}, atual, { resolvido: true, resolvido_em: P.agoraISO(), resolucao: x.resolucao || null }));
+      n.resolvidas++;
+    });
     if (opcoes.limpeza !== false) c.limpeza.forEach(({ x, r }) => {
       guardarAntes(x.tabela, r);
       if (x.acao === 'cancelar') S().put('comandas', Object.assign({}, r, { status: 'CANCELADA', fechada_em: P.agoraISO(), cancelada_por: uid, obs: [r.obs, x.motivo].filter(Boolean).join(' · ') }));
@@ -379,8 +431,11 @@
         corpo.appendChild(h('div', { class: 'cp-ok' }, P.UI.icone('check'), h('div', null, h('b', null, 'Lançado: ' + resultado.titulo),
           h('small', null, [
             resultado.n.compras && resultado.n.compras + ' compras', resultado.n.vendas && resultado.n.vendas + ' vendas', resultado.n.despesas && resultado.n.despesas + ' despesas',
-            resultado.n.itens && resultado.n.itens + ' itens novos no cardápio', resultado.n.precos && resultado.n.precos + ' preços atualizados', resultado.n.insumos && resultado.n.insumos + ' insumos novos',
-            resultado.n.pessoas && resultado.n.pessoas + ' pessoas na equipe', resultado.n.anotacoes && resultado.n.anotacoes + ' pendências', resultado.n.desativados && resultado.n.desativados + ' pratos antigos desativados',
+            resultado.n.itens && resultado.n.itens + ' itens novos no cardápio', resultado.n.reativados && resultado.n.reativados + (resultado.n.reativados === 1 ? ' prato de volta ao cardápio' : ' pratos de volta ao cardápio'),
+            resultado.n.precos && resultado.n.precos + (resultado.n.precos === 1 ? ' preço atualizado' : ' preços atualizados'), resultado.n.insumos && resultado.n.insumos + ' insumos novos',
+            resultado.n.pessoas && resultado.n.pessoas + (resultado.n.pessoas === 1 ? ' pessoa nova na equipe' : ' pessoas na equipe'), resultado.n.anotacoes && resultado.n.anotacoes + ' pendências', resultado.n.resolvidas && resultado.n.resolvidas + (resultado.n.resolvidas === 1 ? ' pendência antiga resolvida' : ' pendências antigas resolvidas'),
+            resultado.n.botijoes && resultado.n.botijoes + (resultado.n.botijoes === 1 ? ' botijão no controle do gás' : ' botijões no controle do gás'),
+            resultado.n.config && (resultado.n.config === 1 ? '1 ajuste' : resultado.n.config + ' ajustes'), resultado.n.desativados && resultado.n.desativados + ' pratos antigos desativados',
             resultado.n.limpeza && resultado.n.limpeza + ' comandas de teste limpas'].filter(Boolean).join(' · ')))));
         corpo.appendChild(h('div', { class: 'row gap' },
           h('a', { class: 'btn grow', href: '#/relatorio' }, 'Ver no relatório'), h('a', { class: 'btn grow', href: '#/anotacoes' }, 'Pendências'), h('a', { class: 'btn grow', href: '#/caixa' }, 'Capital e caixa')));
@@ -424,7 +479,7 @@
       corpo.appendChild(secao('Despesas, equipe e retiradas · ' + resumoSec(c.despesas),
         listaRegistros(c.despesas.map(it => ({ dia: it.dia, nome: (P.Mesas.NOME_DESP[it.x.categoria] || it.x.categoria) + ' · ' + (it.x.descricao || ''), valor: it.x.valor, status: it.status, chave: it.chave,
           parecido: it.parecido ? (it.parecido.descricao || P.Mesas.NOME_DESP[it.parecido.categoria]) + ' ' + P.brl(it.parecido.valor) : null })), 'Ver as ' + c.despesas.length + ' despesas')));
-      corpo.appendChild(secao('Cardápio, insumos e equipe · ' + c.cadastro.filter(x => x.status !== 'ja').length + ' mudanças',
+      corpo.appendChild(secao('Cardápio, insumos, equipe, gás e ajustes · ' + c.cadastro.filter(x => x.status !== 'ja').length + ' mudanças',
         h('details', { class: 'im-det' }, h('summary', null, 'Ver o cadastro'),
           h('div', { class: 'rs-itens' }, c.cadastro.map(x => h('div', { class: 'rs-l' }, h('span', { class: 'rs-n' }, x.texto), h('span', { class: 'rs-v' }, tag(x.status))))))));
       if (c.desativar.length) {

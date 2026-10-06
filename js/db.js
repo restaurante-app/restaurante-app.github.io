@@ -9,7 +9,7 @@
   const P = window.P;
 
   const DB_NAME = 'pari-restaurante';
-  const DB_VERSION = 2; // 2: pessoas (equipe) e anotacoes
+  const DB_VERSION = 3; // 2: pessoas (equipe) e anotacoes · 3: botijoes (gás)
 
   // Colunas que existem no servidor. Só elas são enviadas.
   const SCHEMA = {
@@ -34,6 +34,8 @@
     pessoas: ['id', 'nome', 'funcao', 'pagamento', 'valor', 'conducao_dia', 'inicio', 'fim', 'ativo', 'obs'],
     // pendências e anotações do dono (o que falta confirmar, lembretes)
     anotacoes: ['id', 'dia', 'tipo', 'texto', 'resolvido', 'resolvido_em', 'resolucao', 'ref', 'criado_em', 'usuario_id'],
+    // gás: cada botijão, do dia em que foi ligado ao dia em que acabou (quanto dura, custo por dia)
+    botijoes: ['id', 'inicio', 'fim', 'tamanho', 'valor', 'despesa_id', 'obs', 'criado_em', 'usuario_id'],
   };
   const COMUNS = ['modificado_em', 'excluido'];
   const TABLES = Object.keys(SCHEMA);

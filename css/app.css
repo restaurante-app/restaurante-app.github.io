@@ -1160,3 +1160,32 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 .im-chk input, .im-op input { width: 20px; height: 20px; accent-color: var(--brasa); flex: 0 0 auto; }
 .rl-l.link { text-decoration: none; color: var(--tx2); }
 .rl-l.link small { color: var(--tx3); }
+
+/* ---------- Cardápio do dia ---------- */
+.cd-hoje .avatar svg, .gs-uso .avatar svg { width: 20px; height: 20px; }
+.cd-hoje-l { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 2px; }
+.cd-chip { border-radius: 999px; padding: 5px 10px; font-size: .72rem; font-weight: 700; background: var(--brasa-bg2); color: var(--brasa-tx); }
+.cd-dias { margin-bottom: 8px; }
+.cd-dias button { line-height: 1.15; padding-top: 4px; padding-bottom: 4px; }
+.cd-dias small { display: block; font-size: .6rem; font-weight: 600; color: var(--tx3); }
+.cd-dias button.on small { color: inherit; opacity: .75; }
+.cd-lin { gap: 8px; }
+.cd-lin.no { border-left: 3px solid var(--brasa); }
+.cd-lin .lc-b { width: 44px; height: 44px; border-radius: 13px; }
+.cd-lin .lc-b:disabled { opacity: .35; }
+.cd-sobe { transform: rotate(90deg); }
+.cd-rodape { margin-top: 14px; }
+.cd-txt { min-height: 220px; font-size: .8rem; }
+.cm-outros { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; padding: 0 15px;
+  border-radius: 16px; border: 1px dashed var(--borda2); background: transparent; color: var(--tx2); font-weight: 700; font-size: .8rem; text-align: left; }
+.cm-outros svg { width: 18px; height: 18px; flex: 0 0 auto; }
+
+/* ---------- Gás ---------- */
+.gs-barra { height: 8px; border-radius: 4px; background: var(--s3); overflow: hidden; margin: 6px 0 2px; }
+.gs-barra i { display: block; height: 100%; border-radius: 4px; background: var(--st-bom); transition: width .4s var(--ease); }
+.gs-barra.perto i { background: var(--st-atencao); }
+.gs-barra.passou i { background: var(--st-critico); }
+.gs-solta { align-items: flex-start; }
+.gs-solta svg { flex: 0 0 auto; margin-top: 2px; }
+.gs-novo { display: flex; flex-direction: column; gap: 10px; }
+.pn-gas { margin: 0 0 10px; font-size: .74rem; }

@@ -300,6 +300,7 @@
     if (!c) { view.append(voltar('#/mesas', 'Mesas'), P.UI.vazio('Comanda não encontrada.')); return {}; }
     if (c.status !== 'ABERTA') return telaResumo(view, c);
     let cat = ORDEM[c.canal] ? ORDEM[c.canal][0] : 'PRATO';
+    let verOutros = false; // pratos fora do cardápio do dia
 
     const elCab = h('div', { class: 'cm-cab' });
     const elTotal = h('div', { class: 'barra-acao' });
@@ -345,9 +346,9 @@
     function desenharGrade() {
       const q = qtdPorItem();
       elGrade.innerHTML = '';
-      vendaveis().filter(i => i.categoria === cat).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).forEach(it => {
+      const botao = it => {
         const n = q.get(it.id) || 0;
-        elGrade.appendChild(h('button', { type: 'button', class: 'cm-item k-' + it.categoria.toLowerCase() + (n ? ' tem' : ''), onClick: e => {
+        return h('button', { type: 'button', class: 'cm-item k-' + it.categoria.toLowerCase() + (n ? ' tem' : ''), onClick: e => {
           adicionar(c, it);
           P.vibrar(15);
           const b = e.currentTarget;
@@ -356,8 +357,19 @@
         } },
         h('span', { class: 'cm-item-n' }, it.nome),
         h('span', { class: 'cm-item-p' }, P.brl(it.preco_venda)),
-        n ? h('span', { class: 'cm-item-q' }, n) : null));
-      });
+        n ? h('span', { class: 'cm-item-q' }, n) : null);
+      };
+      const todos = vendaveis().filter(i => i.categoria === cat).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+      // pratos: os do cardápio do dia primeiro (na ordem do cardápio); os outros ficam guardados em "Outros pratos"
+      const card = cat === 'PRATO' && P.Cardapio ? P.Cardapio.doDia(c.dia_operacional) : null;
+      if (!card || !card.definido) { todos.forEach(it => elGrade.appendChild(botao(it))); return; }
+      const fora = todos.filter(it => !card.ids.has(it.id));
+      card.itens.concat(fora.filter(it => q.get(it.id))).forEach(it => elGrade.appendChild(botao(it)));
+      const resto = fora.filter(it => !q.get(it.id));
+      if (!resto.length) return;
+      elGrade.appendChild(h('button', { type: 'button', class: 'cm-outros', 'aria-expanded': verOutros ? 'true' : 'false', onClick: () => { verOutros = !verOutros; desenharGrade(); } },
+        verOutros ? 'Esconder os outros pratos' : 'Outros pratos (' + resto.length + ') · fora do cardápio de ' + card.nome, P.UI.icone(verOutros ? 'menos' : 'mais')));
+      if (verOutros) resto.forEach(it => elGrade.appendChild(botao(it)));
     }
     function desenharConsumo() {
       const grupos = new Map();
@@ -854,7 +866,7 @@
 
   P.Mesas = {
     linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, fiadoAberto, totaisDoDia,
-    FORMAS, NOME_FORMA, ICONE_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP, DESP_FIXA, DESP_DONO, DESP_FORA, NOME_FORMA_DESP, despVisivel, subDesp,
+    FORMAS, NOME_FORMA, ICONE_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP, DESP_FIXA, DESP_DONO, DESP_FORA, FORMAS_DESP, NOME_FORMA_DESP, despVisivel, subDesp,
     SUBTIPOS, NOME_SUBTIPO, competenciaDe, rotuloCompetencia, inicioSemana, novaDespesa, semHora, jaFechada,
     _abrir: abrir, _adicionar: adicionar, _fechar: fechar, _tirar: tirar,
   };

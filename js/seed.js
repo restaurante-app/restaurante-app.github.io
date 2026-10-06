@@ -134,6 +134,8 @@
     turnos: { espeto_ini: 3, espeto_fim: 10, almoco_ini: 11, almoco_fim: 16 },
     mesas: { quantidade: 12 },
     cartao: { nome: null, vencimento_dia: 1 }, // cartão de crédito das compras: fatura vence todo dia X
+    // cardápio de cada dia da semana: { '1': [ids dos pratos de segunda], …, '6': sábado }; dia sem lista = todos os pratos
+    cardapio_semana: { dias: {} },
   };
   // valor de configuração (o salvo no banco por cima do padrão)
   P.cfg = chave => {

@@ -18,6 +18,8 @@
     if (t === 'pessoas') return '#/equipe/' + id;
     if (t === 'itens') return '#/fichas/editar/' + id;
     if (t === 'despesas') return '#/mesas/despesas';
+    if (t === 'botijoes') return '#/gas';
+    if (t === 'cardapio') return '#/cardapio';
     return null;
   }
 

@@ -148,6 +148,17 @@ lugar no app, com "Resolvido" (e como resolveu) e atalho para a compra, conta ou
 compras pagas − equipe − retiradas − despesas = saldo das operações; e o que ainda vai sair e
 entrar) e a **montagem**: tudo que foi gasto antes do dia da abertura (Ajustes → Custos fixos).
 
+**Cardápio do dia** (Mais → Cardápio do dia) — os pratos de cada dia da semana (segunda a
+sábado; o dono monta, na ordem que quiser). Na comanda, os pratos do dia aparecem primeiro e o
+resto fica em "Outros pratos"; dia sem cardápio = todos os pratos. Botões para copiar o cardápio
+de hoje ou mandar no WhatsApp.
+
+**Gás** (Mais → Gás) — cada botijão, do dia em que foi ligado ao dia em que acabou. "Acabou o
+gás" fecha o botijão em uso e já registra o novo (e lança a compra em Despesas, se quiser). Com
+os botijões que acabaram, o app mostra quanto dura em média (dias e dias com venda), o custo do
+gás por dia aberto e por mês, prevê quando o atual acaba e avisa no Painel quando está perto. Gás
+lançado direto em Despesas aparece lá para virar botijão.
+
 **Importar lançamentos** (dono; Mais → Importar lançamentos ou Ajustes → Backup) — lança de uma
 vez um pacote `.json` com compras, vendas por cliente, despesas, equipe, cardápio e pendências
 (ex.: o que foi anotado no caderno antes de usar o app). Antes de lançar, **confere**: mostra os
@@ -157,6 +168,8 @@ passam pelo caminho normal (atualizam o preço dos insumos, dia a dia); as venda
 contas fechadas **"lançadas depois"**, sem horário — contam no faturamento, no caixa e nos
 pratos, mas ficam fora das vendas por hora e do Fluxo. **Desfazer** apaga o que a importação
 criou e volta o que ela mudou. Ids fixos: importar duas vezes, ou em dois aparelhos, não duplica.
+O pacote também pode trazer botijões do gás, o cardápio da semana, prato desativado que volta
+ao cardápio e pendências antigas que ele resolve.
 Conta reaberta para corrigir continua no dia dela ao fechar de novo.
 
 ## Dados iniciais
@@ -204,8 +217,11 @@ app aberto, logo depois de cada lançamento e ao voltar para o app.
 
 **Atualizar a nuvem** (quando o app ganha tabela, coluna ou opção nova — v1.7: equipe,
 pendências, pagamento em partes/cartão de crédito, pró-labore, investimento, vendas lançadas
-depois, custo estimado): SQL Editor → cole o `schema.sql` inteiro de novo → *Run* (pode rodar
-quantas vezes quiser). Enquanto isso não é feito, a sincronização **não trava**: o que a nuvem
+depois, custo estimado; v1.8: botijões do gás): SQL Editor → cole o `schema.sql` inteiro de novo
+→ *Run* (pode rodar quantas vezes quiser). O Supabase avisa "Potential issues detected"
+(operações destrutivas e tabelas sem RLS): é alarme falso — o arquivo só troca listas de valores
+e regras de acesso, e liga o RLS de todas as tabelas no bloco do final. Escolha **Run without RLS**
+(roda o arquivo como está). Enquanto isso não é feito, a sincronização **não trava**: o que a nuvem
 ainda não aceita fica guardado no aparelho (Ajustes → Sincronização mostra o que falta) e o
 resto segue normalmente; depois de rodar o SQL, toque em *Sincronizar agora*.
 

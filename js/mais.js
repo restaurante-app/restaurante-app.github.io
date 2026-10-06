@@ -27,6 +27,10 @@
       const despHoje = P.Store.all('despesas').filter(d => d.dia_operacional === hoje && P.Mesas.despVisivel(d)).reduce((s, d) => s + (+d.valor || 0), 0);
       const velhos = P.Store.all('insumos').filter(P.Calc.precoVelho).length;
       const passou = P.Fluxo.totais('PASSOU').dia;
+      const cardHoje = P.Cardapio.doDia(hoje);
+      const bot = P.Gas.emUso();
+      const botInfo = bot && P.Gas.info(bot);
+      const avisoGas = P.Gas.aviso();
 
       corpo.appendChild(h('div', { class: 'mais-conta' },
         h('span', { class: 'avatar grande' + (dono ? ' dono' : '') }, P.UI.iniciais(u.nome)),
@@ -34,6 +38,8 @@
         h('button', { type: 'button', class: 'btn mini', onClick: () => P.Auth.sair() }, P.UI.icone('sair'), 'Trocar')));
 
       corpo.appendChild(grupo('Operação',
+        tile('cardapio', 'fichas', 'laranja', 'Cardápio do dia', cardHoje.definido ? cardHoje.itens.length + ' pratos de ' + cardHoje.nome + ' · mandar no WhatsApp' : 'monte os pratos de cada dia'),
+        tile('gas', 'fogo', 'vermelho', 'Gás', avisoGas ? 'botijão perto de acabar' : bot ? (botInfo.corridos ? 'botijão em uso há ' + botInfo.corridos + (botInfo.corridos === 1 ? ' dia' : ' dias') : 'botijão ligado hoje') : 'quanto dura cada botijão', avisoGas ? 't-amarelo' : null),
         tile('fluxo', 'fluxo', 'azul', 'Fluxo', 'contador · ' + P.num(passou) + ' passaram hoje'),
         tile('mesas/totais', 'relatorio', 'verde', 'Totais do dia', P.brl0(tot.fechado) + ' vendido'),
         tile('mesas/hoje', 'check', 'verde', 'Contas fechadas', fechadas + (fechadas === 1 ? ' hoje' : ' hoje')),
