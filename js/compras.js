@@ -259,18 +259,23 @@
     desenhar();
   }
   // Busca em todas as compras: fornecedor, produto (nome da nota) ou insumo
+  // busca por produto, fornecedor, data (06/10) e valor (do item, do preço unitário ou da compra)
   function buscarCompras(q) {
-    const termos = P.UI.semAcento(q).split(/\s+/).filter(Boolean);
+    const b = P.UI.busca(q);
+    if (b.vazia) return [];
     const insNome = id => { const i = id && P.Store.get('insumos', id); return i ? i.nome : ''; };
     const out = [];
     P.Store.all('compras').forEach(c => {
       const itens = itensDe(c.id);
-      const textoItem = l => P.UI.semAcento(l.descricao + ' ' + insNome(l.insumo_id));
-      const tudo = P.UI.semAcento(c.fornecedor || '') + ' ' + itens.map(textoItem).join(' ');
-      if (!termos.every(t => tudo.includes(t))) return;
-      // itens com todas as palavras; se nenhum, os que têm alguma
-      const todos = itens.filter(l => termos.every(t => textoItem(l).includes(t)));
-      const achados = todos.length ? todos : itens.filter(l => termos.some(t => textoItem(l).includes(t)));
+      const alvoItem = l => ({ texto: P.UI.semAcento(l.descricao + ' ' + insNome(l.insumo_id)), dias: [c.dia_operacional], valores: [l.valor, l.preco_unit] });
+      const alvo = {
+        texto: P.UI.semAcento(c.fornecedor || '') + ' ' + itens.map(l => alvoItem(l).texto).join(' '),
+        dias: [c.dia_operacional], valores: [c.total].concat(...itens.map(l => [l.valor, l.preco_unit])),
+      };
+      if (!b.casa(alvo)) return;
+      // itens que casam com tudo; se nenhum, os que casam com alguma palavra ou valor
+      const todos = itens.filter(l => b.casa(alvoItem(l)));
+      const achados = todos.length ? todos : itens.filter(l => b.algum(alvoItem(l)));
       out.push({ c, achados });
     });
     return out.sort((a, b) => (a.c.criado_em < b.c.criado_em ? 1 : -1));
@@ -708,7 +713,7 @@
     diaLista = dia;
     const corpo = h('div');
     // a busca fica fora do "corpo" para não perder o que foi digitado quando a tela atualiza sozinha
-    const inBusca = h('input', { class: 'campo cp-busca-in', type: 'search', placeholder: 'Buscar compra: fornecedor ou produto', autocomplete: 'off', enterkeyhint: 'search' });
+    const inBusca = h('input', { class: 'campo cp-busca-in', type: 'search', placeholder: 'Buscar: produto, fornecedor, data ou valor', autocomplete: 'off', enterkeyhint: 'search' });
     const bLimpa = h('button', { type: 'button', class: 'btn ic cp-busca-x', 'aria-label': 'Limpar busca', onClick: () => { inBusca.value = ''; desenhar(); } }, P.UI.icone('x'));
     inBusca.addEventListener('input', () => desenhar());
     const busca = h('div', { class: 'cp-busca' }, P.UI.icone('busca'), inBusca, bLimpa);
@@ -723,7 +728,7 @@
       const tot = rs.reduce((s, r) => s + (+r.c.total || 0), 0);
       corpo.appendChild(h('div', { class: 'fx-resumo' },
         h('div', { class: 'fx-tot' }, h('small', null, rs.length + (rs.length === 1 ? ' compra encontrada' : ' compras encontradas') + ' · "' + q + '"'), h('b', null, P.brl(tot)))));
-      if (!rs.length) { corpo.appendChild(P.UI.vazio('Nenhuma compra com "' + q + '". Tente outra palavra (ex.: nome do fornecedor, "coca", "heineken").', 'busca')); return; }
+      if (!rs.length) { corpo.appendChild(P.UI.vazio('Nenhuma compra com "' + q + '". Busque pelo produto ou fornecedor ("coca", "sampatacado"), pela data ("06/10") ou pelo valor ("45" ou "247,80") — dá para misturar: "coca 06/10".', 'busca')); return; }
       corpo.appendChild(h('div', { class: 'ms-lista' }, rs.slice(0, 80).map(({ c, achados }) => {
         const itens = achados.slice(0, 3).map(l => l.descricao + ' (' + P.numAuto(l.quantidade) + ' ' + (UN[l.unidade] || l.unidade) + ' × ' + P.Fichas.precoFmt(l.preco_unit) + ')');
         return cardCompra(c, P.Dia.rotulo(c.dia_operacional) + ' · ' + (itens.length ? itens.join(', ') + (achados.length > 3 ? ' +' + (achados.length - 3) : '') : resumoItens(c)));

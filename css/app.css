@@ -1189,3 +1189,8 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 .gs-solta svg { flex: 0 0 auto; margin-top: 2px; }
 .gs-novo { display: flex; flex-direction: column; gap: 10px; }
 .pn-gas { margin: 0 0 10px; font-size: .74rem; }
+
+/* ---------- Busca na comanda (e criar item na hora) ---------- */
+.cm-busca { margin: 0 0 10px; }
+.cm-criar { border-style: solid; border-color: var(--brasa); color: var(--brasa-tx); background: var(--brasa-bg); }
+.cm-nada { grid-column: 1 / -1; color: var(--tx2); font-size: .8rem; padding: 6px 4px; }

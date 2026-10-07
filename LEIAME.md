@@ -153,6 +153,11 @@ sábado; o dono monta, na ordem que quiser). Na comanda, os pratos do dia aparec
 resto fica em "Outros pratos"; dia sem cardápio = todos os pratos. Botões para copiar o cardápio
 de hoje ou mandar no WhatsApp.
 
+**Buscas** — Compras e Despesas têm uma busca no topo que aceita nome, data e valor juntos
+(ex.: "gás 05/10", "coca", "380", "247,80"): procura em tudo o que já foi lançado. Na comanda
+(mesa, marmita ou venda rápida), "Buscar item" acha em todas as categorias; se o item não existe,
+"Criar … e pôr na comanda" cadastra na hora (nome, tipo e preço) e já lança.
+
 **Painel: entradas e saídas ou lucro pelas fichas** — seletor no topo do Painel (e em Ajustes →
 Painel). O padrão é **entradas e saídas**: o que entrou no caixa (vendas recebidas) menos o que
 saiu (compras pagas, despesas, retiradas, investimentos), no dia, na semana e no mês — não depende

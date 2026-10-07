@@ -292,6 +292,42 @@
 
   // Lista com busca numa folha → Promise<valor|null>
   const semAcento = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // Busca por nome, data e valor ao mesmo tempo: "g\u00e1s 05/10 380" \u2192 todas as palavras precisam casar.
+  // Data (dd/mm ou dd/mm/aaaa) casa com o dia do registro; n\u00famero casa com um valor (45 \u2192 R$ 45,xx;
+  // 45,90 \u2192 exato; 1.280,29 tamb\u00e9m) ou com o texto (ex.: "600" em "Coca 600 ml").
+  // alvo = { texto (sem acento), dias: ['aaaa-mm-dd'], valores: [n\u00fameros] }
+  function busca(q) {
+    const toks = semAcento(q).replace(/r\$\s*/g, '').split(/\s+/).filter(Boolean).map(t => {
+      const d = t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/);
+      if (d) return { tipo: 'dia', dd: d[1].padStart(2, '0'), mm: d[2].padStart(2, '0'), aa: d[3] ? (d[3].length === 2 ? '20' + d[3] : d[3]) : null };
+      if (/^\d{1,3}(\.\d{3})*(,\d{1,2})?$|^\d+(,\d{1,2})?$|^\d+\.\d{1,2}$/.test(t)) {
+        const dec = /,\d{1,2}$/.test(t) || /^\d+\.\d{1,2}$/.test(t);
+        const n = +(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : /^\d{1,3}(\.\d{3})+$/.test(t) ? t.replace(/\./g, '') : t);
+        return { tipo: 'num', t, n, dec };
+      }
+      return { tipo: 'txt', t };
+    });
+    const casaTok = (k, a) => {
+      if (k.tipo === 'dia') return (a.dias || []).some(d => d && d.slice(8, 10) === k.dd && d.slice(5, 7) === k.mm && (!k.aa || d.slice(0, 4) === k.aa));
+      if (k.tipo === 'num') return a.texto.includes(k.t) || (a.valores || []).some(v => { v = +v || 0; return Math.abs(v - k.n) < 0.005 || (!k.dec && Math.trunc(v) === k.n); });
+      return a.texto.includes(k.t);
+    };
+    return {
+      vazia: !toks.length,
+      casa: a => toks.every(k => casaTok(k, a)),
+      algum: a => toks.some(k => k.tipo !== 'dia' && casaTok(k, a)), // alguma palavra ou valor (sem contar a data)
+    };
+  }
+  // Campo de busca (lupa + texto + limpar), fora do conte\u00fado que a tela redesenha
+  function campoBusca(placeholder, onMuda) {
+    const inp = h('input', { class: 'campo cp-busca-in', type: 'search', placeholder, autocomplete: 'off', enterkeyhint: 'search' });
+    const x = h('button', { type: 'button', class: 'btn ic cp-busca-x', 'aria-label': 'Limpar busca', onClick: () => { inp.value = ''; mostrarX(); onMuda(''); inp.focus(); } }, icone('x'));
+    const mostrarX = () => { x.style.visibility = inp.value ? 'visible' : 'hidden'; };
+    inp.addEventListener('input', () => { mostrarX(); onMuda(inp.value.trim()); });
+    mostrarX();
+    const el = h('div', { class: 'cp-busca' }, icone('busca'), inp, x);
+    return { el, inp, valor: () => inp.value.trim(), limpar: () => { inp.value = ''; mostrarX(); } };
+  }
   function escolher(o) {
     return new Promise(resolve => {
       let feito = false;
@@ -649,6 +685,6 @@
   P.UI = {
     h, icone, tema, toast, sheet, fecharSheets, confirmar, numpad, pedirNumero, stepper, seg, escolher, baixar,
     rota, render, subnav, montarCasca, atualizarPilula, semAcento, iniciais, vazio,
-    marca, statusPill, anel, pilha, colunas, medidor, contar,
+    marca, statusPill, anel, pilha, colunas, medidor, contar, busca, campoBusca,
   };
 })();

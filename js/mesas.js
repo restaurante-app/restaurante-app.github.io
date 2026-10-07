@@ -292,6 +292,60 @@
   // ---------------------------------------------------------------
   const ORDEM = { ESPETO: ['ESPETO', 'BEBIDA', 'PRATO', 'GUARNICAO'], SALAO: ['PRATO', 'BEBIDA', 'ESPETO', 'GUARNICAO'], MARMITA: ['PRATO', 'BEBIDA', 'ESPETO', 'GUARNICAO'] };
   const ROT_CAT = { ESPETO: 'Espetos', PRATO: 'Pratos', BEBIDA: 'Bebidas', GUARNICAO: 'Outros' };
+  const CATS_ITEM = [{ v: 'PRATO', rotulo: 'Prato' }, { v: 'BEBIDA', rotulo: 'Bebida' }, { v: 'ESPETO', rotulo: 'Espeto' }, { v: 'GUARNICAO', rotulo: 'Outros' }];
+  const chaveNome = n => P.UI.semAcento(n).replace(/\s+/g, ' ').trim();
+
+  // Criar item na hora (da comanda): nome, tipo e preço. Se já existe um item com o mesmo nome,
+  // usa ele (e, se estava fora do cardápio, volta com o preço informado). Entra sem ficha técnica.
+  function criarItem(nome0, cat0) {
+    return new Promise(resolve => {
+      let feito = false;
+      let cat = CATS_ITEM.some(x => x.v === cat0) ? cat0 : 'PRATO';
+      let preco = null;
+      const inNome = h('input', { class: 'campo', type: 'text', value: nome0 ? nome0.charAt(0).toUpperCase() + nome0.slice(1) : '', placeholder: 'Nome do item (ex.: Suco de laranja)', autocomplete: 'off' });
+      const bPreco = h('button', { type: 'button', class: 'btn valor bloco' });
+      const aviso = h('small', { class: 'campo-d' });
+      const existente = () => { const k = chaveNome(inNome.value); return k ? P.Store.all('itens').find(i => chaveNome(i.nome) === k) : null; };
+      function mostrar() {
+        const ja = existente();
+        bPreco.textContent = ja && P.Calc.vendavel(ja) ? P.brl(ja.preco_venda) : preco > 0 ? P.brl(preco) : 'Preço de venda (R$)';
+        aviso.textContent = !ja ? 'Entra no cardápio agora, sem ficha técnica (dá para montar depois em Fichas).'
+          : P.Calc.vendavel(ja) ? '"' + ja.nome + '" já existe: ele entra na comanda por ' + P.brl(ja.preco_venda) + '.'
+            : '"' + ja.nome + '" já existe, fora do cardápio: ele volta ao cardápio com este preço.';
+      }
+      inNome.addEventListener('input', mostrar);
+      bPreco.addEventListener('click', async () => {
+        const v = await P.UI.pedirNumero({ titulo: 'Preço de venda', valor: preco, decimais: 2, prefixo: 'R$ ' });
+        if (v != null) { preco = v; mostrar(); }
+      });
+      function salvar() {
+        const nome = inNome.value.trim();
+        if (!nome) { P.UI.toast('Ponha o nome do item.', { tipo: 'perigo' }); inNome.focus(); return; }
+        const ja = existente();
+        let r;
+        if (ja && P.Calc.vendavel(ja)) r = ja; // já está no cardápio: entra com o preço dele
+        else {
+          if (!(preco > 0)) { P.UI.toast('Ponha o preço de venda.', { tipo: 'perigo' }); bPreco.click(); return; }
+          r = ja ? P.Store.put('itens', Object.assign({}, ja, { ativo: true, preco_venda: P.round(preco, 2) }))
+            : P.Store.put('itens', { id: P.uuid(), nome, categoria: cat, preco_venda: P.round(preco, 2),
+              perda_pct: cat === 'PRATO' ? +P.Calc.cfgFichas().perda_padrao || 0 : 0, ativo: true, custo_estimado: null });
+        }
+        feito = true; resolve(r); sh.fechar();
+      }
+      inNome.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (preco > 0 || existente()) salvar(); else bPreco.click(); } });
+      const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
+        inNome,
+        P.UI.seg(CATS_ITEM, cat, v => { cat = v; }, 'seg-p'),
+        bPreco, aviso,
+        h('div', { class: 'row gap' },
+          h('button', { type: 'button', class: 'btn', onClick: () => sh.fechar() }, 'Cancelar'),
+          h('button', { type: 'button', class: 'btn primario grow', onClick: salvar }, P.UI.icone('check'), 'Criar e pôr na comanda'))),
+      { titulo: 'Item novo', onFechar: () => { if (!feito) resolve(null); } });
+      mostrar();
+      // com o nome já digitado na busca, abre direto o preço
+      setTimeout(() => { if (nome0 && !existente()) bPreco.click(); else inNome.focus(); }, 150);
+    });
+  }
 
   function telaComanda(view, params) {
     view.className = 'v-comanda';
@@ -301,6 +355,36 @@
     if (c.status !== 'ABERTA') return telaResumo(view, c);
     let cat = ORDEM[c.canal] ? ORDEM[c.canal][0] : 'PRATO';
     let verOutros = false; // pratos fora do cardápio do dia
+    // busca de item em todas as categorias; o que não existe dá para criar na hora
+    let termo = '';
+    const busca = P.UI.campoBusca('Buscar item ou criar na hora', v => { termo = v; desenharCats(); desenharGrade(); });
+    busca.el.classList.add('cm-busca');
+    busca.inp.addEventListener('keydown', e => {
+      if (e.key !== 'Enter' || !termo) return;
+      e.preventDefault();
+      const achados = achar(termo);
+      if (achados.length === 1) { escolher(achados[0]); return; }
+      if (!achados.length) criarNaHora();
+    });
+    function achar(txt) {
+      const ts = P.UI.semAcento(txt).split(/\s+/).filter(Boolean);
+      const k = P.UI.semAcento(txt);
+      return vendaveis().filter(it => { const n = P.UI.semAcento(it.nome); return ts.every(t => n.includes(t)); })
+        .sort((a, b) => (P.UI.semAcento(b.nome).startsWith(k) - P.UI.semAcento(a.nome).startsWith(k)) || a.nome.localeCompare(b.nome, 'pt-BR'));
+    }
+    function escolher(it) {
+      adicionar(c, it);
+      P.vibrar(15);
+      busca.limpar(); termo = '';
+      atualizar();
+      P.UI.toast('+1 ' + it.nome);
+    }
+    async function criarNaHora() {
+      const it = await criarItem(termo, cat);
+      if (!it) return;
+      cat = it.categoria;
+      escolher(it);
+    }
 
     const elCab = h('div', { class: 'cm-cab' });
     const elTotal = h('div', { class: 'barra-acao' });
@@ -333,6 +417,7 @@
         h('button', { type: 'button', class: 'btn primario barra-btn', disabled: !n, onClick: () => { location.hash = '#/mesas/pagar/' + c.id; } }, 'Fechar conta', P.UI.icone('avancar')));
     }
     function desenharCats() {
+      elCats.hidden = !!termo;
       const presentes = new Set(vendaveis().map(i => i.categoria));
       const porCat = {};
       const I = P.Calc.idx();
@@ -349,6 +434,7 @@
       const botao = it => {
         const n = q.get(it.id) || 0;
         return h('button', { type: 'button', class: 'cm-item k-' + it.categoria.toLowerCase() + (n ? ' tem' : ''), onClick: e => {
+          if (termo) { escolher(it); return; } // na busca: põe e limpa para a próxima
           adicionar(c, it);
           P.vibrar(15);
           const b = e.currentTarget;
@@ -359,6 +445,14 @@
         h('span', { class: 'cm-item-p' }, P.brl(it.preco_venda)),
         n ? h('span', { class: 'cm-item-q' }, n) : null);
       };
+      if (termo) {
+        const achados = achar(termo);
+        achados.forEach(it => elGrade.appendChild(botao(it)));
+        const igual = P.Store.all('itens').some(it => P.Calc.vendavel(it) && P.UI.semAcento(it.nome).trim() === P.UI.semAcento(termo).trim());
+        if (!achados.length) elGrade.appendChild(h('div', { class: 'cm-nada' }, 'Nenhum item com "' + termo + '".'));
+        if (!igual) elGrade.appendChild(h('button', { type: 'button', class: 'cm-outros cm-criar', onClick: criarNaHora }, 'Criar "' + termo + '" e pôr na comanda', P.UI.icone('mais')));
+        return;
+      }
       const todos = vendaveis().filter(i => i.categoria === cat).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
       // pratos: os do cardápio do dia primeiro (na ordem do cardápio); os outros ficam guardados em "Outros pratos"
       const card = cat === 'PRATO' && P.Cardapio ? P.Cardapio.doDia(c.dia_operacional) : null;
@@ -411,7 +505,7 @@
       location.hash = '#/mesas';
     }
 
-    view.append(elCab, elCats, elGrade, elConsumo, elTotal);
+    view.append(elCab, busca.el, elCats, elGrade, elConsumo, elTotal);
     desenharCab(); desenharCats(); atualizar();
     if (rapida) P.UI.toast('Venda rápida: toque nos itens e depois em Fechar conta');
     const relogio = setInterval(desenharCab, 30000);
@@ -779,8 +873,28 @@
       corpo.appendChild(h('div', { class: 'secao' }, 'Todas as despesas do mês'));
       corpo.appendChild(h('div', { class: 'ms-lista' }, ds.map(d => cardDesp(d, true))));
     }
+    // busca em todas as despesas: nome, tipo, pessoa, data e valor
+    const busca = P.UI.campoBusca('Buscar despesa: nome, data ou valor', () => desenhar());
+    function desenharBusca(q) {
+      const b = P.UI.busca(q);
+      const alvo = d => {
+        const pes = d.pessoa_id && P.Store.get('pessoas', d.pessoa_id);
+        return { texto: P.UI.semAcento([d.descricao, NOME_DESP[d.categoria], pes && pes.nome, NOME_SUBTIPO[d.subtipo], NOME_FORMA_DESP[d.forma]].filter(Boolean).join(' ')),
+          dias: [d.dia_operacional], valores: [d.valor] };
+      };
+      const ds = P.Store.all('despesas').filter(d => despVisivel(d) && b.casa(alvo(d)))
+        .sort((a, c) => (a.dia_operacional < c.dia_operacional ? 1 : a.dia_operacional > c.dia_operacional ? -1 : a.criado_em < c.criado_em ? 1 : -1));
+      const tot = ds.reduce((s, d) => s + (+d.valor || 0), 0);
+      corpo.appendChild(h('div', { class: 'fx-resumo' },
+        h('div', { class: 'fx-tot' }, h('small', null, ds.length + (ds.length === 1 ? ' despesa encontrada' : ' despesas encontradas') + ' · "' + q + '"'), h('b', null, P.brl(tot)))));
+      if (!ds.length) { corpo.appendChild(P.UI.vazio('Nenhuma despesa com "' + q + '". Busque pelo nome ou tipo ("gás", "vale", "chave"), pela data ("06/10") ou pelo valor ("380") — dá para misturar: "vale 05/10".', 'busca')); return; }
+      corpo.appendChild(h('div', { class: 'ms-lista' }, ds.slice(0, 100).map(d => cardDesp(d, true))));
+      if (ds.length > 100) corpo.appendChild(h('div', { class: 'dica' }, 'Mostrando as 100 mais recentes. Digite mais para filtrar.'));
+    }
     function desenhar() {
       corpo.innerHTML = '';
+      const q = busca.valor();
+      if (q.length >= 2) { desenharBusca(q); return; }
       corpo.appendChild(P.UI.seg([{ v: 'dia', rotulo: 'Do dia' }, { v: 'mes', rotulo: 'Do mês' }], modo, v => { modo = v; if (v === 'mes') mes = P.Dia.mes(dia); desenhar(); }, 'seg-p'));
       corpo.appendChild(h('div', { class: 'row gap ds-novas' },
         h('button', { type: 'button', class: 'btn primario grow', onClick: () => novaDespesa(modo === 'dia' ? dia : (mes === P.Dia.mes(P.Dia.hoje()) ? P.Dia.hoje() : P.Dia.doMes(mes).slice(-1)[0]), 'GAS_CARVAO').then(desenhar) }, P.UI.icone('mais'), 'Despesa'),
@@ -796,7 +910,7 @@
       if (!ds.length) { corpo.appendChild(P.UI.vazio('Nenhuma despesa neste dia. Aqui entram gás, carvão, embalagem, limpeza, manutenção' + (P.Auth.isDono() ? ', salários, aluguel, contas e impostos' : '') + '. Mercadoria (comida e bebida) vai em Compras.', 'caixa')); return; }
       corpo.appendChild(h('div', { class: 'ms-lista' }, ds.map(d => cardDesp(d, false))));
     }
-    view.append(subnavMesas('despesas'), corpo);
+    view.append(subnavMesas('despesas'), busca.el, corpo);
     desenhar();
     return { onDados(t) { if (t.has('despesas') || t.has('compras')) desenhar(); } };
   }
@@ -867,7 +981,7 @@
   P.Mesas = {
     linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, fiadoAberto, totaisDoDia,
     FORMAS, NOME_FORMA, ICONE_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP, DESP_FIXA, DESP_DONO, DESP_FORA, FORMAS_DESP, NOME_FORMA_DESP, despVisivel, subDesp,
-    SUBTIPOS, NOME_SUBTIPO, competenciaDe, rotuloCompetencia, inicioSemana, novaDespesa, semHora, jaFechada,
+    SUBTIPOS, NOME_SUBTIPO, competenciaDe, rotuloCompetencia, inicioSemana, novaDespesa, semHora, jaFechada, criarItem,
     _abrir: abrir, _adicionar: adicionar, _fechar: fechar, _tirar: tirar,
   };
 })();
