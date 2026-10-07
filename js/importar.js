@@ -7,7 +7,7 @@
    Lança pelos mesmos caminhos do app (a compra atualiza o preço dos insumos;
    a venda entra como conta fechada "lançada depois", sem horário).
    Ids fixos: importar duas vezes (ou em dois aparelhos) não duplica.
-   Também: botijões do gás, cardápio da semana (ajuste) e pendências antigas que o pacote resolve.
+   Também: botijões do gás, cardápio de cada dia, contas a prazo pagas depois e pendências antigas que o pacote resolve.
    "Desfazer" apaga o que esta importação criou e volta o que ela mudou. */
 (function () {
   'use strict';
@@ -34,7 +34,9 @@
   function validar(pk) {
     if (!pk || pk.app !== 'pari-restaurante' || pk.tipo !== 'lancamentos') throw new Error('Este arquivo não é um pacote de lançamentos do app.');
     if (!pk.id || !/^[a-z0-9-]{2,24}$/i.test(pk.id)) throw new Error('Pacote sem identificação.');
-    ['insumos', 'itens', 'desativar', 'pessoas', 'compras', 'vendas', 'despesas', 'anotacoes', 'limpeza', 'botijoes', 'resolver'].forEach(k => { pk[k] = Array.isArray(pk[k]) ? pk[k] : []; });
+    ['insumos', 'itens', 'desativar', 'pessoas', 'compras', 'vendas', 'despesas', 'anotacoes', 'limpeza', 'botijoes', 'resolver', 'pagarCompras'].forEach(k => { pk[k] = Array.isArray(pk[k]) ? pk[k] : []; });
+    // cardápio de dias da semana: { '1': [ids], '2': [ids] } — troca só os dias que vierem
+    pk.cardapio = pk.cardapio && typeof pk.cardapio === 'object' && !Array.isArray(pk.cardapio) ? pk.cardapio : {};
     return pk;
   }
   // item/insumo/pessoa do pacote → o que já existe no app (pelo id ou pelo nome)
@@ -52,7 +54,7 @@
   const refId = (pk, r) => (r ? (String(r).startsWith('@') ? idDe(pk, String(r).slice(1)) : String(r)) : null);
   const NOME_CFG = { cardapio_semana: 'Cardápio de cada dia da semana', operacao: 'Operação (abertura, dias por mês)', cartao: 'Cartão de crédito' };
   function conferir(pk) {
-    const c = { problemas: [], cadastro: [], compras: [], vendas: [], despesas: [], anotacoes: [], limpeza: [], desativar: [], botijoes: [], resolver: [], porDia: new Map() };
+    const c = { problemas: [], cadastro: [], compras: [], vendas: [], despesas: [], anotacoes: [], limpeza: [], desativar: [], botijoes: [], resolver: [], pagar: [], porDia: new Map() };
     const mapaIns = mapear('insumos', pk.insumos);
     const mapaItem = mapear('itens', pk.itens.filter(x => x.nome));
     const mapaPes = mapear('pessoas', pk.pessoas);
@@ -100,6 +102,26 @@
       c.botijoes.push(it);
       c.cadastro.push({ tipo: 'gas', status: it.status, texto: 'Gás: botijão ' + P.Gas.nomeTam(x.tamanho) + ' ligado ' + P.Dia.rotulo(x.inicio) + (x.fim ? ', acabou ' + P.Dia.rotulo(x.fim) : ', em uso') + (+x.valor ? ' · ' + P.brl(x.valor) : '') +
         (desp && !despOk ? ' (a despesa ' + desp + ' não está no app: fica sem ligar)' : '') });
+    });
+    // cardápio de cada dia (os pratos podem ser deste pacote)
+    c.cardapio = [];
+    Object.keys(pk.cardapio).sort().forEach(sem => {
+      const ids = (Array.isArray(pk.cardapio[sem]) ? pk.cardapio[sem] : []).map(itemId);
+      if (!P.Cardapio.NOME[sem]) { c.problemas.push('Cardápio: dia da semana ' + sem + ' não existe (1 = segunda … 6 = sábado).'); return; }
+      ids.forEach(id => { if (!S().get('itens', id) && !pk.itens.some(i => i.id === id)) c.problemas.push('Cardápio de ' + P.Cardapio.NOME[sem] + ': prato ' + id + ' não existe.'); });
+      const igual = JSON.stringify(P.Cardapio.lista(sem)) === JSON.stringify(ids);
+      c.cardapio.push({ sem, ids, status: igual ? 'ja' : 'muda' });
+      c.cadastro.push({ tipo: 'cardapio', status: igual ? 'ja' : 'muda', texto: 'Cardápio de ' + P.Cardapio.NOME[sem] + ': ' + ids.length + ' pratos' + (igual ? ' — já está igual' : '') });
+    });
+    // contas a prazo pagas depois (compra deste pacote, '@c01', ou de um anterior)
+    pk.pagarCompras.forEach(x => {
+      const cp = S().get('compras', refId(pk, x.compra));
+      if (!cp) { c.cadastro.push({ tipo: 'pagar', status: 'ja', texto: 'Pagar a compra ' + x.compra + ': não está no app (fica de fora).' }); return; }
+      const aberto = P.Compras.valorAberto(cp);
+      const it = { x, compra: cp, status: aberto > 0 ? 'muda' : 'ja' };
+      c.pagar.push(it);
+      c.cadastro.push({ tipo: 'pagar', status: it.status, texto: 'Pagar ' + (cp.fornecedor || 'compra') + ' (compra de ' + P.Dia.rotuloCurto(cp.dia_operacional) + '): ' +
+        (aberto > 0 ? P.brl(aberto) + ' em ' + P.Dia.rotulo(diaDe(x.dia)) + ' · ' + (P.Compras.NOME_FORMA[x.forma || 'DINHEIRO'] || x.forma) : 'já está paga') });
     });
     // pendências de antes que este pacote resolve
     pk.resolver.forEach(x => {
@@ -203,7 +225,7 @@
     const itemId = id => c.mapaItem.get(id) || id;
     const insId = id => (id ? c.mapaIns.get(id) || id : null);
     const pesId = id => (id ? c.mapaPes.get(id) || id : null);
-    const n = { config: 0, insumos: 0, itens: 0, precos: 0, reativados: 0, pessoas: 0, compras: 0, vendas: 0, despesas: 0, anotacoes: 0, limpeza: 0, desativados: 0, botijoes: 0, resolvidas: 0 };
+    const n = { config: 0, insumos: 0, itens: 0, precos: 0, reativados: 0, pessoas: 0, compras: 0, vendas: 0, despesas: 0, anotacoes: 0, limpeza: 0, desativados: 0, botijoes: 0, resolvidas: 0, pagas: 0, cardapio: 0 };
 
     // configurações (junta com o que já existe)
     Object.keys(pk.config || {}).forEach(ch => {
@@ -361,6 +383,21 @@
         obs: x.obs || null, criado_em: P.agoraISO(), usuario_id: uid });
       n.botijoes++;
     });
+    // contas a prazo pagas depois: as partes em aberto (menos a do cartão de crédito, que é a fatura)
+    c.pagar.filter(p => p.status === 'muda').forEach(({ x, compra }) => {
+      const atual = S().get('compras', compra.id);
+      if (!atual || !(P.Compras.valorAberto(atual) > 0)) return;
+      guardarAntes('compras', atual);
+      P.Compras.pagar([atual], x.forma || 'DINHEIRO', diaDe(x.dia), p => (x.parte ? p.forma === x.parte : p.forma !== 'CREDITO'));
+      n.pagas++;
+    });
+    // cardápio de cada dia (só os pratos que existem)
+    c.cardapio.filter(d => d.status === 'muda').forEach(d => {
+      const atual = S().get('config', 'cardapio_semana');
+      if (atual) guardarAntes('config', atual); else if (!log.criados.some(k => k[0] === 'config' && k[1] === 'cardapio_semana')) log.criados.push(['config', 'cardapio_semana']);
+      P.Cardapio.salvar(d.sem, d.ids.filter(id => S().get('itens', id)));
+      n.cardapio++;
+    });
     // pendências de antes resolvidas por este pacote
     c.resolver.filter(r => r.status === 'muda').forEach(({ x, a }) => {
       const atual = S().get('anotacoes', a.id);
@@ -435,6 +472,7 @@
             resultado.n.precos && resultado.n.precos + (resultado.n.precos === 1 ? ' preço atualizado' : ' preços atualizados'), resultado.n.insumos && resultado.n.insumos + ' insumos novos',
             resultado.n.pessoas && resultado.n.pessoas + (resultado.n.pessoas === 1 ? ' pessoa nova na equipe' : ' pessoas na equipe'), resultado.n.anotacoes && resultado.n.anotacoes + ' pendências', resultado.n.resolvidas && resultado.n.resolvidas + (resultado.n.resolvidas === 1 ? ' pendência antiga resolvida' : ' pendências antigas resolvidas'),
             resultado.n.botijoes && resultado.n.botijoes + (resultado.n.botijoes === 1 ? ' botijão no controle do gás' : ' botijões no controle do gás'),
+            resultado.n.pagas && (resultado.n.pagas === 1 ? '1 conta a prazo paga' : resultado.n.pagas + ' contas a prazo pagas'), resultado.n.cardapio && 'cardápio de ' + resultado.n.cardapio + (resultado.n.cardapio === 1 ? ' dia' : ' dias'),
             resultado.n.config && (resultado.n.config === 1 ? '1 ajuste' : resultado.n.config + ' ajustes'), resultado.n.desativados && resultado.n.desativados + ' pratos antigos desativados',
             resultado.n.limpeza && resultado.n.limpeza + ' comandas de teste limpas'].filter(Boolean).join(' · ')))));
         corpo.appendChild(h('div', { class: 'row gap' },
@@ -479,7 +517,7 @@
       corpo.appendChild(secao('Despesas, equipe e retiradas · ' + resumoSec(c.despesas),
         listaRegistros(c.despesas.map(it => ({ dia: it.dia, nome: (P.Mesas.NOME_DESP[it.x.categoria] || it.x.categoria) + ' · ' + (it.x.descricao || ''), valor: it.x.valor, status: it.status, chave: it.chave,
           parecido: it.parecido ? (it.parecido.descricao || P.Mesas.NOME_DESP[it.parecido.categoria]) + ' ' + P.brl(it.parecido.valor) : null })), 'Ver as ' + c.despesas.length + ' despesas')));
-      corpo.appendChild(secao('Cardápio, insumos, equipe, gás e ajustes · ' + c.cadastro.filter(x => x.status !== 'ja').length + ' mudanças',
+      corpo.appendChild(secao('Cadastro, cardápio do dia, gás, contas pagas e ajustes · ' + c.cadastro.filter(x => x.status !== 'ja').length + ' mudanças',
         h('details', { class: 'im-det' }, h('summary', null, 'Ver o cadastro'),
           h('div', { class: 'rs-itens' }, c.cadastro.map(x => h('div', { class: 'rs-l' }, h('span', { class: 'rs-n' }, x.texto), h('span', { class: 'rs-v' }, tag(x.status))))))));
       if (c.desativar.length) {

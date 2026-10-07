@@ -1,4 +1,4 @@
-# Próximos passos — situação em 06/10/2026
+# Próximos passos — situação em 07/10/2026
 
 ## Situação
 
@@ -7,12 +7,14 @@
 | App v1.8 (cardápio do dia, controle do gás) sobre a v1.7 (equipe, pendências, capital e caixa, importar lançamentos, cartão de crédito, pagamento em partes, pró-labore, investimento, custo estimado de prato sem ficha) | `main` → https://restaurante-app.github.io/ | **publicado** |
 | Nuvem (Supabase) | projeto `restaurante` | **rodar o `schema.sql` de novo** (tabela nova `botijoes`) |
 | Relatório de 28/09 a 05/10 | pacote `.json` no computador do dono (fora do Git) | **importado** |
-| Lançamentos de 05/10 (vendas de segunda, compras, estoque inicial, equipe) | pacote `.json` no computador do dono (fora do Git) | **esperando importar** |
+| Lançamentos de 05/10 | pacote `.json` no computador do dono (fora do Git) | **importado** |
+| Lançamentos de 05/10 (restante) e 06/10, com o cardápio de segunda e terça | pacote `.json` no computador do dono (fora do Git) | **esperando importar** (precisa da v1.8.1) |
 
-Ordem: 1) rodar o `schema.sql` no Supabase (no aviso "Potential issues detected", escolher
-**Run without RLS** — o arquivo já liga o RLS); 2) abrir o app no computador (ele se atualiza
-sozinho); 3) Mais → Importar lançamentos → escolher o arquivo de 05/10 → conferir → Lançar;
-4) conferir o cardápio de cada dia (Mais → Cardápio do dia) e resolver as pendências.
+Ordem: 1) rodar o `schema.sql` no Supabase, se ainda não rodou depois da v1.8 (no aviso
+"Potential issues detected", escolher **Run without RLS** — o arquivo já liga o RLS); 2) abrir o
+app no computador e conferir que o rodapé de Mais mostra **v1.8.1**; 3) Mais → Importar
+lançamentos → arquivo de 06/10 → conferir → Lançar; 4) montar a quarta em Mais → Cardápio do dia
+e resolver as pendências.
 
 Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodado.
 
@@ -24,8 +26,8 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 | Cardápio de cada dia | Mais → Cardápio do dia: pratos de segunda a sábado; na comanda, os do dia primeiro e os outros em "Outros pratos"; copiar ou mandar no WhatsApp |
 | Lançamentos de 05/10 | pacote (fora do Git) com as vendas de segunda, as compras do dia e o estoque inicial, a equipe, pratos novos, o botijão e o cardápio da semana |
 
-Cardápio montado pelo que saiu: segunda (05/10), quinta (01/10), sexta (02/10) e sábado
-(03/10). Terça e quarta ainda sem cardápio (aparecem todos os pratos).
+Cardápio montado pelo que saiu: segunda (05/10), terça (06/10), quinta (01/10), sexta (02/10) e
+sábado (03/10). Quarta ainda sem cardápio (aparecem todos os pratos).
 
 ## Plano — funções que ainda faltam
 

@@ -168,8 +168,8 @@ passam pelo caminho normal (atualizam o preço dos insumos, dia a dia); as venda
 contas fechadas **"lançadas depois"**, sem horário — contam no faturamento, no caixa e nos
 pratos, mas ficam fora das vendas por hora e do Fluxo. **Desfazer** apaga o que a importação
 criou e volta o que ela mudou. Ids fixos: importar duas vezes, ou em dois aparelhos, não duplica.
-O pacote também pode trazer botijões do gás, o cardápio da semana, prato desativado que volta
-ao cardápio e pendências antigas que ele resolve.
+O pacote também pode trazer botijões do gás, o cardápio de cada dia, conta a prazo paga depois,
+prato desativado que volta ao cardápio e pendências antigas que ele resolve.
 Conta reaberta para corrigir continua no dia dela ao fechar de novo.
 
 ## Dados iniciais
