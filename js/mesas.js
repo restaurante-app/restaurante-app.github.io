@@ -235,7 +235,7 @@
           h('span', { class: 'viva-pt ' + cor }),
           h('span', { class: 'viva-i' }, h('small', null, 'Vendido hoje'), h('b', null, P.brl0(r.fat))),
           h('span', { class: 'viva-i' }, h('small', null, 'Em mesas'), h('b', null, P.brl0(ab.reduce((s, c) => s + totalDe(c), 0)))),
-          h('span', { class: 'viva-i' }, h('small', null, r.resultado >= 0 ? 'Lucro' : 'Prejuízo'), h('b', { class: 't-' + cor }, P.brl0(r.resultado))),
+          h('span', { class: 'viva-i' }, h('small', null, r.caixa ? 'Entrou − saiu' : r.resultado >= 0 ? 'Lucro' : 'Prejuízo'), h('b', { class: 't-' + cor }, P.brl0(r.resultado))),
           P.UI.icone('avancar')));
       }
       corpo.appendChild(h('div', { class: 'ms-acoes' },

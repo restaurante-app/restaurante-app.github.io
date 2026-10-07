@@ -136,6 +136,8 @@
     cartao: { nome: null, vencimento_dia: 1 }, // cartão de crédito das compras: fatura vence todo dia X
     // cardápio de cada dia da semana: { '1': [ids dos pratos de segunda], …, '6': sábado }; dia sem lista = todos os pratos
     cardapio_semana: { dias: {} },
+    // resultado do dia: 'caixa' = entradas e saídas (padrão enquanto as fichas não estão montadas); 'fichas' = lucro pelo custo dos pratos
+    painel: { modo: 'caixa' },
   };
   // valor de configuração (o salvo no banco por cima do padrão)
   P.cfg = chave => {

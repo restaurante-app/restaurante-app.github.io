@@ -153,6 +153,11 @@ sábado; o dono monta, na ordem que quiser). Na comanda, os pratos do dia aparec
 resto fica em "Outros pratos"; dia sem cardápio = todos os pratos. Botões para copiar o cardápio
 de hoje ou mandar no WhatsApp.
 
+**Painel: entradas e saídas ou lucro pelas fichas** — seletor no topo do Painel (e em Ajustes →
+Painel). O padrão é **entradas e saídas**: o que entrou no caixa (vendas recebidas) menos o que
+saiu (compras pagas, despesas, retiradas, investimentos), no dia, na semana e no mês — não depende
+das fichas técnicas. "Lucro pelas fichas" desconta o custo de cada prato vendido (precisa das fichas).
+
 **Gás** (Mais → Gás) — cada botijão, do dia em que foi ligado ao dia em que acabou. "Acabou o
 gás" fecha o botijão em uso e já registra o novo (e lança a compra em Despesas, se quiser). Com
 os botijões que acabaram, o app mostra quanto dura em média (dias e dias com venda), o custo do

@@ -5,7 +5,9 @@
    mercadoria comprada de COMPRAS e os demais gastos de DESPESAS.
      resultado = vendas − custo do vendido − despesas lançadas (inclusive salários, aluguel, contas)
      Os custos fixos de Ajustes são só a base: previsão do mês enquanto não forem lançados.
-     caixa     = recebido (fora fiado) − compras pagas − despesas */
+     caixa     = recebido (fora fiado) − compras pagas − despesas
+   Dois jeitos de acompanhar (seletor no topo; padrão "entradas e saídas", enquanto as
+   fichas dos pratos não estão montadas): entradas e saídas (caixa) ou lucro pelas fichas. */
 (function () {
   'use strict';
   const P = window.P;
@@ -28,7 +30,7 @@
     const I = P.Calc.idx();
     const r = {
       fat: 0, cmv: 0, desconto: 0, mercadoria: 0, compras: 0, nCompras: 0, outras: 0, fixoPago: 0, espetos: 0, comandas: 0,
-      entrou: 0, saiu: 0, investimento: 0, dias: new Set(), canal: {},
+      entrou: 0, saiu: 0, saiuCompras: 0, saiuDesp: 0, investimento: 0, dias: new Set(), canal: {},
       fatSemCusto: 0,  // vendido de itens sem ficha e sem estimativa (o custo deles não entra no lucro)
       cmvEstimado: 0,  // parte do custo que é estimativa (prato sem ficha)
     };
@@ -74,11 +76,12 @@
         if (P.Mesas.DESP_FIXA.has(d.categoria)) r.fixoPago += +d.valor || 0; // salários, aluguel, contas, impostos, pró-labore
       }
       r.saiu += +d.valor || 0;
+      r.saiuDesp += +d.valor || 0;
     });
     P.Store.all('compras').forEach(c => {
       if (set.has(c.dia_operacional)) { r.compras += +c.total || 0; r.nCompras++; }
       // caixa: o que foi pago em cada dia (compra a prazo ou no crédito sai quando paga)
-      P.Compras.saidas(c).forEach(s => { if (set.has(s.dia)) r.saiu += s.valor; });
+      P.Compras.saidas(c).forEach(s => { if (set.has(s.dia)) { r.saiu += s.valor; r.saiuCompras += s.valor; } });
     });
     r.mercadoria += r.compras;
     P.Store.all('pagamentos').forEach(p => {
@@ -93,13 +96,18 @@
     });
     return r;
   }
+  // Como o dono acompanha o resultado (Ajustes → Painel, ou o seletor no topo do Painel):
+  //   'caixa'  → entradas e saídas: o que entrou (vendas recebidas) − o que saiu (compras pagas e despesas)
+  //   'fichas' → lucro: vendas − custo do vendido pelas fichas técnicas − despesas
+  const modoCaixa = () => cfg('painel').modo !== 'fichas';
   // Resultado de um dia, ao vivo (painel, compras, mesas)
   function resultadoDia(dia) {
     const r = agregar([dia]);
+    const lucro = r.fat - r.cmv - r.outras, saldo = r.entrou - r.saiu, caixa = modoCaixa();
     return {
       fat: r.fat, cmv: r.cmv, outras: r.outras, fixoPago: r.fixoPago, compras: r.compras, entrou: r.entrou, saiu: r.saiu, ag: r,
-      resultado: r.fat - r.cmv - r.outras,
-      temMovimento: r.dias.size > 0 || r.compras > 0 || r.outras > 0 || r.investimento > 0,
+      lucro, saldo, caixa, resultado: caixa ? saldo : lucro,
+      temMovimento: r.dias.size > 0 || r.compras > 0 || r.outras > 0 || r.investimento > 0 || r.entrou > 0 || r.saiu > 0,
     };
   }
 
@@ -146,6 +154,10 @@
       // gás perto de acabar (pela média dos botijões anteriores)
       const gas = dia === hoje && P.Gas ? P.Gas.aviso() : null;
       if (gas) wrap.appendChild(h('a', { class: 'pn-aviso pn-gas', href: '#/gas' }, P.UI.icone('fogo'), h('span', null, gas)));
+      // como acompanhar: entradas e saídas (caixa) ou lucro pelas fichas
+      wrap.appendChild(P.UI.seg([{ v: 'caixa', rotulo: 'Entradas e saídas' }, { v: 'fichas', rotulo: 'Lucro pelas fichas' }], modoCaixa() ? 'caixa' : 'fichas',
+        v => { P.salvarCfg('painel', Object.assign({}, cfg('painel'), { modo: v })); desenhar(); }, 'seg-p pn-modo'));
+      if (modoCaixa()) { cardsCaixa(); return; }
 
       // ---------- DIA ----------
       const res = resultadoDia(dia);
@@ -251,6 +263,78 @@
           avisoSemCusto(rm),
           escada(rm.espetos / nM),
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nenhum dia com venda neste mês.'))));
+    }
+
+    // ---------- ENTRADAS E SAÍDAS (caixa): o que entrou − o que saiu, sem depender das fichas ----------
+    function cardsCaixa() {
+      const hoje = P.Dia.hoje();
+      const D = diasMes();
+      const mov = r => r.dias.size > 0 || r.entrou > 0 || r.saiu > 0;
+      const cor = r => (!mov(r) ? 'cinza' : r.entrou - r.saiu >= 0 ? 'verde' : 'vermelho');
+      const ROT = { verde: 'entrou mais', vermelho: 'saiu mais', cinza: 'sem movimento' };
+      const heroL = (rot, r) => h('div', { class: 'pn-hero-l' },
+        h('div', { class: 'pn-rot' }, rot),
+        numero(r.entrou - r.saiu, P.brl0, r.entrou - r.saiu < 0),
+        h('div', { class: 'pn-meta' }, 'entrou ', h('b', null, P.brl0(r.entrou)), ' · saiu ', h('b', null, P.brl0(r.saiu))));
+      const linhaSaidas = r => h('div', { class: 'pn-linha' },
+        mini('Vendas', P.brl0(r.fat)), mini('Compras', P.brl0(r.saiuCompras)), mini('Despesas', P.brl0(r.saiuDesp)));
+
+      // dia
+      const rd = agregar([dia]);
+      const sd = cor(rd);
+      wrap.appendChild(h('section', { class: 'pn-card pn-dia s-' + sd },
+        cab(dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), P.Dia.rotuloCurto(dia) + (dia === hoje ? ' · ao vivo' : ''), ST[sd], ROT[sd], true),
+        mov(rd) ? [
+          h('div', { class: 'pn-hero' }, heroL('Entradas − saídas do dia', rd)),
+          P.UI.pilha([
+            { rotulo: 'Salão', valor: rd.canal.SALAO.fat, serie: 'salao' },
+            { rotulo: 'Espeto', valor: rd.canal.ESPETO.fat, serie: 'espeto' },
+            { rotulo: 'Marmita', valor: rd.canal.MARMITA.fat, serie: 'marmita' }], P.brl0),
+          linhaSaidas(rd),
+          Math.abs(rd.compras - rd.saiuCompras) > 0.5 ? h('div', { class: 'pn-txt', title: 'Compra a prazo ou no cartão sai do caixa no dia em que é paga' }, 'Comprado no dia ', h('b', null, P.brl0(rd.compras)), ' · pago ', h('b', null, P.brl0(rd.saiuCompras))) : null,
+          rd.fat - rd.entrou > 0.5 ? h('div', { class: 'pn-txt' }, 'Fiado: ', h('b', null, P.brl0(rd.fat - rd.entrou)), ' (entra quando receber)') : null,
+        ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado neste dia.'), h('a', { href: '#/mesas', class: 'btn mini primario' }, 'Abrir mesas'))));
+
+      // semana (6 dias do mercado)
+      const diasSem = P.Dia.ultimos(6, dia);
+      const rs = agregar(diasSem);
+      const nS = rs.dias.size;
+      const ss = cor(rs);
+      const porDia = diasSem.slice().reverse().map(d => {
+        const a = agregar([d]);
+        return { rotulo: P.Dia.rotulo(d), curto: P.Dia.nomeSemana(d), atual: d === dia, valor: mov(a) ? a.entrou - a.saiu : null };
+      });
+      const pctCompras = rs.fat > 0 ? rs.mercadoria / rs.fat * 100 : null;
+      wrap.appendChild(h('section', { class: 'pn-card s-' + ss },
+        cab('Semana', nS + '/' + diasSem.length + ' dias com venda', ST[ss], ROT[ss]),
+        mov(rs) ? [
+          h('div', { class: 'pn-hero' }, heroL('Entradas − saídas', rs),
+            h('div', { class: 'pn-spark' }, h('small', null, 'Saldo por dia'),
+              P.UI.colunas(porDia, P.brl0, { aria: 'Entradas menos saídas por dia na semana: ' + porDia.map(p => p.curto + ' ' + (p.valor == null ? 'sem movimento' : P.brl0(p.valor))).join(', ') }))),
+          nS ? h('div', { class: 'pn-linha pn-vol' },
+            mini('Vendas/dia', P.brl0(rs.fat / nS)),
+            mini('Pratos/dia', P.num(rs.canal.SALAO.pratos / nS, 0)),
+            mini('Marmitas/dia', P.num(rs.canal.MARMITA.pratos / nS, 0))) : null,
+          pctCompras != null ? h('div', { class: 'pn-txt' }, 'Compras: ', h('b', null, P.pct(pctCompras, 0)), ' das vendas (com o estoque)') : null,
+        ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado nesta semana.'))));
+
+      // mês
+      const mes = P.Dia.mes(dia);
+      const rm = agregar(P.Dia.doMes(mes, dia));
+      const sm = cor(rm);
+      const aPagar = P.Compras.contasAPagar().reduce((s, g) => s + g.total, 0);
+      const fiado = P.Mesas.fiadoAberto().reduce((s, p) => s + (+p.valor || 0), 0);
+      wrap.appendChild(h('section', { class: 'pn-card s-' + sm },
+        cab(P.Dia.rotuloMes(mes), rm.dias.size + '/' + D + ' dias com venda', ST[sm], ROT[sm]),
+        mov(rm) ? [
+          h('div', { class: 'pn-hero' }, heroL('Entradas − saídas do mês', rm)),
+          linhaSaidas(rm),
+          aPagar || fiado ? h('a', { class: 'pn-caixa', href: '#/caixa' }, P.UI.icone('caixa'),
+            h('span', null, 'Ainda a pagar ', h('b', null, P.brl0(aPagar)), fiado ? [' · fiado a receber ', h('b', null, P.brl0(fiado))] : null), P.UI.icone('avancar')) : null,
+          h('div', { class: 'pn-txt' }, 'Fixos pagos no mês ', h('b', null, P.brl0(rm.fixoPago)), ' de ', h('b', null, P.brl0(fixoMensal())), ' previstos (aluguel, salários, contas — base em Ajustes)'),
+        ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado neste mês.'))));
+      wrap.appendChild(h('div', { class: 'dica' }, 'Entradas e saídas: o que entrou no caixa (vendas recebidas) menos o que saiu (compras pagas, despesas, retiradas e investimentos). ' +
+        'Compra para estoque pesa no dia em que é paga. Para ver o lucro pelo custo de cada prato, monte as fichas e escolha "Lucro pelas fichas".'));
     }
 
     // pratos vendidos sem ficha e sem custo estimado: o lucro mostrado não desconta o custo deles
@@ -385,6 +469,11 @@
         linha('Abertura do restaurante', cfg('operacao').abertura ? P.Dia.rotulo(cfg('operacao').abertura) + '/' + cfg('operacao').abertura.slice(0, 4) : '—', () => {
           P.Compras.calendario(cfg('operacao').abertura || P.Dia.hoje(), iso => { const o = cfg('operacao'); o.abertura = iso; P.salvarCfg('operacao', o); desenhar(); }, { titulo: 'Dia em que o restaurante abriu' });
         }, 'o que foi gasto antes é capital de montagem (Mais → Capital e caixa)')));
+      corpo.appendChild(secao('Painel',
+        h('small', { class: 'campo-d' }, 'Entradas e saídas: o que entrou no caixa menos o que saiu (compras pagas e despesas) — não depende das fichas. Lucro pelas fichas: vendas menos o custo de cada prato vendido (precisa das fichas técnicas montadas).'),
+        h('div', { class: 'aj-lin' }, h('span', { class: 'aj-rot' }, 'Resultado do dia'),
+          P.UI.seg([{ v: 'caixa', rotulo: 'Entradas e saídas' }, { v: 'fichas', rotulo: 'Lucro pelas fichas' }], modoCaixa() ? 'caixa' : 'fichas',
+            v => { P.salvarCfg('painel', Object.assign({}, cfg('painel'), { modo: v })); }, 'seg-p'))));
       const ca = cfg('cartao');
       corpo.appendChild(secao('Cartão de crédito',
         h('small', { class: 'campo-d' }, 'Compra no crédito fica em Compras → A pagar e só sai do caixa quando a fatura é paga.'),

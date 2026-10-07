@@ -294,6 +294,19 @@
   function cardResultado(dia) {
     const r = P.Painel.resultadoDia(dia);
     const cor = !r.temMovimento ? 'cinza' : r.resultado >= 0 ? 'verde' : 'vermelho';
+    // entradas e saídas (padrão): o que entrou − o que saiu; o lucro pelas fichas fica no Painel
+    if (r.caixa) return h('a', { class: 'res-card s-' + cor, href: '#/painel' },
+      h('div', { class: 'res-top' },
+        h('div', null, h('div', { class: 'res-rot' }, 'Entradas e saídas do dia · ao vivo'), h('div', { class: 'res-num t-' + cor }, P.brl(r.saldo))),
+        P.UI.icone('avancar')),
+      h('div', { class: 'res-conta' },
+        h('span', null, 'Entrou ', h('b', null, P.brl0(r.entrou))),
+        h('span', null, '− compras pagas ', h('b', null, P.brl0(r.ag.saiuCompras))),
+        h('span', null, '− despesas ', h('b', null, P.brl0(r.ag.saiuDesp)))),
+      h('div', { class: 'res-caixa' },
+        h('span', null, 'Vendido ', h('b', null, P.brl0(r.fat))),
+        h('span', null, 'comprado ', h('b', null, P.brl0(r.compras))),
+        r.fat - r.entrou > 0.5 ? h('span', null, 'fiado ', h('b', null, P.brl0(r.fat - r.entrou))) : null));
     return h('a', { class: 'res-card s-' + cor, href: '#/painel' },
       h('div', { class: 'res-top' },
         h('div', null, h('div', { class: 'res-rot' }, 'Resultado do dia · ao vivo'), h('div', { class: 'res-num t-' + cor }, P.brl(r.resultado))),
