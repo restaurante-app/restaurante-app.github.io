@@ -167,7 +167,8 @@ das fichas técnicas. "Lucro pelas fichas" desconta o custo de cada prato vendid
 gás" fecha o botijão em uso e já registra o novo (e lança a compra em Despesas, se quiser). Com
 os botijões que acabaram, o app mostra quanto dura em média (dias e dias com venda), o custo do
 gás por dia aberto e por mês, prevê quando o atual acaba e avisa no Painel quando está perto. Gás
-lançado direto em Despesas aparece lá para virar botijão.
+lançado direto em Despesas depois de ligar o botijão em uso fica como **reserva**: quando o atual
+acabar, "Acabou o gás" → "Liguei a reserva" usa essa compra (sem lançar de novo).
 
 **Importar lançamentos** (dono; Mais → Importar lançamentos ou Ajustes → Backup) — lança de uma
 vez um pacote `.json` com compras, vendas por cliente, despesas, equipe, cardápio e pendências
@@ -179,7 +180,9 @@ contas fechadas **"lançadas depois"**, sem horário — contam no faturamento, 
 pratos, mas ficam fora das vendas por hora e do Fluxo. **Desfazer** apaga o que a importação
 criou e volta o que ela mudou. Ids fixos: importar duas vezes, ou em dois aparelhos, não duplica.
 O pacote também pode trazer botijões do gás, o cardápio de cada dia, conta a prazo paga depois,
-prato desativado que volta ao cardápio e pendências antigas que ele resolve.
+prato desativado que volta ao cardápio, pendências antigas que ele resolve, correções em registros
+já lançados (fornecedor da compra, dia em que o botijão foi ligado…) e separar linhas de uma compra
+numa compra de outro fornecedor.
 Conta reaberta para corrigir continua no dia dela ao fechar de novo.
 
 ## Dados iniciais

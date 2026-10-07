@@ -7,7 +7,8 @@
    Lança pelos mesmos caminhos do app (a compra atualiza o preço dos insumos;
    a venda entra como conta fechada "lançada depois", sem horário).
    Ids fixos: importar duas vezes (ou em dois aparelhos) não duplica.
-   Também: botijões do gás, cardápio de cada dia, contas a prazo pagas depois e pendências antigas que o pacote resolve.
+   Também: botijões do gás, cardápio de cada dia, contas a prazo pagas depois, pendências antigas que o pacote
+   resolve, correções em registros já lançados (fornecedor, dia do botijão…) e separar linhas de uma compra.
    "Desfazer" apaga o que esta importação criou e volta o que ela mudou. */
 (function () {
   'use strict';
@@ -34,7 +35,7 @@
   function validar(pk) {
     if (!pk || pk.app !== 'pari-restaurante' || pk.tipo !== 'lancamentos') throw new Error('Este arquivo não é um pacote de lançamentos do app.');
     if (!pk.id || !/^[a-z0-9-]{2,24}$/i.test(pk.id)) throw new Error('Pacote sem identificação.');
-    ['insumos', 'itens', 'desativar', 'pessoas', 'compras', 'vendas', 'despesas', 'anotacoes', 'limpeza', 'botijoes', 'resolver', 'pagarCompras'].forEach(k => { pk[k] = Array.isArray(pk[k]) ? pk[k] : []; });
+    ['insumos', 'itens', 'desativar', 'pessoas', 'compras', 'vendas', 'despesas', 'anotacoes', 'limpeza', 'botijoes', 'resolver', 'pagarCompras', 'corrigir', 'moverItens'].forEach(k => { pk[k] = Array.isArray(pk[k]) ? pk[k] : []; });
     // cardápio de dias da semana: { '1': [ids], '2': [ids] } — troca só os dias que vierem
     pk.cardapio = pk.cardapio && typeof pk.cardapio === 'object' && !Array.isArray(pk.cardapio) ? pk.cardapio : {};
     return pk;
@@ -52,9 +53,12 @@
   }
   // referência a registro: '@d13' = o registro d13 deste pacote; sem @ = id do app (ex.: de um pacote anterior)
   const refId = (pk, r) => (r ? (String(r).startsWith('@') ? idDe(pk, String(r).slice(1)) : String(r)) : null);
+  // o que um pacote pode corrigir em registros já lançados (o resto se corrige no app)
+  const valCorr = v => (v == null || v === '' ? '—' : /^\d{4}-\d{2}-\d{2}$/.test(String(v)) ? P.Dia.rotulo(v) : String(v));
+  const PODE_CORRIGIR = { compras: ['fornecedor', 'obs'], botijoes: ['inicio', 'fim', 'tamanho', 'valor', 'obs'], comandas: ['cliente', 'obs'], despesas: ['descricao'] };
   const NOME_CFG = { cardapio_semana: 'Cardápio de cada dia da semana', operacao: 'Operação (abertura, dias por mês)', cartao: 'Cartão de crédito' };
   function conferir(pk) {
-    const c = { problemas: [], cadastro: [], compras: [], vendas: [], despesas: [], anotacoes: [], limpeza: [], desativar: [], botijoes: [], resolver: [], pagar: [], porDia: new Map() };
+    const c = { problemas: [], cadastro: [], compras: [], vendas: [], despesas: [], anotacoes: [], limpeza: [], desativar: [], botijoes: [], resolver: [], pagar: [], corrigir: [], mover: [], porDia: new Map() };
     const mapaIns = mapear('insumos', pk.insumos);
     const mapaItem = mapear('itens', pk.itens.filter(x => x.nome));
     const mapaPes = mapear('pessoas', pk.pessoas);
@@ -122,6 +126,37 @@
       c.pagar.push(it);
       c.cadastro.push({ tipo: 'pagar', status: it.status, texto: 'Pagar ' + (cp.fornecedor || 'compra') + ' (compra de ' + P.Dia.rotuloCurto(cp.dia_operacional) + '): ' +
         (aberto > 0 ? P.brl(aberto) + ' em ' + P.Dia.rotulo(diaDe(x.dia)) + ' · ' + (P.Compras.NOME_FORMA[x.forma || 'DINHEIRO'] || x.forma) : 'já está paga') });
+    });
+    // correções em registros que já estão no app (só estes campos)
+    pk.corrigir.forEach(x => {
+      const campos = PODE_CORRIGIR[x.tabela];
+      if (!campos) { c.problemas.push('Correção: ' + x.tabela + ' não pode ser corrigida por pacote.'); return; }
+      const fora = Object.keys(x.campos || {}).filter(k => !campos.includes(k));
+      if (fora.length) { c.problemas.push('Correção de ' + x.tabela + ': o campo ' + fora.join(', ') + ' não pode ser corrigido por pacote.'); return; }
+      const r = S().get(x.tabela, refId(pk, x.id));
+      const rot = x.rotulo || x.tabela + ' ' + x.id;
+      if (!r) { c.cadastro.push({ tipo: 'corrigir', status: 'ja', texto: 'Corrigir ' + rot + ': não está no app (fica de fora).' }); return; }
+      const muda = Object.keys(x.campos).filter(k => String(r[k] == null ? '' : r[k]) !== String(x.campos[k] == null ? '' : x.campos[k]));
+      const it = { x, r, status: muda.length ? 'muda' : 'ja' };
+      c.corrigir.push(it);
+      const mostra = muda.filter(k => k !== 'obs');
+      c.cadastro.push({ tipo: 'corrigir', status: it.status, texto: 'Corrigir ' + rot + ': ' + (!muda.length ? 'já está certo'
+        : mostra.length ? mostra.map(k => valCorr(r[k]) + ' → ' + valCorr(x.campos[k])).join(' · ') : 'observação') });
+    });
+    // separar linhas de uma compra numa compra nova (ex.: nota que era de outro fornecedor)
+    pk.moverItens.forEach(x => {
+      const id = idDe(pk, x.ref);
+      const de = S().get('compras', refId(pk, x.de));
+      const rot = (x.itens || []).length + ' itens para ' + x.fornecedor;
+      if (S().get('compras', id)) { c.cadastro.push({ tipo: 'mover', status: 'ja', texto: 'Separar ' + rot + ' — já separado' }); return; }
+      if (!de) { c.cadastro.push({ tipo: 'mover', status: 'ja', texto: 'Separar ' + rot + ': a compra ' + x.de + ' não está no app (fica de fora).' }); return; }
+      const linhas = (x.itens || []).map(i => S().get('compra_itens', refId(pk, i))).filter(l => l && l.compra_id === de.id);
+      if (!linhas.length || linhas.length !== (x.itens || []).length) { c.problemas.push('Separar compra: itens não encontrados na compra de ' + (de.fornecedor || '') + ' de ' + P.Dia.rotuloCurto(de.dia_operacional) + '.'); return; }
+      if (P.Compras.partes(de).length !== 1 || P.Compras.valorAberto(de) > 0) { c.problemas.push('Separar compra: só compra paga de uma vez (' + (de.fornecedor || '') + ').'); return; }
+      const total = P.round(linhas.reduce((s, l) => s + (+l.valor || 0), 0), 2);
+      c.mover.push({ x, id, de, linhas, total });
+      c.cadastro.push({ tipo: 'mover', status: 'muda', texto: 'Separar da compra ' + (de.fornecedor || '') + ' de ' + P.Dia.rotuloCurto(de.dia_operacional) + ': ' +
+        linhas.map(l => l.descricao).join(', ') + ' (' + P.brl(total) + ') → compra de ' + x.fornecedor + ', paga como a original' });
     });
     // pendências de antes que este pacote resolve
     pk.resolver.forEach(x => {
@@ -225,7 +260,7 @@
     const itemId = id => c.mapaItem.get(id) || id;
     const insId = id => (id ? c.mapaIns.get(id) || id : null);
     const pesId = id => (id ? c.mapaPes.get(id) || id : null);
-    const n = { config: 0, insumos: 0, itens: 0, precos: 0, reativados: 0, pessoas: 0, compras: 0, vendas: 0, despesas: 0, anotacoes: 0, limpeza: 0, desativados: 0, botijoes: 0, resolvidas: 0, pagas: 0, cardapio: 0 };
+    const n = { config: 0, insumos: 0, itens: 0, precos: 0, reativados: 0, pessoas: 0, compras: 0, vendas: 0, despesas: 0, anotacoes: 0, limpeza: 0, desativados: 0, botijoes: 0, resolvidas: 0, pagas: 0, cardapio: 0, corrigidos: 0, movidos: 0 };
 
     // configurações (junta com o que já existe)
     Object.keys(pk.config || {}).forEach(ch => {
@@ -398,6 +433,35 @@
       P.Cardapio.salvar(d.sem, d.ids.filter(id => S().get('itens', id)));
       n.cardapio++;
     });
+    // correções em registros já lançados
+    c.corrigir.filter(k => k.status === 'muda').forEach(({ x, r }) => {
+      const atual = S().get(x.tabela, r.id);
+      if (!atual) return;
+      guardarAntes(x.tabela, atual);
+      S().put(x.tabela, Object.assign({}, atual, x.campos));
+      n.corrigidos++;
+    });
+    // separar linhas numa compra nova (mesmo dia e mesma forma de pagamento, já paga)
+    c.mover.forEach(({ x, id, de, linhas, total }) => {
+      const atual = S().get('compras', de.id);
+      if (!atual || S().get('compras', id)) return;
+      guardarAntes('compras', atual);
+      const p0 = P.Compras.partes(atual)[0];
+      const comLista = Array.isArray(atual.pagamentos) && atual.pagamentos.length;
+      const resto = P.round((+atual.total || 0) - total, 2);
+      S().put('compras', Object.assign({}, atual, { total: resto }, comLista ? { pagamentos: [Object.assign({}, p0, { valor: resto })] } : null));
+      criar('compras', {
+        id, dia_operacional: atual.dia_operacional, fornecedor: x.fornecedor, forma: atual.forma, total, criado_em: atual.criado_em, usuario_id: atual.usuario_id,
+        pago_em: atual.pago_em || null, pago_dia: atual.pago_dia || null, pago_forma: atual.pago_forma || null, obs: x.obs || null,
+        pagamentos: comLista ? [Object.assign({}, p0, { valor: total })] : null,
+      });
+      linhas.forEach((l, i) => {
+        const la = S().get('compra_itens', l.id);
+        guardarAntes('compra_itens', la);
+        S().put('compra_itens', Object.assign({}, la, { compra_id: id, ordem: i }));
+      });
+      n.movidos++;
+    });
     // pendências de antes resolvidas por este pacote
     c.resolver.filter(r => r.status === 'muda').forEach(({ x, a }) => {
       const atual = S().get('anotacoes', a.id);
@@ -473,6 +537,7 @@
             resultado.n.pessoas && resultado.n.pessoas + (resultado.n.pessoas === 1 ? ' pessoa nova na equipe' : ' pessoas na equipe'), resultado.n.anotacoes && resultado.n.anotacoes + ' pendências', resultado.n.resolvidas && resultado.n.resolvidas + (resultado.n.resolvidas === 1 ? ' pendência antiga resolvida' : ' pendências antigas resolvidas'),
             resultado.n.botijoes && resultado.n.botijoes + (resultado.n.botijoes === 1 ? ' botijão no controle do gás' : ' botijões no controle do gás'),
             resultado.n.pagas && (resultado.n.pagas === 1 ? '1 conta a prazo paga' : resultado.n.pagas + ' contas a prazo pagas'), resultado.n.cardapio && 'cardápio de ' + resultado.n.cardapio + (resultado.n.cardapio === 1 ? ' dia' : ' dias'),
+            resultado.n.corrigidos && (resultado.n.corrigidos === 1 ? '1 correção' : resultado.n.corrigidos + ' correções'), resultado.n.movidos && (resultado.n.movidos === 1 ? '1 compra separada' : resultado.n.movidos + ' compras separadas'),
             resultado.n.config && (resultado.n.config === 1 ? '1 ajuste' : resultado.n.config + ' ajustes'), resultado.n.desativados && resultado.n.desativados + ' pratos antigos desativados',
             resultado.n.limpeza && resultado.n.limpeza + ' comandas de teste limpas'].filter(Boolean).join(' · ')))));
         corpo.appendChild(h('div', { class: 'row gap' },
@@ -517,7 +582,7 @@
       corpo.appendChild(secao('Despesas, equipe e retiradas · ' + resumoSec(c.despesas),
         listaRegistros(c.despesas.map(it => ({ dia: it.dia, nome: (P.Mesas.NOME_DESP[it.x.categoria] || it.x.categoria) + ' · ' + (it.x.descricao || ''), valor: it.x.valor, status: it.status, chave: it.chave,
           parecido: it.parecido ? (it.parecido.descricao || P.Mesas.NOME_DESP[it.parecido.categoria]) + ' ' + P.brl(it.parecido.valor) : null })), 'Ver as ' + c.despesas.length + ' despesas')));
-      corpo.appendChild(secao('Cadastro, cardápio do dia, gás, contas pagas e ajustes · ' + c.cadastro.filter(x => x.status !== 'ja').length + ' mudanças',
+      corpo.appendChild(secao('Cadastro, cardápio do dia, gás, contas pagas, correções e ajustes · ' + c.cadastro.filter(x => x.status !== 'ja').length + ' mudanças',
         h('details', { class: 'im-det' }, h('summary', null, 'Ver o cadastro'),
           h('div', { class: 'rs-itens' }, c.cadastro.map(x => h('div', { class: 'rs-l' }, h('span', { class: 'rs-n' }, x.texto), h('span', { class: 'rs-v' }, tag(x.status))))))));
       if (c.desativar.length) {

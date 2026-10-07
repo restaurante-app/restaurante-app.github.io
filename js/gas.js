@@ -1,6 +1,7 @@
 /* GÁS — cada botijão, do dia em que foi ligado ao dia em que acabou.
    Com isso o app sabe quanto um botijão dura (em dias e em dias com venda),
    o custo do gás por dia aberto e quando o botijão em uso deve acabar.
+   Gás comprado depois de ligar o botijão em uso fica como reserva (liga em "Acabou o gás").
    A compra do botijão é uma despesa (Gás / carvão) ligada a ele: lançada daqui
    ou, se já foi lançada em Despesas, só ligada. */
 (function () {
@@ -70,6 +71,12 @@
     const ligadas = new Set(P.Store.all('botijoes').map(b => b.despesa_id).filter(Boolean));
     return P.Store.all('despesas').filter(d => d.categoria === 'GAS_CARVAO' && !ligadas.has(d.id) && !/carv/i.test(d.descricao || ''))
       .sort((a, b) => (a.dia_operacional < b.dia_operacional ? 1 : -1));
+  }
+  // botijões de reserva: gás comprado (em Despesas) depois que o botijão em uso foi ligado e ainda
+  // não ligado a nenhum botijão — o mais antigo primeiro. Ligado em "Acabou o gás".
+  function reservas(b) {
+    if (!b) return [];
+    return despesasSoltas().filter(d => d.dia_operacional >= b.inicio && !(!b.despesa_id && d.dia_operacional === b.inicio)).reverse();
   }
   function lancarDespesa(dia, valor, forma, tamanho) {
     const u = P.Auth.usuario();
@@ -141,7 +148,9 @@
   function acabou(b) {
     return new Promise(resolve => {
       let dia = P.Dia.hoje();
-      let ligou = true, lancar = true, forma = 'DINHEIRO';
+      const res = reservas(b)[0] || null; // botijão de reserva já comprado
+      let modo = res ? 'reserva' : 'novo'; // reserva | novo | nao
+      let lancar = true, forma = 'DINHEIRO';
       let tamanho = b.tamanho || 'P45', valor = +b.valor || 0;
       let feito = false;
       const bDia = h('button', { type: 'button', class: 'btn bloco cp-dia-f' });
@@ -155,8 +164,14 @@
           (i.custoDia != null ? ' · ' + P.brl(i.custoDia) + ' por dia aberto' : '') + '.';
         bValor.textContent = valor > 0 ? P.brl(valor) : 'Valor pago (R$)';
         elNovo.replaceChildren(...[
-          P.UI.seg([{ v: true, rotulo: 'Liguei outro botijão' }, { v: false, rotulo: 'Ainda não' }], ligou, v => { ligou = v; mostrar(); }, 'seg-p'),
-          ligou ? [
+          P.UI.seg([res ? { v: 'reserva', rotulo: 'Liguei a reserva' } : null, { v: 'novo', rotulo: res ? 'Liguei outro' : 'Liguei outro botijão' }, { v: 'nao', rotulo: 'Ainda não' }].filter(Boolean),
+            modo, v => { modo = v; mostrar(); }, 'seg-p'),
+          modo === 'reserva' ? [
+            h('small', { class: 'campo-d' }, 'Reserva comprada ' + P.Dia.rotulo(res.dia_operacional) + ' · ' + (res.descricao || 'gás') + ' · ' + P.brl(res.valor) + ' (já está em Despesas).'),
+            h('span', { class: 'campo-r' }, 'Tamanho'),
+            P.UI.seg(TAMANHOS, tamanho, v => { tamanho = v; }, 'seg-p'),
+          ] : null,
+          modo === 'novo' ? [
             h('span', { class: 'campo-r' }, 'Botijão novo'),
             P.UI.seg(TAMANHOS, tamanho, v => { tamanho = v; }, 'seg-p'),
             bValor,
@@ -170,11 +185,11 @@
         h('div', { class: 'row gap' },
           h('button', { type: 'button', class: 'btn', onClick: () => sh.fechar() }, 'Cancelar'),
           h('button', { type: 'button', class: 'btn primario grow', onClick: () => {
-            if (ligou && lancar && !(valor > 0)) { P.UI.toast('Ponha o valor do botijão novo (ou escolha "Já lancei").', { tipo: 'perigo' }); return; }
+            if (modo === 'novo' && lancar && !(valor > 0)) { P.UI.toast('Ponha o valor do botijão novo (ou escolha "Já lancei").', { tipo: 'perigo' }); return; }
             P.Store.put('botijoes', Object.assign({}, b, { fim: dia }));
-            if (ligou) {
-              const desp = lancar ? lancarDespesa(dia, valor, forma, tamanho) : null;
-              P.Store.put('botijoes', { id: P.uuid(), inicio: dia, fim: null, tamanho, valor: P.round(valor, 2), despesa_id: desp ? desp.id : null, obs: null,
+            if (modo !== 'nao') {
+              const desp = modo === 'reserva' ? res : lancar ? lancarDespesa(dia, valor, forma, tamanho) : null;
+              P.Store.put('botijoes', { id: P.uuid(), inicio: dia, fim: null, tamanho, valor: P.round(modo === 'reserva' ? +res.valor : valor, 2), despesa_id: desp ? desp.id : null, obs: null,
                 criado_em: P.agoraISO(), usuario_id: (P.Auth.usuario() || {}).id || null });
             }
             const i = info(Object.assign({}, b, { fim: dia }));
@@ -222,6 +237,12 @@
       soltas.forEach(d => {
         // gás do mesmo dia em que o botijão em uso foi ligado (e ele está sem despesa): é a compra dele
         const dele = b && !b.despesa_id && d.dia_operacional === b.inicio;
+        // comprado depois de ligar o botijão em uso: é reserva (liga em "Acabou o gás")
+        if (b && !dele) {
+          corpo.appendChild(h('div', { class: 'banner ok gs-solta' }, P.UI.icone('fogo'),
+            h('span', { class: 'banner-t' }, 'Reserva: botijão comprado ' + P.Dia.rotulo(d.dia_operacional) + ' (' + P.brl(d.valor) + '). Quando o atual acabar, toque em "Acabou o gás" e escolha "Liguei a reserva".')));
+          return;
+        }
         corpo.appendChild(h('div', { class: 'banner aviso gs-solta' }, P.UI.icone('fogo'),
           h('span', { class: 'banner-t' }, 'Gás lançado em Despesas ' + P.Dia.rotulo(d.dia_operacional) + ': ' + (d.descricao || 'gás') + ' · ' + P.brl(d.valor) + '. ' +
             (dele ? 'É a compra do botijão em uso?' : 'É um botijão ligado nesse dia?')),
@@ -261,5 +282,5 @@
   }
 
   P.UI.rota('gas', { titulo: 'Gás', tab: 'mais', render: telaGas });
-  P.Gas = { todos, emUso, info, medias, previsao, aviso, despesasSoltas, nomeTam, TAMANHOS };
+  P.Gas = { todos, emUso, info, medias, previsao, aviso, despesasSoltas, reservas, nomeTam, TAMANHOS };
 })();

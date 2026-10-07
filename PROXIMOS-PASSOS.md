@@ -8,7 +8,8 @@
 | Nuvem (Supabase) | projeto `restaurante` | **rodar o `schema.sql` de novo** (tabela nova `botijoes`) |
 | Relatório de 28/09 a 05/10 | pacote `.json` no computador do dono (fora do Git) | **importado** |
 | Lançamentos de 05/10 | pacote `.json` no computador do dono (fora do Git) | **importado** |
-| Lançamentos de 05/10 (restante) e 06/10, com o cardápio de segunda e terça | pacote `.json` no computador do dono (fora do Git) | **esperando importar** (precisa da v1.8.1) |
+| Lançamentos de 05/10 (restante) e 06/10, com o cardápio de segunda e terça | pacote `.json` no computador do dono (fora do Git) | **importado** |
+| Lançamentos de 07/10 (com bebidas de 02/10, correções de fornecedor e do gás, cardápio de quarta) | pacote `.json` no computador do dono (fora do Git) | **esperando importar** (precisa da v1.9.1) |
 
 Ordem: 1) rodar o `schema.sql` no Supabase, se ainda não rodou depois da v1.8 (no aviso
 "Potential issues detected", escolher **Run without RLS** — o arquivo já liga o RLS); 2) abrir o
