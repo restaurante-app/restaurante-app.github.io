@@ -35,7 +35,7 @@
   function validar(pk) {
     if (!pk || pk.app !== 'pari-restaurante' || pk.tipo !== 'lancamentos') throw new Error('Este arquivo não é um pacote de lançamentos do app.');
     if (!pk.id || !/^[a-z0-9-]{2,24}$/i.test(pk.id)) throw new Error('Pacote sem identificação.');
-    ['insumos', 'itens', 'desativar', 'pessoas', 'compras', 'vendas', 'despesas', 'anotacoes', 'limpeza', 'botijoes', 'resolver', 'pagarCompras', 'corrigir', 'moverItens', 'excluir'].forEach(k => { pk[k] = Array.isArray(pk[k]) ? pk[k] : []; });
+    ['insumos', 'itens', 'desativar', 'pessoas', 'compras', 'vendas', 'despesas', 'anotacoes', 'limpeza', 'botijoes', 'resolver', 'pagarCompras', 'corrigir', 'moverItens', 'excluir', 'receberFiado'].forEach(k => { pk[k] = Array.isArray(pk[k]) ? pk[k] : []; });
     // cardápio de dias da semana: { '1': [ids], '2': [ids] } — troca só os dias que vierem
     pk.cardapio = pk.cardapio && typeof pk.cardapio === 'object' && !Array.isArray(pk.cardapio) ? pk.cardapio : {};
     return pk;
@@ -65,10 +65,10 @@
     botijoes: ['inicio', 'fim', 'tamanho', 'valor', 'obs'], comandas: ['cliente', 'obs'], despesas: ['descricao'],
     pessoas: ['nome', 'funcao', 'obs'], insumos: ['nome', 'preco', 'atualizado_em'], componentes: ['insumo_id', 'gramas'],
   };
-  const PODE_EXCLUIR = ['historico_precos', 'componentes']; // registro errado que um pacote pode apagar (volta no Desfazer)
+  const PODE_EXCLUIR = ['historico_precos', 'componentes', 'despesas']; // registro errado que um pacote pode apagar (volta no Desfazer)
   const NOME_CFG = { cardapio_semana: 'Cardápio de cada dia da semana', operacao: 'Operação (abertura, dias por mês)', cartao: 'Cartão de crédito' };
   function conferir(pk) {
-    const c = { problemas: [], cadastro: [], compras: [], vendas: [], despesas: [], anotacoes: [], limpeza: [], desativar: [], botijoes: [], resolver: [], pagar: [], corrigir: [], mover: [], excluir: [], porDia: new Map() };
+    const c = { problemas: [], cadastro: [], compras: [], vendas: [], despesas: [], anotacoes: [], limpeza: [], desativar: [], botijoes: [], resolver: [], pagar: [], corrigir: [], mover: [], excluir: [], receber: [], porDia: new Map() };
     const mapaIns = mapear('insumos', pk.insumos);
     const mapaItem = mapear('itens', pk.itens.filter(x => x.nome));
     const mapaPes = mapear('pessoas', pk.pessoas);
@@ -167,6 +167,17 @@
       c.mover.push({ x, id, de, linhas, total });
       c.cadastro.push({ tipo: 'mover', status: 'muda', texto: 'Separar da compra ' + (de.fornecedor || '') + ' de ' + P.Dia.rotuloCurto(de.dia_operacional) + ': ' +
         linhas.map(l => l.descricao).join(', ') + ' (' + P.brl(total) + ') → compra de ' + x.fornecedor + ', paga como a original' });
+    });
+    // fiado recebido depois (pagamento FIADO de uma venda já lançada)
+    pk.receberFiado.forEach(x => {
+      const pg = S().get('pagamentos', refId(pk, x.pagamento));
+      const cm = pg && S().get('comandas', pg.comanda_id);
+      if (!pg) { c.cadastro.push({ tipo: 'receber', status: 'ja', texto: 'Receber fiado ' + x.pagamento + ': não está no app (fica de fora).' }); return; }
+      if (pg.forma !== 'FIADO') { c.problemas.push('Receber fiado: o pagamento ' + pg.id + ' não é fiado.'); return; }
+      const it = { x, pg, status: pg.recebido_em ? 'ja' : 'muda' };
+      c.receber.push(it);
+      c.cadastro.push({ tipo: 'receber', status: it.status, texto: 'Fiado de ' + ((cm && cm.cliente) || 'cliente') + ' (' + P.Dia.rotuloCurto(pg.dia_operacional) + '): ' + P.brl(pg.valor) +
+        (pg.recebido_em ? ' — já recebido' : ' recebido em ' + P.Dia.rotulo(diaDe(x.dia)) + ' · ' + (P.Mesas.NOME_FORMA[x.forma || 'DINHEIRO'] || x.forma)) });
     });
     // registros errados que o pacote apaga (ex.: preço de insumo que veio de uma compra ligada ao insumo errado)
     pk.excluir.forEach(x => {
@@ -278,7 +289,7 @@
     const itemId = id => c.mapaItem.get(id) || id;
     const insId = id => (id ? c.mapaIns.get(id) || id : null);
     const pesId = id => (id ? c.mapaPes.get(id) || id : null);
-    const n = { config: 0, insumos: 0, itens: 0, precos: 0, reativados: 0, pessoas: 0, compras: 0, vendas: 0, despesas: 0, anotacoes: 0, limpeza: 0, desativados: 0, botijoes: 0, resolvidas: 0, pagas: 0, cardapio: 0, corrigidos: 0, movidos: 0, excluidos: 0 };
+    const n = { config: 0, insumos: 0, itens: 0, precos: 0, reativados: 0, pessoas: 0, compras: 0, vendas: 0, despesas: 0, anotacoes: 0, limpeza: 0, desativados: 0, botijoes: 0, resolvidas: 0, pagas: 0, cardapio: 0, corrigidos: 0, movidos: 0, excluidos: 0, recebidos: 0 };
 
     // configurações (junta com o que já existe)
     Object.keys(pk.config || {}).forEach(ch => {
@@ -480,6 +491,14 @@
       });
       n.movidos++;
     });
+    c.receber.filter(r => r.status === 'muda').forEach(({ x, pg }) => {
+      const atual = S().get('pagamentos', pg.id);
+      if (!atual || atual.recebido_em) return;
+      guardarAntes('pagamentos', atual);
+      const d = diaDe(x.dia);
+      S().put('pagamentos', Object.assign({}, atual, { recebido_em: meioDia(d), recebido_dia: d, recebido_forma: x.forma || 'DINHEIRO' }));
+      n.recebidos++;
+    });
     c.excluir.forEach(({ x, r }) => {
       const atual = S().get(x.tabela, r.id);
       if (!atual) return;
@@ -562,7 +581,7 @@
             resultado.n.pessoas && resultado.n.pessoas + (resultado.n.pessoas === 1 ? ' pessoa nova na equipe' : ' pessoas na equipe'), resultado.n.anotacoes && resultado.n.anotacoes + ' pendências', resultado.n.resolvidas && resultado.n.resolvidas + (resultado.n.resolvidas === 1 ? ' pendência antiga resolvida' : ' pendências antigas resolvidas'),
             resultado.n.botijoes && resultado.n.botijoes + (resultado.n.botijoes === 1 ? ' botijão no controle do gás' : ' botijões no controle do gás'),
             resultado.n.pagas && (resultado.n.pagas === 1 ? '1 conta a prazo paga' : resultado.n.pagas + ' contas a prazo pagas'), resultado.n.cardapio && 'cardápio de ' + resultado.n.cardapio + (resultado.n.cardapio === 1 ? ' dia' : ' dias'),
-            resultado.n.corrigidos && (resultado.n.corrigidos === 1 ? '1 correção' : resultado.n.corrigidos + ' correções'), resultado.n.excluidos && (resultado.n.excluidos === 1 ? '1 registro errado apagado' : resultado.n.excluidos + ' registros errados apagados'), resultado.n.movidos && (resultado.n.movidos === 1 ? '1 compra separada' : resultado.n.movidos + ' compras separadas'),
+            resultado.n.corrigidos && (resultado.n.corrigidos === 1 ? '1 correção' : resultado.n.corrigidos + ' correções'), resultado.n.excluidos && (resultado.n.excluidos === 1 ? '1 registro errado apagado' : resultado.n.excluidos + ' registros errados apagados'), resultado.n.recebidos && (resultado.n.recebidos === 1 ? '1 fiado recebido' : resultado.n.recebidos + ' fiados recebidos'), resultado.n.movidos && (resultado.n.movidos === 1 ? '1 compra separada' : resultado.n.movidos + ' compras separadas'),
             resultado.n.config && (resultado.n.config === 1 ? '1 ajuste' : resultado.n.config + ' ajustes'), resultado.n.desativados && resultado.n.desativados + ' pratos antigos desativados',
             resultado.n.limpeza && resultado.n.limpeza + ' comandas de teste limpas'].filter(Boolean).join(' · ')))));
         corpo.appendChild(h('div', { class: 'row gap' },
@@ -607,7 +626,7 @@
       corpo.appendChild(secao('Despesas, equipe e retiradas · ' + resumoSec(c.despesas),
         listaRegistros(c.despesas.map(it => ({ dia: it.dia, nome: (P.Mesas.NOME_DESP[it.x.categoria] || it.x.categoria) + ' · ' + (it.x.descricao || ''), valor: it.x.valor, status: it.status, chave: it.chave,
           parecido: it.parecido ? (it.parecido.descricao || P.Mesas.NOME_DESP[it.parecido.categoria]) + ' ' + P.brl(it.parecido.valor) : null })), 'Ver as ' + c.despesas.length + ' despesas')));
-      corpo.appendChild(secao('Cadastro, cardápio do dia, gás, contas pagas, correções e ajustes · ' + c.cadastro.filter(x => x.status !== 'ja').length + ' mudanças',
+      corpo.appendChild(secao('Cadastro, cardápio do dia, gás, contas pagas, fiado recebido, correções e ajustes · ' + c.cadastro.filter(x => x.status !== 'ja').length + ' mudanças',
         h('details', { class: 'im-det' }, h('summary', null, 'Ver o cadastro'),
           h('div', { class: 'rs-itens' }, c.cadastro.map(x => h('div', { class: 'rs-l' }, h('span', { class: 'rs-n' }, x.texto), h('span', { class: 'rs-v' }, tag(x.status))))))));
       if (c.desativar.length) {
@@ -618,7 +637,7 @@
       }
       if (c.limpeza.length) {
         corpo.appendChild(secao('Limpeza',
-          h('label', { class: 'im-op' }, h('input', { type: 'checkbox', checked: opcoes.limpeza !== false, onChange: e => { opcoes.limpeza = e.target.checked; } }), ' Limpar ' + c.limpeza.length + ' comandas abertas de teste'),
+          h('label', { class: 'im-op' }, h('input', { type: 'checkbox', checked: opcoes.limpeza !== false, onChange: e => { opcoes.limpeza = e.target.checked; } }), ' Limpar ' + c.limpeza.length + (c.limpeza.length === 1 ? ' comanda aberta vazia ou de teste' : ' comandas abertas vazias ou de teste')),
           h('small', { class: 'campo-d' }, c.limpeza.map(l => l.x.motivo).join(' · '))));
       }
       const nA = c.anotacoes.filter(a => a.status === 'novo').length;

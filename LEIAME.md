@@ -182,7 +182,8 @@ criou e volta o que ela mudou. Ids fixos: importar duas vezes, ou em dois aparel
 O pacote também pode trazer botijões do gás, o cardápio de cada dia, conta a prazo paga depois,
 prato desativado que volta ao cardápio, pendências antigas que ele resolve, correções em registros
 já lançados (fornecedor da compra, linha de compra ligada ao insumo certo, nome da equipe, insumo da
-ficha, dia em que o botijão foi ligado…), apagar um preço que entrou errado e separar linhas de uma compra
+ficha, dia em que o botijão foi ligado…), fiado recebido depois, apagar um preço ou uma despesa que
+entrou errado (repetida) e separar linhas de uma compra
 numa compra de outro fornecedor.
 Conta reaberta para corrigir continua no dia dela ao fechar de novo.
 
