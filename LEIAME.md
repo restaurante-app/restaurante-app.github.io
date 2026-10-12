@@ -187,6 +187,30 @@ entrou errado (repetida) e separar linhas de uma compra
 numa compra de outro fornecedor.
 Conta reaberta para corrigir continua no dia dela ao fechar de novo.
 
+**Dia e período** (só o dono; Mais → Dia e período) — calendário do mês com o vendido em cada
+dia; tocar num dia mostra tudo dele: vendas (por canal e forma de pagamento), quantidade e valor de
+cada prato e de cada bebida, compras com os itens, despesas, equipe (vales, salários, pró-labore),
+caixa (entrou, saiu e saldo), fiado vendido e recebido e o gás. **Período**: de um dia até outro
+(atalhos: esta semana, semana passada, este mês, mês passado), com os mesmos blocos somados e a
+planilha (CSV); marcando **Comparar com outro período**, escolhe-se um segundo período qualquer e os
+dois aparecem lado a lado com a diferença em R$ e em % (vendas, quantidades de cada prato e bebida,
+compras por item, despesas, equipe, caixa, fiado e gás). Só lê o que já está lançado.
+
+**Rendimento por lote** (só o dono; Mais → Rendimento) — cada compra de carne ou peixe (só a carne
+principal: contra filé, capa de filé, costela, rabada, filé de frango, coxa, galinha, tilápia,
+carne seca, bisteca, fígado, bucho, costelinha, bacalhau) vira um **lote**. Ao salvar a compra, o
+app pergunta se abre um lote novo e, se já houver um aberto da mesma carne, se o anterior acabou
+(com "não", os dois ficam abertos). As vendas dos pratos que usam a carne entram sozinhas no lote
+**aberto mais antigo** ("3 rabadas" = 3 pratos; pedido com vários pratos conta 1 em cada lote); dá
+para **mover** os pratos de um dia para outro lote. **Acabou** fecha o lote e mostra pratos, venda
+dos pratos (só a comida), gramas por prato, carne por prato, carne / venda (até 35% verde, até 45%
+amarelo, acima vermelho) e a sobra depois da carne. **Peso que sobrou** estima quantos pratos ainda
+saem. Avisa quando passa da meta de gramas por prato. **Comparar**: lotes da mesma carne
+(fornecedor, R$/kg, g por prato, carne / venda). **Ajustes**: qual prato usa qual carne, metas e as
+palavras da compra que abrem lote. Os lotes de 01 a 08/10 entram uma vez em cada aparelho (contagem
+do dono); a partir de 09/10 as vendas contam sozinhas. Não muda vendas, compras, caixa nem
+relatórios.
+
 ## Dados iniciais
 
 Os insumos, espetos, pratos e bebidas do documento já vêm cadastrados.

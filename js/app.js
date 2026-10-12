@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   const P = window.P;
-  P.VERSAO = '1.9.3';
+  P.VERSAO = '1.10.0';
 
   function comTempo(promessa, ms) {
     return Promise.race([promessa, new Promise(res => setTimeout(() => res(false), ms))]);
@@ -17,6 +17,7 @@
       await comTempo(P.Sync.rodar(), 4000);
     }
     P.Seed.aplicar();
+    if (P.Rendimento) P.Rendimento.semear(); // lotes de carne que já existiam (uma vez por aparelho)
     P.Auth.travarSeExpirou();
     P.Fluxo.reconciliar();
     P.UI.tema();

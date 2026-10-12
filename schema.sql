@@ -282,13 +282,37 @@ create table if not exists botijoes (
   sincronizado_em timestamptz not null default clock_timestamp()
 );
 
+-- RENDIMENTO: cada compra de carne ou peixe vira um lote; as vendas dos pratos que usam essa
+-- carne entram no lote aberto mais antigo. "Acabou" fecha o lote (pratos, g por prato, carne / venda).
+create table if not exists lotes (
+  id text primary key,
+  carne text not null,                     -- id da carne (config 'rendimento')
+  dia date not null,                       -- dia da compra
+  fornecedor text,
+  kg numeric(12, 3) not null default 0,
+  valor numeric(12, 2) not null default 0,
+  compra_id text,                          -- compra e linha que abriram o lote (vazio = lançado à mão)
+  compra_item_id text,
+  fim date,                                -- dia em que acabou (vazio = aberto)
+  sobra_kg numeric(12, 3),                 -- peso que sobrou na última pesagem
+  sobra_dia date,
+  base jsonb,                              -- lote importado: {pratos, venda, de, ate, sem} até o dia anterior a conta_desde
+  conta_desde date,                        -- vendas entram a partir deste dia (padrão: dia da compra)
+  obs text,
+  criado_em timestamptz not null default now(),
+  usuario_id text,
+  modificado_em timestamptz not null default now(),
+  excluido boolean not null default false,
+  sincronizado_em timestamptz not null default clock_timestamp()
+);
+
 -- Gatilho, índice de sincronização e acesso (chave pública do app)
 do $$
 declare t text;
 begin
   foreach t in array array['usuarios', 'config', 'contagens', 'insumos', 'itens', 'componentes', 'historico_precos',
                            'comandas', 'comanda_itens', 'pagamentos', 'despesas', 'compras', 'compra_itens',
-                           'pessoas', 'anotacoes', 'botijoes'] loop
+                           'pessoas', 'anotacoes', 'botijoes', 'lotes'] loop
     execute format('drop trigger if exists trg_%1$s_lww on %1$s', t);
     execute format('create trigger trg_%1$s_lww before insert or update on %1$s for each row execute function pari_lww()', t);
     execute format('create index if not exists idx_%1$s_sync on %1$s (sincronizado_em)', t);

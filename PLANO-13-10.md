@@ -1,5 +1,9 @@
 # Plano para 13/10/2026
 
+> **Feito em 12/10/2026 (v1.10.0)** — o dono pediu para executar já. O que entrou está em
+> `PROXIMOS-PASSOS.md` → "O que entrou na v1.10". Os lotes de 01 a 08/10 entram sozinhos em cada
+> aparelho (sem pacote do Importar).
+
 Tudo o que foi combinado em 12/10, na ordem em que vai ser feito. Sai numa versão só
 (**v1.10.0**, `sw.js` → `pari-v31`), publicada no `main` só depois de testada.
 

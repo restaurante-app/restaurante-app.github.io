@@ -812,9 +812,11 @@
         const pu = precoUnit(), tot = totalCalc();
         bQtd.className = 'qp-campo' + (campo === 'qtd' ? ' on' : '');
         bPreco.className = 'qp-campo' + (campo === 'preco' ? ' on' : '');
-        bQtd.replaceChildren(h('small', null, 'Quantidade'), h('b', null, (v.qtd != null ? P.numAuto(v.qtd) : '—') + ' ' + un));
+        // campo em edição mostra o que foi digitado ("1," e "44,0"), senão a vírgula parece não entrar
+        const b = np.buf().includes(',') ? np.buf() : '';
+        bQtd.replaceChildren(h('small', null, 'Quantidade'), h('b', null, (campo === 'qtd' && b ? b : v.qtd != null ? P.numAuto(v.qtd) : '—') + ' ' + un));
         bPreco.replaceChildren(h('small', null, modo === 'unit' ? 'Preço por ' + un : 'Total pago'),
-          h('b', null, modo === 'unit' ? (v.preco != null ? P.Fichas.precoFmt(v.preco) : '—') : (v.total != null ? P.brl(v.total) : '—')));
+          h('b', null, campo === 'preco' && b ? 'R$ ' + b : modo === 'unit' ? (v.preco != null ? P.Fichas.precoFmt(v.preco) : '—') : (v.total != null ? P.brl(v.total) : '—')));
         const partes = [];
         if (tot != null) partes.push(h('span', null, 'Total ', h('b', null, P.brl(tot))));
         if (modo === 'total' && pu != null) partes.push(h('span', null, P.Fichas.precoFmt(pu) + '/' + un));
@@ -1123,7 +1125,11 @@
       diaLista = r.compra.dia_operacional;
       P.vibrar([20, 40, 20]);
       // mostra o resultado depois que a lista de compras abrir (trocar de tela fecha as folhas)
-      const aoTrocar = () => { window.removeEventListener('hashchange', aoTrocar); setTimeout(() => mostrarResultado(r), 0); };
+      // compra de carne: antes pergunta se abre um lote (Rendimento)
+      const aoTrocar = () => {
+        window.removeEventListener('hashchange', aoTrocar);
+        setTimeout(async () => { if (P.Rendimento) { try { await P.Rendimento.aposCompra(r.compra); } catch (e) { console.error(e); } } mostrarResultado(r); }, 0);
+      };
       window.addEventListener('hashchange', aoTrocar);
       location.hash = '#/compras';
     }
