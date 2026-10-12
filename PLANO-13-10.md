@@ -16,9 +16,16 @@ Fica **fora**: mandar resumo pelo WhatsApp (o dono disse que não precisa).
 
 ## 1. Decimais no celular (primeiro)
 
-**O que se sabe:** acontece **só no celular**. Pelo código não apareceu o motivo: o teclado
-numérico é do próprio app (`P.UI.numpad`, `js/ui.js`), com a tecla `,`, e não usa o teclado do
-celular.
+**O que se sabe:** acontece **só no celular**, e o dono disse (12/10) que **trava na hora de
+digitar no telefone**. O teclado numérico é do próprio app (`P.UI.numpad`, `js/ui.js`), com a tecla
+`,`; ele não usa o teclado do celular, mas também escuta o teclado de verdade (`keydown`) e ignora
+as teclas quando há um campo de texto em foco.
+
+**Suspeita principal:** o teclado do celular continua aberto (ex.: depois de digitar o fornecedor)
+quando a folha do número abre; ele cobre o teclado do app ou manda o que é digitado para o campo
+de texto, e o número parece travado. Testar primeiro: digitar o fornecedor e, sem fechar o teclado,
+tocar num item para pôr a quantidade. Correção provável: tirar o foco do campo de texto
+(`blur`) ao abrir a folha do número.
 
 **Para fazer:**
 1. Abrir o app no Chromium em tamanho de celular (Playwright, 360×740 e 390×844, com toque).
@@ -35,8 +42,8 @@ celular.
    - o limite de casas (`decimais: 3` na quantidade, 2 no valor) apagando o que foi digitado.
 5. Corrigir só o que travar, sem mudar o jeito de lançar.
 
-**Ajuda do dono (se puder):** dizer em qual campo trava, ou mandar um print da tela na hora em
-que não aceitar a vírgula. Se não reproduzir no teste, a correção fica para quando houver o print.
+Se não reproduzir no teste, a correção fica para quando houver um print da tela na hora em que
+trava.
 
 ---
 
@@ -129,7 +136,7 @@ e tudo o que vai em feijão, feijoada ou baião. Cuidado nas palavras: "costela"
 | Rabada (normal e porção grande) | rabada |
 | Costela | costela |
 | Jabá, carne seca | carne seca |
-| Filé de tilápia / filé de peixe | filé de tilápia |
+| Filé de tilápia / filé de peixe, porção de peixe pequena | filé de tilápia |
 | Posta de tilápia | posta de tilápia |
 | Fígado | fígado |
 | Dobradinha | bucho |
@@ -138,7 +145,8 @@ e tudo o que vai em feijão, feijoada ou baião. Cuidado nas palavras: "costela"
 | Bacalhau | bacalhau |
 
 Prato fora da tabela (feijoada, virado, calabresa, omelete) não conta em lote nenhum.
-**Perguntar ao dono:** "Porção de peixe pequena" entra no filé de tilápia ou fica fora?
+Confirmado pelo dono (12/10): porção de peixe pequena entra no filé de tilápia; contra filé com
+ovo e acebolado entram no contra filé.
 
 Contagem: cada linha de prato da conta conta a quantidade dela ("3 rabadas" = 3 pratos). Pedido
 com vários pratos ("contra 40 + jabá 40 + filé de frango 25") conta 1 em cada lote.
@@ -204,7 +212,7 @@ Por um pacote do Importar (`lotes: [...]`), com conferência antes de lançar.
 
 A venda até 08/10 dos lotes abertos não veio na lista: sai das vendas já lançadas no app para
 esses pratos; se a contagem do app não bater com os pratos acima, vale o número do dono e a
-diferença aparece como aviso.
+diferença aparece como aviso. (Confirmado pelo dono em 12/10.)
 
 ### 4.8 Teste antes de terminar
 
