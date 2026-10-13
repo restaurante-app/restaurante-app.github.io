@@ -184,7 +184,8 @@ prato desativado que volta ao cardápio, pendências antigas que ele resolve, co
 já lançados (fornecedor da compra, linha de compra ligada ao insumo certo, nome da equipe, insumo da
 ficha, dia em que o botijão foi ligado…), fiado recebido depois, apagar um preço ou uma despesa que
 entrou errado (repetida) e separar linhas de uma compra
-numa compra de outro fornecedor.
+numa compra de outro fornecedor. No Rendimento, o pacote abre lotes de carne ligados às compras dele,
+fecha um lote que acabou (corrige o dia e o fornecedor) e marca compras que "não são lote".
 Conta reaberta para corrigir continua no dia dela ao fechar de novo.
 
 **Dia e período** (só o dono; Mais → Dia e período) — calendário do mês com o vendido em cada

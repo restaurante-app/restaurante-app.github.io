@@ -9,6 +9,7 @@
    Ids fixos: importar duas vezes (ou em dois aparelhos) não duplica.
    Também: botijões do gás, cardápio de cada dia, contas a prazo pagas depois, pendências antigas que o pacote
    resolve, correções em registros já lançados (fornecedor, dia do botijão…) e separar linhas de uma compra.
+   Rendimento: lotes de carne (ligados às compras do pacote), lote que acabou e compras que "não são lote".
    "Desfazer" apaga o que esta importação criou e volta o que ela mudou. */
 (function () {
   'use strict';
@@ -35,7 +36,9 @@
   function validar(pk) {
     if (!pk || pk.app !== 'pari-restaurante' || pk.tipo !== 'lancamentos') throw new Error('Este arquivo não é um pacote de lançamentos do app.');
     if (!pk.id || !/^[a-z0-9-]{2,24}$/i.test(pk.id)) throw new Error('Pacote sem identificação.');
-    ['insumos', 'itens', 'desativar', 'pessoas', 'compras', 'vendas', 'despesas', 'anotacoes', 'limpeza', 'botijoes', 'resolver', 'pagarCompras', 'corrigir', 'moverItens', 'excluir', 'receberFiado'].forEach(k => { pk[k] = Array.isArray(pk[k]) ? pk[k] : []; });
+    ['insumos', 'itens', 'desativar', 'pessoas', 'compras', 'vendas', 'despesas', 'anotacoes', 'limpeza', 'botijoes', 'resolver', 'pagarCompras', 'corrigir', 'moverItens', 'excluir', 'receberFiado', 'lotes'].forEach(k => { pk[k] = Array.isArray(pk[k]) ? pk[k] : []; });
+    // rendimento: { ignorar: ['@c06:carne_seca'] (compra que não é lote), pratos: { item: carne } }
+    pk.rendimento = pk.rendimento && typeof pk.rendimento === 'object' && !Array.isArray(pk.rendimento) ? pk.rendimento : {};
     // cardápio de dias da semana: { '1': [ids], '2': [ids] } — troca só os dias que vierem
     pk.cardapio = pk.cardapio && typeof pk.cardapio === 'object' && !Array.isArray(pk.cardapio) ? pk.cardapio : {};
     return pk;
@@ -64,11 +67,14 @@
     compras: ['fornecedor', 'obs'], compra_itens: ['insumo_id', 'descricao', 'quantidade', 'unidade', 'preco_unit'],
     botijoes: ['inicio', 'fim', 'tamanho', 'valor', 'obs'], comandas: ['cliente', 'obs'], despesas: ['descricao'],
     pessoas: ['nome', 'funcao', 'obs'], insumos: ['nome', 'preco', 'atualizado_em'], componentes: ['insumo_id', 'gramas'],
+    lotes: ['fim', 'fornecedor', 'obs'],
   };
   const PODE_EXCLUIR = ['historico_precos', 'componentes', 'despesas']; // registro errado que um pacote pode apagar (volta no Desfazer)
+  // 'compra:carne' do pacote ('@c06:carne_seca') → id da compra no app + carne
+  const refIgnorar = (pk, r) => { const [cp, cr] = String(r).split(':'); return refId(pk, cp) + ':' + cr; };
   const NOME_CFG = { cardapio_semana: 'Cardápio de cada dia da semana', operacao: 'Operação (abertura, dias por mês)', cartao: 'Cartão de crédito' };
   function conferir(pk) {
-    const c = { problemas: [], cadastro: [], compras: [], vendas: [], despesas: [], anotacoes: [], limpeza: [], desativar: [], botijoes: [], resolver: [], pagar: [], corrigir: [], mover: [], excluir: [], receber: [], porDia: new Map() };
+    const c = { problemas: [], cadastro: [], compras: [], vendas: [], despesas: [], anotacoes: [], limpeza: [], desativar: [], botijoes: [], resolver: [], pagar: [], corrigir: [], mover: [], excluir: [], receber: [], lotes: [], ignorar: [], porDia: new Map() };
     const mapaIns = mapear('insumos', pk.insumos);
     const mapaItem = mapear('itens', pk.itens.filter(x => x.nome));
     const mapaPes = mapear('pessoas', pk.pessoas);
@@ -196,6 +202,39 @@
       c.cadastro.push({ tipo: 'resolver', status: it.status, texto: 'Resolve a pendência: ' + a.texto.slice(0, 90) + (a.texto.length > 90 ? '…' : '') + (a.resolvido ? ' (já estava resolvida)' : '') });
     });
 
+    // rendimento: lotes de carne (a compra pode ser deste pacote, '@c03', ou de um anterior)
+    const R = P.Rendimento;
+    pk.lotes.forEach(x => {
+      const id = idDe(pk, x.ref);
+      const compra = refId(pk, x.compra);
+      if (!R || !R.carneValida(x.carne)) { c.problemas.push('Lote ' + x.ref + ': carne "' + x.carne + '" não existe no Rendimento.'); return; }
+      if (!(+x.kg > 0) || !(+x.valor > 0)) { c.problemas.push('Lote ' + x.ref + ': falta o peso ou o valor.'); return; }
+      const ja = S().get('lotes', id) || (compra && S().all('lotes').find(l => l.compra_id === compra && l.carne === x.carne));
+      const it = { x, id, compra, status: ja ? 'ja' : 'novo' };
+      c.lotes.push(it);
+      c.cadastro.push({ tipo: 'lote', status: it.status, texto: 'Rendimento: lote de ' + R.nomeCarne(x.carne).toLowerCase() + ' de ' + P.Dia.rotuloCurto(x.dia) + (x.fornecedor ? ' (' + x.fornecedor + ')' : '') + ' · ' +
+        P.numAuto(+x.kg, 3) + ' kg · ' + P.brl(x.valor) + (x.fim ? ' · acabou ' + P.Dia.rotuloCurto(x.fim) : ' · aberto') });
+    });
+    (Array.isArray(pk.rendimento.ignorar) ? pk.rendimento.ignorar : []).forEach(r => {
+      const k = refIgnorar(pk, r);
+      const cr = k.split(':')[1];
+      if (!R || !R.carneValida(cr)) { c.problemas.push('Rendimento: carne "' + cr + '" não existe.'); return; }
+      const ja = (P.cfg('rendimento').ignorar || []).includes(k);
+      const cp = pk.compras.find(x => idDe(pk, x.ref) === k.split(':')[0]) || S().get('compras', k.split(':')[0]);
+      c.ignorar.push({ k, status: ja ? 'ja' : 'muda' });
+      c.cadastro.push({ tipo: 'lote', status: ja ? 'ja' : 'muda', texto: 'Rendimento: não é lote — ' + R.nomeCarne(cr).toLowerCase() + (cp ? ' (' + (cp.fornecedor || 'compra') + ' de ' + P.Dia.rotuloCurto(cp.dia_operacional || cp.dia) + ')' : '') });
+    });
+    c.pratosRend = Object.keys(pk.rendimento.pratos || {}).map(id => {
+      const cr = pk.rendimento.pratos[id];
+      if (cr && (!R || !R.carneValida(cr))) { c.problemas.push('Rendimento: carne "' + cr + '" não existe.'); return null; }
+      const alvo = itemId(id);
+      const atual = (P.cfg('rendimento').pratos || {})[alvo];
+      const nome = (S().get('itens', alvo) || pk.itens.find(i => i.id === id) || { nome: id }).nome;
+      const st = atual === (cr || '') ? 'ja' : 'muda';
+      c.cadastro.push({ tipo: 'lote', status: st, texto: 'Rendimento: ' + nome + ' → ' + (cr ? R.nomeCarne(cr).toLowerCase() : 'não conta em lote') });
+      return { id, cr: cr || '', status: st };
+    }).filter(Boolean);
+
     // compras
     const comprasApp = S().all('compras');
     pk.compras.forEach(x => {
@@ -289,7 +328,7 @@
     const itemId = id => c.mapaItem.get(id) || id;
     const insId = id => (id ? c.mapaIns.get(id) || id : null);
     const pesId = id => (id ? c.mapaPes.get(id) || id : null);
-    const n = { config: 0, insumos: 0, itens: 0, precos: 0, reativados: 0, pessoas: 0, compras: 0, vendas: 0, despesas: 0, anotacoes: 0, limpeza: 0, desativados: 0, botijoes: 0, resolvidas: 0, pagas: 0, cardapio: 0, corrigidos: 0, movidos: 0, excluidos: 0, recebidos: 0 };
+    const n = { config: 0, insumos: 0, itens: 0, precos: 0, reativados: 0, pessoas: 0, compras: 0, vendas: 0, despesas: 0, anotacoes: 0, limpeza: 0, desativados: 0, botijoes: 0, resolvidas: 0, pagas: 0, cardapio: 0, corrigidos: 0, movidos: 0, excluidos: 0, recebidos: 0, lotes: 0 };
 
     // configurações (junta com o que já existe)
     Object.keys(pk.config || {}).forEach(ch => {
@@ -421,6 +460,26 @@
       compras.filter(it => it.dia === dia).forEach(lancarCompra);
       vendas.filter(it => it.dia === dia).forEach(lancarVenda);
     });
+    // rendimento: lotes novos (as compras do pacote já existem) e compras que não são lote
+    c.lotes.filter(l => l.status === 'novo').forEach(l => {
+      const x = l.x;
+      criar('lotes', { id: l.id, carne: x.carne, dia: diaDe(x.dia), fornecedor: x.fornecedor || '', kg: P.round(+x.kg, 3), valor: P.round(+x.valor, 2),
+        compra_id: l.compra && S().get('compras', l.compra) ? l.compra : null, compra_item_id: null, fim: x.fim ? diaDe(x.fim) : null,
+        sobra_kg: null, sobra_dia: null, base: null, conta_desde: diaDe(x.dia), obs: x.obs || null, criado_em: P.agoraISO(), usuario_id: uid });
+      n.lotes++;
+    });
+    const novosIgn = c.ignorar.filter(k => k.status === 'muda').map(k => k.k);
+    const novosPratos = (c.pratosRend || []).filter(p => p.status === 'muda');
+    if (novosIgn.length || novosPratos.length) {
+      const atual = S().get('config', 'rendimento');
+      if (atual) guardarAntes('config', atual); else log.criados.push(['config', 'rendimento']);
+      const v = JSON.parse(JSON.stringify(P.cfg('rendimento') || {})); // soma ao que já existe (não troca)
+      v.ignorar = (v.ignorar || []).concat(novosIgn.filter(k => !(v.ignorar || []).includes(k)));
+      v.pratos = v.pratos || {};
+      novosPratos.forEach(p => { v.pratos[itemId(p.id)] = p.cr; });
+      S().put('config', { chave: 'rendimento', valor_json: v });
+      n.config++;
+    }
     c.despesas.filter(entra).forEach((it, k) => {
       const x = it.x;
       criar('despesas', {
@@ -583,6 +642,7 @@
             resultado.n.pagas && (resultado.n.pagas === 1 ? '1 conta a prazo paga' : resultado.n.pagas + ' contas a prazo pagas'), resultado.n.cardapio && 'cardápio de ' + resultado.n.cardapio + (resultado.n.cardapio === 1 ? ' dia' : ' dias'),
             resultado.n.corrigidos && (resultado.n.corrigidos === 1 ? '1 correção' : resultado.n.corrigidos + ' correções'), resultado.n.excluidos && (resultado.n.excluidos === 1 ? '1 registro errado apagado' : resultado.n.excluidos + ' registros errados apagados'), resultado.n.recebidos && (resultado.n.recebidos === 1 ? '1 fiado recebido' : resultado.n.recebidos + ' fiados recebidos'), resultado.n.movidos && (resultado.n.movidos === 1 ? '1 compra separada' : resultado.n.movidos + ' compras separadas'),
             resultado.n.config && (resultado.n.config === 1 ? '1 ajuste' : resultado.n.config + ' ajustes'), resultado.n.desativados && resultado.n.desativados + ' pratos antigos desativados',
+            resultado.n.lotes && (resultado.n.lotes === 1 ? '1 lote de carne' : resultado.n.lotes + ' lotes de carne'),
             resultado.n.limpeza && resultado.n.limpeza + ' comandas de teste limpas'].filter(Boolean).join(' · ')))));
         corpo.appendChild(h('div', { class: 'row gap' },
           h('a', { class: 'btn grow', href: '#/relatorio' }, 'Ver no relatório'), h('a', { class: 'btn grow', href: '#/anotacoes' }, 'Pendências'), h('a', { class: 'btn grow', href: '#/caixa' }, 'Capital e caixa')));

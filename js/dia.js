@@ -23,7 +23,9 @@
     const r = P.Relatorio.montar(dias);
     const set = new Set(dias);
     const de = dias[0], ate = dias[dias.length - 1];
-    const itens = [...r.porItem.entries()].map(([id, g]) => ({ id, nome: g.nome, cat: g.cat, q: g.q, fat: g.fat }));
+    // "venda do dia sem detalhe" (diferença do caixa sem anotação): entra nas vendas, não nos pratos nem nas bebidas
+    const itens = [...r.porItem.entries()].map(([id, g]) => ({ id, nome: g.nome, cat: g.cat, q: g.q, fat: g.fat })).filter(g => g.id !== 'it_venda_resumo');
+    r.semDetalhe = r.porItem.has('it_venda_resumo') ? r.porItem.get('it_venda_resumo').fat : 0;
     r.comida = itens.filter(g => g.cat !== 'BEBIDA').sort((a, b) => b.q - a.q || b.fat - a.fat);
     r.bebidas = itens.filter(g => g.cat === 'BEBIDA').sort((a, b) => b.q - a.q || b.fat - a.fat);
     r.qComida = r.comida.reduce((s, g) => s + g.q, 0);
@@ -77,6 +79,7 @@
       linhaV('Vendido (itens)', P.brl(r.fatBruto)),
       r.desconto ? linhaV('(−) Descontos', P.brl(r.desconto)) : null,
       linhaV('= Vendas', P.brl(r.fat), 'forte'),
+      r.semDetalhe ? linhaV('Vendas sem anotação (diferença do caixa)', P.brl(r.semDetalhe), 'nota') : null,
       ['SALAO', 'ESPETO', 'MARMITA'].filter(k => r.porCanal[k].contas).map(k => linhaV(P.Mesas.NOME_CANAL[k], P.brl(r.porCanal[k].fat) + ' · ' + r.porCanal[k].contas + (r.porCanal[k].contas === 1 ? ' conta' : ' contas'))),
       ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO', 'FIADO'].filter(f => r.porForma[f]).map(f => linhaV('Pago em ' + P.Mesas.NOME_FORMA[f], P.brl(r.porForma[f]))),
       r.canceladas.length ? linhaV('Contas canceladas', String(r.canceladas.length), 'aviso') : null));
