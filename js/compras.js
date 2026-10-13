@@ -787,17 +787,28 @@
       let campo = o.qtd ? 'preco' : 'qtd';
       let modo = o.total != null ? 'total' : 'unit'; // unit = preço por kg/L/un ; total = total pago
       const v = { qtd: o.qtd || null, preco: o.preco != null ? o.preco : null, total: o.total != null ? o.total : null };
-      const un = UN[o.unidade] || o.unidade;
+      // unidade da compra: dá para trocar (ex.: alface por unidade em vez de kg); o insumo muda junto ao salvar
+      let unidade = o.unidade;
+      const unIns = o.unidadeInsumo || o.unidade;
+      let un = UN[unidade] || unidade;
       const bQtd = h('button', { type: 'button', class: 'qp-campo' });
       const bPreco = h('button', { type: 'button', class: 'qp-campo' });
       const info = h('div', { class: 'qp-info' });
       const bOk = h('button', { type: 'button', class: 'btn primario grow' });
       const np = P.UI.numpad({ decimais: 3, maxInteiros: 5, onChange: (buf, val) => { if (campo === 'qtd') v.qtd = val; else if (modo === 'unit') v.preco = val; else v.total = val; mostrar(); }, onEnter: avancar });
-      const segModo = P.UI.seg([{ v: 'unit', rotulo: 'Preço por ' + un }, { v: 'total', rotulo: 'Total pago' }], modo, m => {
-        if (modo === 'unit' && v.qtd > 0 && v.preco != null) v.total = P.round(v.qtd * v.preco, 2);
-        if (modo === 'total' && v.qtd > 0 && v.total != null) v.preco = P.round(v.total / v.qtd, 4);
-        modo = m; ir('preco');
-      }, 'seg-p');
+      const segBox = h('div');
+      function montarSegModo() {
+        segBox.replaceChildren(P.UI.seg([{ v: 'unit', rotulo: 'Preço por ' + un }, { v: 'total', rotulo: 'Total pago' }], modo, m => {
+          if (modo === 'unit' && v.qtd > 0 && v.preco != null) v.total = P.round(v.qtd * v.preco, 2);
+          if (modo === 'total' && v.qtd > 0 && v.total != null) v.preco = P.round(v.total / v.qtd, 4);
+          modo = m; ir('preco');
+        }, 'seg-p'));
+      }
+      montarSegModo();
+      const segUn = o.unidades ? h('div', { class: 'qp-un' }, h('small', null, 'Comprado por'),
+        P.UI.seg([{ v: 'kg', rotulo: 'kg' }, { v: 'L', rotulo: 'litro' }, { v: 'un', rotulo: 'unidade' }], unidade, x => {
+          unidade = x; un = UN[x] || x; montarSegModo(); mostrar();
+        }, 'seg-p seg-un')) : null;
       bQtd.addEventListener('click', () => ir('qtd'));
       bPreco.addEventListener('click', () => ir('preco'));
       bOk.addEventListener('click', avancar);
@@ -820,7 +831,8 @@
         const partes = [];
         if (tot != null) partes.push(h('span', null, 'Total ', h('b', null, P.brl(tot))));
         if (modo === 'total' && pu != null) partes.push(h('span', null, P.Fichas.precoFmt(pu) + '/' + un));
-        if (o.precoAtual != null && pu != null && o.precoAtual > 0) {
+        if (unidade !== unIns) partes.push(h('span', { class: 't-amarelo' }, (o.titulo || 'O insumo') + ' passa a ser comprado por ' + (unidade === 'un' ? 'unidade' : unidade === 'L' ? 'litro' : 'kg')));
+        else if (o.precoAtual != null && pu != null && o.precoAtual > 0) {
           const dif = (pu / o.precoAtual - 1) * 100;
           if (Math.abs(dif) >= 0.5) partes.push(h('span', { class: dif > 0 ? 't-vermelho' : 't-verde' }, (dif > 0 ? '▲ ' : '▼ ') + P.num(Math.abs(dif), 1) + '% vs ' + P.Fichas.precoFmt(o.precoAtual)));
           else partes.push(h('span', { class: 't-cinza' }, 'mesmo preço de antes'));
@@ -837,18 +849,52 @@
         const pu = precoUnit(), tot = totalCalc();
         if (!(v.qtd > 0) || pu == null || tot == null) { P.vibrar(60); return; }
         feito = true;
-        resolve({ quantidade: v.qtd, preco_unit: pu, valor: P.round(tot, 2) });
+        resolve({ quantidade: v.qtd, preco_unit: pu, valor: P.round(tot, 2), unidade });
         sh.fechar();
       }
       const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
         o.sub ? h('div', { class: 'np-sub' }, o.sub) : null,
-        h('div', { class: 'qp-campos' }, bQtd, bPreco),
-        segModo, info, np.el,
+        segUn, h('div', { class: 'qp-campos' }, bQtd, bPreco),
+        segBox, info, np.el,
         h('div', { class: 'row gap' }, h('button', { type: 'button', class: 'btn', onClick: () => sh.fechar() }, 'Cancelar'), bOk)),
       { titulo: o.titulo, cls: 'sheet-np', onFechar: () => { np.destruir(); if (!feito) resolve(null); } });
       ir(campo);
     });
   }
+  // Troca da unidade de compra de um insumo (kg ↔ litro ↔ unidade). Volta { para, gUn } ou null (desistiu).
+  // gUn = gramas (ou ml) de 1 unidade: as fichas que usam o insumo são convertidas com ele.
+  async function perguntarTrocaUnidade(ins, para) {
+    const de = ins.unidade;
+    if (para === de) return { para, gUn: null };
+    const comUn = de === 'un' || para === 'un';
+    const usos = P.Calc.usosDoInsumo(ins.id);
+    if (!comUn) return { para, gUn: null }; // kg ↔ litro: 1 kg conta como 1 litro
+    const nomes = usos.map(it => it.nome).slice(0, 4).join(', ');
+    const g = await P.UI.pedirNumero({
+      titulo: 'Quanto pesa 1 unidade de ' + ins.nome.toLowerCase() + '? (g)', decimais: 0, maxInteiros: 5, sufixo: ' g', ok: 'Trocar para ' + (para === 'un' ? 'unidade' : UN[para]),
+      sub: (usos.length ? 'Usado em ' + usos.length + (usos.length === 1 ? ' ficha' : ' fichas') + ' (' + nomes + (usos.length > 4 ? '…' : '') + '): com o peso, as quantidades das fichas são convertidas. ' : 'Com o peso, o preço antigo também é convertido. ') +
+        'Ex.: 1 pé de alface ≈ 300 g.' + (usos.length ? '' : ' Deixe 0 se não souber.'),
+    });
+    if (g == null) return null;
+    if (!(g > 0) && usos.length) { P.UI.toast('Sem o peso de 1 unidade as fichas ficariam erradas: a unidade não foi trocada.', { tipo: 'perigo', ms: 4500 }); return null; }
+    return { para, gUn: g > 0 ? g : null };
+  }
+  // aplica a troca (ao salvar a compra): insumo, fichas que o usam e histórico de preço
+  function aplicarTrocaUnidade(insId, t) {
+    const ins = P.Store.get('insumos', insId);
+    if (!ins || ins.unidade === t.para) return;
+    const de = ins.unidade;
+    // quanto de "de" cabe em 1 "para": kg→un: 1 un = gUn/1000 kg; un→kg: 1 kg = 1000/gUn un
+    const fator = de === 'un' ? (t.gUn ? 1000 / t.gUn : null) : t.para === 'un' ? (t.gUn ? t.gUn / 1000 : null) : 1;
+    P.Store.all('componentes').filter(c => c.insumo_id === insId).forEach(c => {
+      // gramas da ficha: g (kg/L) ou nº de unidades (un)
+      const q = de === 'un' ? +c.gramas * t.gUn : t.para === 'un' ? +c.gramas / t.gUn : +c.gramas;
+      if (isFinite(q)) P.Store.put('componentes', Object.assign({}, c, { gramas: P.round(q, 3) }));
+    });
+    if (fator) P.Store.all('historico_precos').filter(r => r.insumo_id === insId).forEach(r => P.Store.put('historico_precos', Object.assign({}, r, { preco: P.round(+r.preco * fator, 4) })));
+    P.Store.put('insumos', Object.assign({}, ins, { unidade: t.para, preco: fator ? P.round(+ins.preco * fator, 4) : +ins.preco }));
+  }
+
   function pedirTexto(titulo, valor, placeholder, ok) {
     return new Promise(resolve => {
       let feito = false;
@@ -883,6 +929,17 @@
     const inForn = h('input', { class: 'campo', type: 'text', value: d.fornecedor, placeholder: 'Fornecedor (ex.: Box 12 — Seu Zé)', autocomplete: 'off' });
     inForn.addEventListener('input', () => { d.fornecedor = inForn.value; });
     const chipsForn = h('div', { class: 'chips' }, fornecedoresRecentes().map(f => h('button', { type: 'button', class: 'chip', onClick: () => { inForn.value = f; d.fornecedor = f; P.vibrar(8); } }, f)));
+    const trocas = {}; // insumo → { para, gUn }: unidade trocada nesta compra (vale ao salvar)
+    const unidadeDe = i => (trocas[i.id] ? trocas[i.id].para : i.unidade);
+    const precoDe = i => (trocas[i.id] ? null : +i.preco); // unidade trocada: o preço antigo não vale para comparar
+    async function trocaUnidade(i, para) {
+      if (para === unidadeDe(i)) return true;
+      if (para === i.unidade) { delete trocas[i.id]; return true; }
+      const t = await perguntarTrocaUnidade(i, para);
+      if (!t) return false;
+      trocas[i.id] = t;
+      return true;
+    }
     const elLinhas = h('div', { class: 'cp-linhas' });
     const elBarra = h('div', { class: 'barra-acao' });
     const elAviso = h('div');
@@ -973,7 +1030,7 @@
       d.linhas.forEach((l, i) => {
         const ins = l.insumo_id && P.Store.get('insumos', l.insumo_id);
         const lido = l.lido && P.UI.semAcento(l.lido) !== P.UI.semAcento(l.descricao) ? h('small', { class: 'cp-lin-lido' }, 'na nota: ' + l.lido) : null;
-        const dif = ins && !ant && +ins.preco > 0 ? (l.preco_unit / ins.preco - 1) * 100 : null;
+        const dif = ins && !ant && +ins.preco > 0 && l.unidade === ins.unidade && !trocas[ins.id] ? (l.preco_unit / ins.preco - 1) * 100 : null;
         elLinhas.appendChild(h('div', { class: 'cp-lin' },
           h('button', { type: 'button', class: 'cp-lin-main', onClick: () => editarLinha(i) },
             h('span', { class: 'cp-lin-n' }, l.descricao,
@@ -1016,9 +1073,9 @@
         return;
       }
       const i = P.Store.get('insumos', id);
-      const r = await pedirQtdPreco({ titulo: i.nome, unidade: i.unidade, preco: +i.preco, precoAtual: +i.preco, sub: 'Preço atual ' + P.Fichas.precoUnit(i) });
-      if (!r) return;
-      d.linhas.push({ insumo_id: i.id, descricao: i.nome, unidade: i.unidade, quantidade: r.quantidade, preco_unit: r.preco_unit, valor: r.valor });
+      const r = await pedirQtdPreco({ titulo: i.nome, unidade: unidadeDe(i), unidadeInsumo: unidadeDe(i), unidades: true, preco: precoDe(i), precoAtual: precoDe(i), sub: 'Preço atual ' + P.Fichas.precoUnit(i) });
+      if (!r || !(await trocaUnidade(i, r.unidade))) return;
+      d.linhas.push({ insumo_id: i.id, descricao: i.nome, unidade: r.unidade, quantidade: r.quantidade, preco_unit: r.preco_unit, valor: r.valor });
       P.vibrar(15);
       desenharLinhas();
     }
@@ -1032,8 +1089,9 @@
         Object.assign(l, { preco_unit: val / (+l.quantidade || 1), valor: P.round(val, 2) });
       } else {
         const ins = P.Store.get('insumos', l.insumo_id);
-        const r = await pedirQtdPreco({ titulo: l.descricao, unidade: l.unidade, qtd: l.quantidade, preco: l.preco_unit, precoAtual: ins && !ant ? +ins.preco : null, editar: true });
-        if (!r) return;
+        const r = await pedirQtdPreco({ titulo: l.descricao, unidade: l.unidade, unidadeInsumo: ins ? unidadeDe(ins) : l.unidade, unidades: !!ins, qtd: l.quantidade, preco: l.preco_unit,
+          precoAtual: ins && !ant && l.unidade === unidadeDe(ins) ? precoDe(ins) : null, editar: true });
+        if (!r || (ins && !(await trocaUnidade(ins, r.unidade)))) return;
         Object.assign(l, r);
         if (l.nota && (l.nota.incerto || l.nota.un !== l.unidade) && l.nota.q > 0) l.fator = r.quantidade / l.nota.q;
       }
@@ -1053,11 +1111,11 @@
       if (id === '_nenhum') { l.ligar = false; l.esquecer = true; desenharLinhas(); return; }
       const i = P.Store.get('insumos', id);
       const q = l.nota && !l.nota.incerto && l.nota.un === i.unidade && l.nota.q > 0 ? l.nota.q : null;
-      const r = await pedirQtdPreco({ titulo: i.nome, unidade: i.unidade, qtd: q, preco: q ? l.valor / q : +i.preco, total: q ? null : l.valor, precoAtual: +i.preco,
+      const r = await pedirQtdPreco({ titulo: i.nome, unidade: unidadeDe(i), unidadeInsumo: unidadeDe(i), unidades: true, qtd: q, preco: q ? l.valor / q : precoDe(i), total: q ? null : l.valor, precoAtual: precoDe(i),
         sub: 'Na nota: ' + l.lido + ' · ' + (l.nota ? l.nota.txt + ' · ' : '') + P.brl(l.valor) + (l.nota && l.nota.incerto ? ' — quantas ' + (UN[i.unidade] || i.unidade) + ' vieram ao todo?' : '') });
-      if (!r) return;
-      const fator = l.nota && (l.nota.incerto || l.nota.un !== i.unidade) && l.nota.q > 0 ? r.quantidade / l.nota.q : null;
-      Object.assign(l, { insumo_id: i.id, descricao: i.nome, unidade: i.unidade, ligar: false, esquecer: false, foto: false, fator }, r);
+      if (!r || !(await trocaUnidade(i, r.unidade))) return;
+      const fator = l.nota && (l.nota.incerto || l.nota.un !== r.unidade) && l.nota.q > 0 ? r.quantidade / l.nota.q : null;
+      Object.assign(l, { insumo_id: i.id, descricao: i.nome, ligar: false, esquecer: false, foto: false, fator }, r);
       P.vibrar(15);
       desenharLinhas();
     }
@@ -1121,6 +1179,8 @@
       if (!d.linhas.length) return;
       if (!pagOk()) { P.UI.toast('Pagamento dividido: ponha o valor de cada parte (a última fica com o resto, que precisa ser maior que zero).', { tipo: 'perigo', ms: 5000 }); return; }
       lembrarProdutos();
+      // unidade trocada (ex.: alface por unidade): o insumo, as fichas e o histórico de preço mudam antes do preço novo entrar
+      Object.keys(trocas).forEach(id => { if (d.linhas.some(l => l.insumo_id === id && l.unidade === trocas[id].para)) aplicarTrocaUnidade(id, trocas[id]); });
       const r = salvar(d, ant && ant.id);
       diaLista = r.compra.dia_operacional;
       P.vibrar([20, 40, 20]);

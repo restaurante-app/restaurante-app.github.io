@@ -1264,3 +1264,9 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 .rd-fim p { margin: 0 0 10px; }
 .rd-fim .btn { margin-top: 12px; }
 .rd-cmp a.dp-cmp-l { color: inherit; }
+
+/* unidade da compra (kg · litro · unidade) na folha de quantidade e preço */
+.qp-un { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.qp-un > small { font-size: .62rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--tx3); white-space: nowrap; }
+.qp-un .seg { flex: 1 1 auto; margin: 0; padding: 3px; }
+.qp-un .seg.seg-p button { min-height: 34px; font-size: .74rem; }

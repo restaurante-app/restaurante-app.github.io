@@ -188,6 +188,11 @@ numa compra de outro fornecedor. No Rendimento, o pacote abre lotes de carne lig
 fecha um lote que acabou (corrige o dia e o fornecedor) e marca compras que "não são lote".
 Conta reaberta para corrigir continua no dia dela ao fechar de novo.
 
+**Unidade na compra** — na folha de quantidade e preço de um item da compra, "Comprado por" escolhe
+kg, litro ou unidade (ex.: alface por unidade). Trocando a unidade de um insumo, o app pergunta
+quanto pesa 1 unidade (se ele estiver numa ficha) e, ao salvar a compra, converte o insumo, as
+quantidades das fichas que o usam e o histórico de preço. As próximas compras já vêm na unidade nova.
+
 **Dia e período** (só o dono; Mais → Dia e período) — calendário do mês com o vendido em cada
 dia; tocar num dia mostra tudo dele: vendas (por canal e forma de pagamento), quantidade e valor de
 cada prato e de cada bebida, compras com os itens, despesas, equipe (vales, salários, pró-labore),
