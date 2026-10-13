@@ -1,10 +1,12 @@
-# Próximos passos — situação em 12/10/2026
+# Próximos passos — situação em 13/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.10 (decimais no celular, Dia e período, Rendimento por lote) | PR do ramo `claude/adoring-hypatia-rl0pit` | **esperando publicar** (depois: rodar o `schema.sql` — tabela nova `lotes`) |
+| App v1.10 (decimais no celular, Dia e período, Rendimento por lote) | `main` | **publicado** (rodar o `schema.sql` — tabela nova `lotes`) |
+| App v1.10.1 (Importar com lotes de carne; frango ao molho conta na coxa) | `main` | **publicado** |
+| Lançamentos de 09/10 a 12/10 (sexta, sábado, retirada de domingo e segunda), com lotes de costela e coxa e Belo Boi = Açougue Antigo | pacote `.json` no computador do dono (fora do Git) | **esperando importar** (precisa da v1.10.1) |
 | App v1.8 (cardápio do dia, controle do gás) sobre a v1.7 (equipe, pendências, capital e caixa, importar lançamentos, cartão de crédito, pagamento em partes, pró-labore, investimento, custo estimado de prato sem ficha) | `main` → https://restaurante-app.github.io/ | **publicado** |
 | Nuvem (Supabase) | projeto `restaurante` | **rodar o `schema.sql` de novo** (tabela nova `botijoes`) |
 | Relatório de 28/09 a 05/10 | pacote `.json` no computador do dono (fora do Git) | **importado** |

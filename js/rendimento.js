@@ -41,7 +41,7 @@
     [/parmegiana de frango|frango a parmegiana|file de frango|peito de frango|panqueca/, 'file_frango'],
     [/contra ?-?file|parmegiana/, 'contra_file'],
     [/picadinho|bife de panela/, 'capa_file'],
-    [/frango assado|frango com creme/, 'coxa'],
+    [/frango assado|frango com creme|frango ao molho/, 'coxa'],
     [/galinha/, 'galinha'],
     [/rabada/, 'rabada'],
     [/costelinha/, 'costelinha'],
@@ -58,9 +58,9 @@
   // lotes que já existiam (lista do dono, 12/10/2026) — entram uma vez em cada aparelho
   const IMPORT_TS = '2026-10-09T00:00:00.000Z';
   const LOTES_IMPORT = [
-    { id: 'lote_imp_rabada_0710', carne: 'rabada', dia: '2026-10-07', fornecedor: 'Açougue Antigo', kg: 8.34, valor: 333.52, fim: '2026-10-08', base: { pratos: 14, venda: 495 } },
+    { id: 'lote_imp_rabada_0710', carne: 'rabada', dia: '2026-10-07', fornecedor: 'Belo Boi', kg: 8.34, valor: 333.52, fim: '2026-10-08', base: { pratos: 14, venda: 495 } },
     { id: 'lote_imp_costela_0210', carne: 'costela', dia: '2026-10-02', fornecedor: 'Diversos', kg: 20.935, valor: 479.41, fim: '2026-10-08', base: { pratos: 33, venda: 1132 } },
-    { id: 'lote_imp_frango_0110', carne: 'file_frango', dia: '2026-10-01', fornecedor: 'Açougue Antigo', kg: 6.436, valor: 160.84, fim: '2026-10-08', base: { pratos: 22, venda: 666 }, obs: 'Inclui 6 panquecas de 08/10.' },
+    { id: 'lote_imp_frango_0110', carne: 'file_frango', dia: '2026-10-01', fornecedor: 'Belo Boi', kg: 6.436, valor: 160.84, fim: '2026-10-08', base: { pratos: 22, venda: 666 }, obs: 'Inclui 6 panquecas de 08/10.' },
     { id: 'lote_imp_contra_0110', carne: 'contra_file', dia: '2026-10-01', fornecedor: '', kg: 27.34, valor: 1227.57, base: { pratos: 45, de: '2026-10-01', ate: '2026-10-08' }, obs: '45 pratos até 08/10 (inclui 6 parmegianas de carne).' },
     { id: 'lote_imp_coxa_0510', carne: 'coxa', dia: '2026-10-05', fornecedor: '', kg: 10.58, valor: 126.85, base: { pratos: 27, de: '2026-10-05', ate: '2026-10-08' }, obs: '14 pratos em 05/10 e 13 em 06/10.' },
     { id: 'lote_imp_peito_0810', carne: 'file_frango', dia: '2026-10-08', fornecedor: '', kg: 15, valor: 235.20, base: { pratos: 12, de: '2026-10-08', ate: '2026-10-08', sem: 'panqueca' }, obs: 'Filé de peito. 12 pratos em 08/10 (7 filés + 5 parmegianas); as panquecas de 08/10 foram do lote de 01/10.' },
@@ -378,7 +378,7 @@
     if (!(kg > 0)) return;
     const valor = pre.valor != null ? pre.valor : await P.UI.pedirNumero({ titulo: nomeCarne(cr) + ' — valor pago', decimais: 2, prefixo: 'R$ ' });
     if (!(valor > 0)) return;
-    const forn = pre.fornecedor != null ? pre.fornecedor : await pedirTexto('Fornecedor (opcional)', '', 'Ex.: Açougue Antigo');
+    const forn = pre.fornecedor != null ? pre.fornecedor : await pedirTexto('Fornecedor (opcional)', '', 'Ex.: Belo Boi');
     if (forn == null) return;
     const dia = pre.dia || P.Dia.hoje();
     const novo = novoLote({ carne: cr, dia, fornecedor: forn, kg, valor, compra_id: pre.compra_id, compra_item_id: pre.compra_item_id });
@@ -443,7 +443,7 @@
         h('div', { class: 'aj-sec' },
           linha('Carne', nomeCarne(l.carne), async () => { const v = await P.UI.escolher({ titulo: 'Qual carne?', opcoes: carnes().map(c => ({ v: c.id, rotulo: c.nome })) }); if (v) alterar(l, { carne: v }); }),
           linha('Dia da compra', P.Dia.rotulo(l.dia), () => P.Compras.calendario(l.dia, iso => alterar(l, { dia: iso, conta_desde: l.base ? l.conta_desde : iso, fim: l.fim && l.fim < iso ? iso : l.fim }), { titulo: 'Dia da compra' })),
-          linha('Fornecedor', l.fornecedor || '—', async () => { const v = await pedirTexto('Fornecedor', l.fornecedor, 'Ex.: Açougue Antigo'); if (v != null) alterar(l, { fornecedor: v }); }),
+          linha('Fornecedor', l.fornecedor || '—', async () => { const v = await pedirTexto('Fornecedor', l.fornecedor, 'Ex.: Belo Boi'); if (v != null) alterar(l, { fornecedor: v }); }),
           linha('Peso (kg)', P.numAuto(+l.kg, 3) + ' kg', async () => { const v = await P.UI.pedirNumero({ titulo: 'Peso do lote (kg)', valor: +l.kg, decimais: 3, sufixo: ' kg' }); if (v > 0) alterar(l, { kg: v }); }),
           linha('Valor pago', P.brl(l.valor), async () => { const v = await P.UI.pedirNumero({ titulo: 'Valor pago', valor: +l.valor, decimais: 2, prefixo: 'R$ ' }); if (v > 0) alterar(l, { valor: v }); }),
           l.fim ? linha('Acabou em', P.Dia.rotulo(l.fim), () => P.Compras.calendario(l.fim, iso => { if (iso < l.dia) { P.UI.toast('Acabou antes da compra?', { tipo: 'perigo' }); return; } alterar(l, { fim: iso }); }, { titulo: 'Dia em que acabou' })) : null),
@@ -556,5 +556,6 @@
   P.UI.rota('rendimento/l/:id', { titulo: 'Lote', tab: 'mais', dono: true, render: telaLote });
   P.UI.rota('rendimento/comparar', { titulo: 'Rendimento', tab: 'mais', dono: true, render: telaComparar });
   P.UI.rota('rendimento/ajustes', { titulo: 'Rendimento', tab: 'mais', dono: true, render: telaAjustes });
-  P.Rendimento = { semear, calcular, metricas, carneDaCompra, carneDoPrato, aposCompra, textoTile, corPct, abertos, INICIO };
+  P.Rendimento = { semear, calcular, metricas, carneDaCompra, carneDoPrato, aposCompra, textoTile, corPct, abertos, nomeCarne, INICIO,
+    carneValida: id => CARNES.some(c => c[0] === id) };
 })();
