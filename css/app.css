@@ -1194,3 +1194,73 @@ body.sem-sessao #topbar, body.sem-sessao #tabbar { display: none; }
 .cm-busca { margin: 0 0 10px; }
 .cm-criar { border-style: solid; border-color: var(--brasa); color: var(--brasa-tx); background: var(--brasa-bg); }
 .cm-nada { grid-column: 1 / -1; color: var(--tx2); font-size: .8rem; padding: 6px 4px; }
+
+/* ---------- DIA E PERÍODO (dono) ---------- */
+.dp-cal { border-radius: var(--r); padding: 10px; margin-bottom: 12px; background: linear-gradient(180deg, var(--brilho), transparent 42%), var(--s1); border: 1px solid var(--borda); }
+.dp-compras { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.dp-compra { display: block; border-radius: 18px; padding: 12px 14px; background: linear-gradient(180deg, var(--brilho), transparent 42%), var(--s1); border: 1px solid var(--borda); }
+.dp-compra-t { display: flex; justify-content: space-between; gap: 10px; font-size: .9rem; }
+.dp-compra > small { display: block; color: var(--tx2); font-size: .72rem; margin-top: 2px; }
+.dp-itens { margin-top: 8px; border-top: 1px solid var(--borda); }
+.dp-item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--borda); font-size: .74rem; align-items: baseline; }
+.dp-item:last-child { border-bottom: 0; }
+.dp-item span:nth-child(2) { color: var(--tx2); white-space: nowrap; }
+.dp-item b { white-space: nowrap; }
+.dp-det { margin: 4px 0 8px; }
+.dp-det summary { cursor: pointer; font-size: .78rem; font-weight: 700; color: var(--brasa-tx); padding: 8px 4px; }
+.dp-per { border-radius: var(--r); padding: 10px 12px 2px; margin-bottom: 10px; background: var(--s1); border: 1px solid var(--borda); }
+.dp-per2 { border-color: var(--borda2); }
+.dp-per-t { font-size: .6rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--brasa-tx); margin-bottom: 8px; }
+.dp-chips { margin-bottom: 10px; }
+.dp-chips .chip { min-height: 36px; padding: 6px 12px; font-size: .74rem; }
+.chip.on { border-color: var(--brasa-tx); color: var(--brasa-tx); background: var(--brasa-bg); }
+.dp-cmp-chk { display: flex; align-items: center; gap: 8px; font-size: .84rem; font-weight: 600; margin: 4px 4px 12px; min-height: 40px; }
+.dp-cmp-chk input { width: 20px; height: 20px; accent-color: var(--brasa); }
+.dp-cmp { border-radius: 18px; overflow: hidden; margin-bottom: 8px; background: linear-gradient(180deg, var(--brilho), transparent 42%), var(--s1); border: 1px solid var(--borda); }
+.dp-cmp-l { display: grid; grid-template-columns: minmax(0, 1.6fr) 1fr 1fr 1.2fr; gap: 6px; padding: 9px 13px; border-bottom: 1px solid var(--borda); font-size: .76rem; align-items: center; }
+.dp-cmp-l:last-child { border-bottom: 0; }
+.dp-cmp-l span:not(.dp-cmp-n) { text-align: right; white-space: nowrap; }
+.dp-cmp-n { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.dp-cmp-l.th { font-size: .56rem; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--tx3); background: var(--s2); }
+.dp-cmp-l.th span { white-space: normal !important; }
+@media (max-width: 520px) {
+  /* celular: o nome em cima, os dois valores e a diferença embaixo */
+  .dp-cmp-l { grid-template-columns: 1fr 1fr 1.25fr; row-gap: 3px; }
+  .dp-cmp-n { grid-column: 1 / -1; }
+  .dp-cmp-l.th .dp-cmp-n { display: none; }
+  .dp-cmp-l span:not(.dp-cmp-n) { font-size: .72rem; }
+}
+
+/* ---------- RENDIMENTO POR LOTE (dono) ---------- */
+.rd-lista { display: flex; flex-direction: column; gap: 10px; }
+.rd-card { border-radius: var(--r); padding: 12px 13px; background: linear-gradient(180deg, var(--brilho), transparent 42%), var(--s1); border: 1px solid var(--borda); }
+.rd-card.aberto { border-color: var(--borda2); }
+.rd-topo { display: flex; align-items: center; gap: 10px; color: inherit; }
+.rd-topo > svg { width: 16px; height: 16px; color: var(--tx3); flex: 0 0 auto; }
+.rd-tit { flex: 1 1 auto; min-width: 0; }
+.rd-tit b { display: block; font-size: .96rem; letter-spacing: -.01em; }
+.rd-tit small { display: block; color: var(--tx2); font-size: .7rem; margin-top: 2px; line-height: 1.4; }
+.rd-grade { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 10px; }
+@media (min-width: 560px) { .rd-grade { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.rd-st { background: var(--s2); border-radius: 13px; padding: 8px 10px; min-width: 0; }
+.rd-st small { display: block; font-size: .56rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--tx3); }
+.rd-st b { display: block; font-size: .95rem; letter-spacing: -.02em; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rd-st em { display: block; font-style: normal; font-size: .64rem; color: var(--tx2); margin-top: 1px; }
+.rd-st .st-pill { margin-top: 4px; }
+.rd-st.bom b { color: var(--tx-bom); } .rd-st.atencao b { color: var(--tx-atencao); } .rd-st.critico b { color: var(--tx-critico); }
+.rd-ban { margin: 10px 0 0; }
+.rd-nota { font-size: .72rem; color: var(--tx2); line-height: 1.45; margin: 8px 2px 0; }
+.rd-acoes { margin-top: 10px; }
+.rd-novo { margin-top: 10px; }
+.rd-sub { color: var(--tx2); font-size: .8rem; }
+.rd-pend { display: flex; flex-direction: column; gap: 8px; }
+.rd-pend-l { border-radius: 18px; padding: 11px 13px; background: var(--bg-atencao); display: flex; flex-direction: column; gap: 8px; }
+.rd-pend-l .row { justify-content: flex-end; }
+.rd-dias { display: flex; flex-direction: column; gap: 8px; }
+.rd-dia { border-radius: 16px; padding: 9px 12px; background: var(--s1); border: 1px solid var(--borda); }
+.rd-dia-t { font-size: .74rem; font-weight: 800; text-transform: capitalize; color: var(--tx2); margin-bottom: 4px; }
+.rd-dia-l { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; font-size: .8rem; padding: 4px 0; }
+.rd-dia-l .tag { margin-left: 6px; }
+.rd-fim p { margin: 0 0 10px; }
+.rd-fim .btn { margin-top: 12px; }
+.rd-cmp a.dp-cmp-l { color: inherit; }

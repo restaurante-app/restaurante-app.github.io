@@ -124,6 +124,8 @@
   const sheetsAbertas = new Set();
   function sheet(conteudo, o) {
     o = o || {};
+    // teclado numérico do app: fecha o teclado do celular (campo de texto em foco) para não ficar por cima
+    if (o.cls === 'sheet-np' && document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName)) document.activeElement.blur();
     const root = $('#sheet-root');
     const box = h('div', { class: 'sheet' + (o.cls ? ' ' + o.cls : '') },
       o.titulo ? h('div', { class: 'sheet-tit' }, o.titulo) : null, conteudo);

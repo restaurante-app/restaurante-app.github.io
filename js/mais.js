@@ -53,12 +53,15 @@
         const nAl = P.Analise ? P.Analise.contar() : 0;
         const nPend = P.Anotacoes ? P.Anotacoes.abertas().length : 0;
         const nEq = P.Store.all('pessoas').filter(p => p.ativo !== false).length;
+        const rendimentoSub = () => (P.Rendimento ? P.Rendimento.textoTile() : 'pratos por lote de carne');
         corpo.appendChild(grupo('Dono',
+          tile('dia', 'calendario', 'azul', 'Dia e período', 'tudo de um dia · comparar períodos'),
           tile('anotacoes', 'fiado', 'amarelo', 'Pendências', nPend ? nPend + (nPend === 1 ? ' para confirmar' : ' para confirmar') : 'anotações e lembretes', nPend ? 't-amarelo' : null),
           tile('equipe', 'usuario', 'verde', 'Equipe', nEq ? nEq + (nEq === 1 ? ' pessoa' : ' pessoas') + ' · vales, salários, pró-labore' : 'vales, salários e pró-labore'),
           tile('caixa', 'caixa', 'azul', 'Capital e caixa', 'desde a abertura e a montagem'),
           tile('importar', 'upload', 'cinza', 'Importar lançamentos', 'relatório ou caderno, com conferência')));
         corpo.appendChild(grupo('Gestão',
+          tile('rendimento', 'custos', 'vermelho', 'Rendimento', rendimentoSub()),
           tile('compras/analise', 'alerta', 'amarelo', 'Análise de compras', nAl ? nAl + (nAl === 1 ? ' alerta nas compras' : ' alertas nas compras') : 'compras × vendas e pratos', nAl ? 't-amarelo' : null),
           tile('painel', 'painel', 'verde', 'Painel', 'lucro do dia, semana e mês'),
           tile('relatorio', 'relatorio', 'azul', 'Relatório detalhado', 'vendas, caixa, compras, CSV'),
