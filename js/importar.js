@@ -235,6 +235,18 @@
       c.cadastro.push({ tipo: 'lote', status: st, texto: 'Rendimento: ' + nome + ' → ' + (cr ? R.nomeCarne(cr).toLowerCase() : 'não conta em lote') });
       return { id, cr: cr || '', status: st };
     }).filter(Boolean);
+    // pratos de um dia movidos para um lote (até de outra carne): [{ dia, item, lote: '@L01' | id }]
+    c.movidosRend = (Array.isArray(pk.rendimento.movidos) ? pk.rendimento.movidos : []).map(x => {
+      const loteId = refId(pk, x.lote);
+      const lote = S().get('lotes', loteId) || (pk.lotes.find(l => idDe(pk, l.ref) === loteId));
+      if (!lote || !R) { c.problemas.push('Rendimento: o lote ' + x.lote + ' não existe.'); return null; }
+      const alvo = itemId(x.item);
+      const atual = (P.cfg('rendimento').movidos || []).find(m => m.dia === x.dia && m.item_id === alvo);
+      const st = atual && atual.lote_id === loteId ? 'ja' : 'muda';
+      const nome = (S().get('itens', alvo) || pk.itens.find(i => i.id === x.item) || { nome: x.item }).nome;
+      c.cadastro.push({ tipo: 'lote', status: st, texto: 'Rendimento: ' + nome + ' de ' + P.Dia.rotuloCurto(x.dia) + ' → lote de ' + R.nomeCarne(lote.carne).toLowerCase() + ' de ' + P.Dia.rotuloCurto(lote.dia) });
+      return { dia: x.dia, item_id: alvo, lote_id: loteId, status: st };
+    }).filter(Boolean);
 
     // compras
     const comprasApp = S().all('compras');
@@ -471,13 +483,16 @@
     });
     const novosIgn = c.ignorar.filter(k => k.status === 'muda').map(k => k.k);
     const novosPratos = (c.pratosRend || []).filter(p => p.status === 'muda');
-    if (novosIgn.length || novosPratos.length) {
+    const novosMov = (c.movidosRend || []).filter(m => m.status === 'muda');
+    if (novosIgn.length || novosPratos.length || novosMov.length) {
       const atual = S().get('config', 'rendimento');
       if (atual) guardarAntes('config', atual); else log.criados.push(['config', 'rendimento']);
       const v = JSON.parse(JSON.stringify(P.cfg('rendimento') || {})); // soma ao que já existe (não troca)
       v.ignorar = (v.ignorar || []).concat(novosIgn.filter(k => !(v.ignorar || []).includes(k)));
       v.pratos = v.pratos || {};
       novosPratos.forEach(p => { v.pratos[itemId(p.id)] = p.cr; });
+      v.movidos = (v.movidos || []).filter(m => !novosMov.some(k => k.dia === m.dia && k.item_id === m.item_id))
+        .concat(novosMov.map(k => ({ dia: k.dia, item_id: k.item_id, lote_id: k.lote_id })));
       S().put('config', { chave: 'rendimento', valor_json: v });
       n.config++;
     }

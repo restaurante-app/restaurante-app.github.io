@@ -191,7 +191,7 @@
   // a venda entra no lote ABERTO mais antigo daquela carne no dia (ou no lote para onde o dono moveu)
   function loteDaVenda(cr, D, itemId, porCarne, porId, c) {
     const mv = c.movidos.find(m => m.dia === D && m.item_id === itemId);
-    if (mv) { const l = porId.get(mv.lote_id); if (l && l.carne === cr) return l; }
+    if (mv) { const l = porId.get(mv.lote_id); if (l) return l; } // movido pelo dono (pode ser outra carne)
     const ls = porCarne.get(cr) || [];
     return ls.find(l => D >= contaDesde(l) && (!l.fim || D <= l.fim)) || null;
   }
@@ -431,7 +431,6 @@
       if (!l) { trocar(corpo, P.UI.vazio('Lote não encontrado.')); return; }
       const m = metricas(l);
       const linha = (rot, val, fn) => h('button', { type: 'button', class: 'aj-lin toque', onClick: fn }, h('span', { class: 'aj-rot' }, rot), h('span', { class: 'aj-val' }, val), P.UI.icone('lapis'));
-      const outros = (calcular().porCarne.get(l.carne) || []).filter(x => x.id !== l.id);
       const dias = [...m.dias.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
       trocar(corpo, 
         cartao(l),
@@ -443,7 +442,7 @@
           [...itens.values()].map(g => h('div', { class: 'rd-dia-l' },
             h('span', null, P.num(g.q, g.q % 1 ? 1 : 0) + '× ' + g.nome, g.movido ? h('small', { class: 'tag neutra' }, 'movido') : null),
             h('span', null, P.brl(g.v)),
-            outros.length || g.movido ? h('button', { type: 'button', class: 'btn mini', onClick: () => mover(l, D, g) }, 'Mover') : null))))) :
+            destinos(l, D).length || g.movido ? h('button', { type: 'button', class: 'btn mini', onClick: () => mover(l, D, g) }, 'Mover') : null))))) :
           h('div', { class: 'dica' }, 'Nenhuma venda contada neste lote ainda.'),
         h('div', { class: 'secao' }, 'Dados do lote'),
         h('div', { class: 'aj-sec' },
@@ -466,9 +465,16 @@
             }
           } }, P.UI.icone('lixo'), 'Apagar lote')));
     }
+    // para onde dá para mover os pratos do dia D: outro lote da mesma carne, ou um lote de outra
+    // carne que estava em uso nesse dia (ex.: costela feita com a costelinha)
+    function destinos(l, D) {
+      const R = calcular();
+      const mesma = (R.porCarne.get(l.carne) || []).filter(x => x.id !== l.id);
+      const outra = R.lotes.filter(x => x.carne !== l.carne && contaDesde(x) <= D && (!x.fim || D <= x.fim));
+      return mesma.concat(outra);
+    }
     async function mover(l, D, g) {
-      const outros = (calcular().porCarne.get(l.carne) || []).filter(x => x.id !== l.id);
-      const opcoes = outros.map(x => ({ v: x.id, rotulo: 'Lote de ' + P.Dia.rotuloCurto(x.dia) + (x.fornecedor ? ' · ' + x.fornecedor : ''), sub: x.fim ? 'fechado em ' + P.Dia.rotuloCurto(x.fim) : 'aberto' }));
+      const opcoes = destinos(l, D).map(x => ({ v: x.id, rotulo: (x.carne !== l.carne ? nomeCarne(x.carne) + ' · ' : '') + 'Lote de ' + P.Dia.rotuloCurto(x.dia) + (x.fornecedor ? ' · ' + x.fornecedor : ''), sub: x.fim ? 'fechado em ' + P.Dia.rotuloCurto(x.fim) : 'aberto' }));
       if (g.movido) opcoes.unshift({ v: '_auto', rotulo: 'Voltar ao automático', sub: 'o lote aberto mais antigo do dia' });
       const v = await P.UI.escolher({ titulo: 'Mover ' + P.num(g.q) + '× ' + g.nome + ' de ' + P.Dia.rotuloCurto(D) + ' para', opcoes });
       if (!v) return;

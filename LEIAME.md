@@ -185,7 +185,7 @@ já lançados (fornecedor da compra, linha de compra ligada ao insumo certo, nom
 ficha, dia em que o botijão foi ligado…), fiado recebido depois, apagar um preço ou uma despesa que
 entrou errado (repetida) e separar linhas de uma compra
 numa compra de outro fornecedor. No Rendimento, o pacote abre lotes de carne ligados às compras dele,
-fecha um lote que acabou (corrige o dia e o fornecedor), diz desde quando o lote conta as vendas e
+fecha um lote que acabou (corrige o dia e o fornecedor), diz desde quando o lote conta as vendas, move pratos de um dia para outro lote e
 marca compras que "não são lote".
 Conta reaberta para corrigir continua no dia dela ao fechar de novo.
 
@@ -210,7 +210,7 @@ salgados, costela suína, paio, charque) vira um **lote**; os pertences contam a
 app pergunta se abre um lote novo e, se já houver um aberto da mesma carne, se o anterior acabou
 (com "não", os dois ficam abertos). As vendas dos pratos que usam a carne entram sozinhas no lote
 **aberto mais antigo** ("3 rabadas" = 3 pratos; pedido com vários pratos conta 1 em cada lote); dá
-para **mover** os pratos de um dia para outro lote. **Acabou** fecha o lote e mostra pratos, venda
+para **mover** os pratos de um dia para outro lote (até de outra carne em uso no dia, ex.: costela feita com a costelinha). **Acabou** fecha o lote e mostra pratos, venda
 dos pratos (só a comida), gramas por prato, carne por prato, carne / venda (até 35% verde, até 45%
 amarelo, acima vermelho) e a sobra depois da carne. **Peso que sobrou** estima quantos pratos ainda
 saem. Avisa quando passa da meta de gramas por prato. **Comparar**: lotes da mesma carne
