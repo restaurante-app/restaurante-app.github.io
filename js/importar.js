@@ -67,7 +67,7 @@
     compras: ['fornecedor', 'obs'], compra_itens: ['insumo_id', 'descricao', 'quantidade', 'unidade', 'preco_unit'],
     botijoes: ['inicio', 'fim', 'tamanho', 'valor', 'obs'], comandas: ['cliente', 'obs'], despesas: ['descricao'],
     pessoas: ['nome', 'funcao', 'obs'], insumos: ['nome', 'preco', 'atualizado_em'], componentes: ['insumo_id', 'gramas'],
-    lotes: ['fim', 'fornecedor', 'obs'],
+    lotes: ['fim', 'fornecedor', 'obs', 'conta_desde'],
   };
   const PODE_EXCLUIR = ['historico_precos', 'componentes', 'despesas']; // registro errado que um pacote pode apagar (volta no Desfazer)
   // 'compra:carne' do pacote ('@c06:carne_seca') → id da compra no app + carne
@@ -209,11 +209,12 @@
       const compra = refId(pk, x.compra);
       if (!R || !R.carneValida(x.carne)) { c.problemas.push('Lote ' + x.ref + ': carne "' + x.carne + '" não existe no Rendimento.'); return; }
       if (!(+x.kg > 0) || !(+x.valor > 0)) { c.problemas.push('Lote ' + x.ref + ': falta o peso ou o valor.'); return; }
+      if (x.conta_desde && x.conta_desde < x.dia) { c.problemas.push('Lote ' + x.ref + ': começa a contar antes do dia da compra.'); return; }
       const ja = S().get('lotes', id) || (compra && S().all('lotes').find(l => l.compra_id === compra && l.carne === x.carne));
       const it = { x, id, compra, status: ja ? 'ja' : 'novo' };
       c.lotes.push(it);
       c.cadastro.push({ tipo: 'lote', status: it.status, texto: 'Rendimento: lote de ' + R.nomeCarne(x.carne).toLowerCase() + ' de ' + P.Dia.rotuloCurto(x.dia) + (x.fornecedor ? ' (' + x.fornecedor + ')' : '') + ' · ' +
-        P.numAuto(+x.kg, 3) + ' kg · ' + P.brl(x.valor) + (x.fim ? ' · acabou ' + P.Dia.rotuloCurto(x.fim) : ' · aberto') });
+        P.numAuto(+x.kg, 3) + ' kg · ' + P.brl(x.valor) + (x.conta_desde ? ' · conta desde ' + P.Dia.rotuloCurto(x.conta_desde) : '') + (x.fim ? ' · acabou ' + P.Dia.rotuloCurto(x.fim) : ' · aberto') });
     });
     (Array.isArray(pk.rendimento.ignorar) ? pk.rendimento.ignorar : []).forEach(r => {
       const k = refIgnorar(pk, r);
@@ -465,7 +466,7 @@
       const x = l.x;
       criar('lotes', { id: l.id, carne: x.carne, dia: diaDe(x.dia), fornecedor: x.fornecedor || '', kg: P.round(+x.kg, 3), valor: P.round(+x.valor, 2),
         compra_id: l.compra && S().get('compras', l.compra) ? l.compra : null, compra_item_id: null, fim: x.fim ? diaDe(x.fim) : null,
-        sobra_kg: null, sobra_dia: null, base: null, conta_desde: diaDe(x.dia), obs: x.obs || null, criado_em: P.agoraISO(), usuario_id: uid });
+        sobra_kg: null, sobra_dia: null, base: null, conta_desde: diaDe(x.conta_desde || x.dia), obs: x.obs || null, criado_em: P.agoraISO(), usuario_id: uid });
       n.lotes++;
     });
     const novosIgn = c.ignorar.filter(k => k.status === 'muda').map(k => k.k);

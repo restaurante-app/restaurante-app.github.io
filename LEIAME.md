@@ -185,7 +185,8 @@ já lançados (fornecedor da compra, linha de compra ligada ao insumo certo, nom
 ficha, dia em que o botijão foi ligado…), fiado recebido depois, apagar um preço ou uma despesa que
 entrou errado (repetida) e separar linhas de uma compra
 numa compra de outro fornecedor. No Rendimento, o pacote abre lotes de carne ligados às compras dele,
-fecha um lote que acabou (corrige o dia e o fornecedor) e marca compras que "não são lote".
+fecha um lote que acabou (corrige o dia e o fornecedor), diz desde quando o lote conta as vendas e
+marca compras que "não são lote".
 Conta reaberta para corrigir continua no dia dela ao fechar de novo.
 
 **Unidade na compra** — na folha de quantidade e preço de um item da compra, "Comprado por" escolhe
@@ -204,7 +205,8 @@ compras por item, despesas, equipe, caixa, fiado e gás). Só lê o que já est�
 
 **Rendimento por lote** (só o dono; Mais → Rendimento) — cada compra de carne ou peixe (só a carne
 principal: contra filé, capa de filé, costela, rabada, filé de frango, coxa, galinha, tilápia,
-carne seca, bisteca, fígado, bucho, costelinha, bacalhau) vira um **lote**. Ao salvar a compra, o
+carne seca, bisteca, fígado, bucho, costelinha, bacalhau, calabresa e os pertences da feijoada —
+salgados, costela suína, paio, charque) vira um **lote**; os pertences contam as feijoadas. Ao salvar a compra, o
 app pergunta se abre um lote novo e, se já houver um aberto da mesma carne, se o anterior acabou
 (com "não", os dois ficam abertos). As vendas dos pratos que usam a carne entram sozinhas no lote
 **aberto mais antigo** ("3 rabadas" = 3 pratos; pedido com vários pratos conta 1 em cada lote); dá
@@ -213,9 +215,10 @@ dos pratos (só a comida), gramas por prato, carne por prato, carne / venda (at�
 amarelo, acima vermelho) e a sobra depois da carne. **Peso que sobrou** estima quantos pratos ainda
 saem. Avisa quando passa da meta de gramas por prato. **Comparar**: lotes da mesma carne
 (fornecedor, R$/kg, g por prato, carne / venda). **Ajustes**: qual prato usa qual carne, metas e as
-palavras da compra que abrem lote. Os lotes de 01 a 08/10 entram uma vez em cada aparelho (contagem
-do dono); a partir de 09/10 as vendas contam sozinhas. Não muda vendas, compras, caixa nem
-relatórios.
+palavras da compra que abrem lote. **Vendas contam desde**: o dia em que começou a usar o lote (para
+um lote comprado antes e guardado, ex.: pertences que entram de uma vez numa feijoada futura). Os lotes de 01 a 08/10 entram uma vez em cada
+aparelho (contagem do dono); a partir de 09/10 as vendas contam sozinhas. Não muda vendas, compras,
+caixa nem relatórios.
 
 ## Dados iniciais
 

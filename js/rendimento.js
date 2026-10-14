@@ -18,6 +18,8 @@
   const CARNES = [
     ['contra_file', 'Contra filé', 'contra file, contrafile, contra-file', 250],
     ['capa_file', 'Capa de filé', 'capa de file, capa do file, capa file', 200],
+    // pertences da feijoada (antes da costela: "costela suína" e "costela salgada" são da feijoada)
+    ['feijoada', 'Feijoada (pertences)', 'salgad, pe de porco, pe suino, rabo de porco, rabo suino, orelha, paio, charque, costela suina, feijoada', null],
     ['costelinha', 'Costelinha', 'costelinha', null],
     ['costela', 'Costela', 'costela', 500],
     ['rabada', 'Rabada', 'rabada, rabo bovino, rabo de boi', 400],
@@ -31,13 +33,16 @@
     ['figado', 'Fígado', 'figado', 200],
     ['bucho', 'Bucho (dobradinha)', 'bucho, dobradinha', null],
     ['bacalhau', 'Bacalhau', 'bacalhau', null],
+    ['calabresa', 'Calabresa', 'calabresa', null],
   ];
   // ingredientes de preparo: nunca viram lote
-  const EXCLUI = 'calabresa, bacon, linguica, salgad, charque, pe de porco, rabo de porco, pe e rabo, orelha, paio, feijoada, feijao, baiao';
+  const EXCLUI = 'bacon, toscana, feijao, baiao';
 
   // qual prato usa qual carne (pelo nome do prato; editável em Rendimento → Ajustes)
   const REGRAS_PRATO = [
-    [/feijoada|virado|calabresa|omelete/, null],
+    [/feijoada/, 'feijoada'],
+    [/calabresa/, 'calabresa'],
+    [/virado|omelete/, null],
     [/parmegiana de frango|frango a parmegiana|file de frango|peito de frango|panqueca/, 'file_frango'],
     [/contra ?-?file|parmegiana/, 'contra_file'],
     [/picadinho|bife de panela/, 'capa_file'],
@@ -122,7 +127,8 @@
   // ---------------------------------------------------------------
   //  Contas: em qual lote entra cada venda, e as métricas de cada lote
   // ---------------------------------------------------------------
-  const ordemLote = (a, b) => (a.dia < b.dia ? -1 : a.dia > b.dia ? 1 : (a.criado_em || '') < (b.criado_em || '') ? -1 : 1);
+  // mais antigo: dia da compra; no mesmo dia, o que começa a contar antes
+  const ordemLote = (a, b) => (a.dia !== b.dia ? (a.dia < b.dia ? -1 : 1) : contaDesde(a) !== contaDesde(b) ? (contaDesde(a) < contaDesde(b) ? -1 : 1) : (a.criado_em || '') < (b.criado_em || '') ? -1 : 1);
   const contaDesde = l => l.conta_desde || l.dia;
   let memo = { v: -1 };
   function calcular() {
@@ -354,7 +360,7 @@
   }
   function cartao(l) {
     const m = metricas(l);
-    const sub = [P.Dia.rotuloCurto(l.dia) + (l.fim ? ' → ' + P.Dia.rotuloCurto(l.fim) : ''), l.fornecedor, P.numAuto(m.kg, 3) + ' kg', P.brl(m.valor), m.rsKg ? P.brl(m.rsKg) + '/kg' : null].filter(Boolean).join(' · ');
+    const sub = [P.Dia.rotuloCurto(l.dia) + (l.fim ? ' → ' + P.Dia.rotuloCurto(l.fim) : ''), !l.base && contaDesde(l) > l.dia ? 'conta desde ' + P.Dia.rotuloCurto(contaDesde(l)) : null, l.fornecedor, P.numAuto(m.kg, 3) + ' kg', P.brl(m.valor), m.rsKg ? P.brl(m.rsKg) + '/kg' : null].filter(Boolean).join(' · ');
     return h('div', { class: 'rd-card' + (m.aberto ? ' aberto' : '') },
       h('a', { class: 'rd-topo', href: '#/rendimento/l/' + l.id },
         h('div', { class: 'rd-tit' }, h('b', null, nomeCarne(l.carne)), h('small', null, sub)),
@@ -442,7 +448,11 @@
         h('div', { class: 'secao' }, 'Dados do lote'),
         h('div', { class: 'aj-sec' },
           linha('Carne', nomeCarne(l.carne), async () => { const v = await P.UI.escolher({ titulo: 'Qual carne?', opcoes: carnes().map(c => ({ v: c.id, rotulo: c.nome })) }); if (v) alterar(l, { carne: v }); }),
-          linha('Dia da compra', P.Dia.rotulo(l.dia), () => P.Compras.calendario(l.dia, iso => alterar(l, { dia: iso, conta_desde: l.base ? l.conta_desde : iso, fim: l.fim && l.fim < iso ? iso : l.fim }), { titulo: 'Dia da compra' })),
+          linha('Dia da compra', P.Dia.rotulo(l.dia), () => P.Compras.calendario(l.dia, iso => alterar(l, { dia: iso, conta_desde: l.base || contaDesde(l) > l.dia && contaDesde(l) >= iso ? l.conta_desde : iso, fim: l.fim && l.fim < iso ? iso : l.fim }), { titulo: 'Dia da compra' })),
+          l.base ? null : linha('Vendas contam desde', P.Dia.rotulo(contaDesde(l)), () => P.Compras.calendario(contaDesde(l), iso => {
+            if (iso < l.dia) { P.UI.toast('Antes do dia da compra?', { tipo: 'perigo' }); return; }
+            alterar(l, { conta_desde: iso });
+          }, { titulo: 'Dia em que começou a usar' })),
           linha('Fornecedor', l.fornecedor || '—', async () => { const v = await pedirTexto('Fornecedor', l.fornecedor, 'Ex.: Belo Boi'); if (v != null) alterar(l, { fornecedor: v }); }),
           linha('Peso (kg)', P.numAuto(+l.kg, 3) + ' kg', async () => { const v = await P.UI.pedirNumero({ titulo: 'Peso do lote (kg)', valor: +l.kg, decimais: 3, sufixo: ' kg' }); if (v > 0) alterar(l, { kg: v }); }),
           linha('Valor pago', P.brl(l.valor), async () => { const v = await P.UI.pedirNumero({ titulo: 'Valor pago', valor: +l.valor, decimais: 2, prefixo: 'R$ ' }); if (v > 0) alterar(l, { valor: v }); }),
@@ -514,7 +524,7 @@
       const pratos = P.Store.all('itens').filter(it => it.categoria === 'PRATO' && it.ativo !== false && +it.preco_venda > 0).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
       trocar(corpo, 
         h('div', { class: 'secao' }, 'Qual prato usa qual carne'),
-        h('div', { class: 'dica' }, 'Prato sem carne (feijoada, virado, calabresa, omelete…) não conta em lote nenhum. Toque para trocar.'),
+        h('div', { class: 'dica' }, 'Prato sem carne de lote (virado, omelete…) não conta em lote nenhum; a feijoada conta no lote dos pertences. Toque para trocar.'),
         h('div', { class: 'aj-sec' }, pratos.map(it => {
           const escolhido = Object.prototype.hasOwnProperty.call(c.pratos, it.id);
           const cr = carneDoPrato(it.id, it.nome, c);
