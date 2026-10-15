@@ -94,15 +94,23 @@
   // ---------------------------------------------------------------
   //  Tema
   // ---------------------------------------------------------------
+  // Claro (creme da marca) é o padrão; a escolha fica em 'pari.tema2' (a chave antiga
+  // 'pari.tema' guardava o escuro do visual anterior e não vale mais).
   function tema(t) {
     if (t) {
       document.documentElement.dataset.theme = t;
-      try { localStorage.setItem('pari.tema', t); } catch (e) { /* ok */ }
+      try { localStorage.setItem('pari.tema2', t); } catch (e) { /* ok */ }
     }
-    const atual = document.documentElement.dataset.theme || 'dark';
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', atual === 'light' ? '#f6f1ea' : '#0c0a09');
+    const atual = document.documentElement.dataset.theme || 'light';
+    corDaBarra();
     return atual;
+  }
+  // cor da barra de status do celular: vermelho na tela do PIN, fundo da tela no resto
+  function corDaBarra() {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) return;
+    const escuro = document.documentElement.dataset.theme === 'dark';
+    meta.setAttribute('content', document.body && document.body.classList.contains('sem-sessao') ? '#B23A43' : escuro ? '#170F11' : '#F6EFDF');
   }
 
   // ---------------------------------------------------------------
@@ -379,11 +387,11 @@
     return null;
   }
   const TABS = {
+    // Fichas saiu da barra de baixo: fica em Mais → Gestão (pedido do dono, 15/10)
     DONO: [
       { id: 'painel', rota: 'painel', rotulo: 'Painel', icone: 'painel' },
       { id: 'mesas', rota: 'mesas', rotulo: 'Mesas', icone: 'mesas' },
       { id: 'compras', rota: 'compras', rotulo: 'Compras', icone: 'compras' },
-      { id: 'fichas', rota: 'fichas', rotulo: 'Fichas', icone: 'fichas' },
       { id: 'mais', rota: 'mais', rotulo: 'Mais', icone: 'mais_grade' },
     ],
     OPERADOR: [
@@ -393,6 +401,67 @@
       { id: 'mais', rota: 'mais', rotulo: 'Mais', icone: 'mais_grade' },
     ],
   };
+
+  // ---------------------------------------------------------------
+  //  Telas visitadas (em ordem): diz para onde o "voltar" do topo leva e
+  //  de que lado a tela nova entra (frente = da direita, volta = da esquerda).
+  // ---------------------------------------------------------------
+  const visitas = [];
+  let navPendente = null; // { idx } = voltando até a posição idx · { trocar: true, dir } = trocou a tela atual
+  // telas de formulário: depois de salvar o app sai delas, então o voltar pula por cima
+  const TRANSITORIA = /^(compras\/nova|compras\/editar\/|fichas\/editar\/|fichas\/insumo\/|mesas\/pagar\/)/;
+  function registrar(hash) {
+    const p = navPendente;
+    navPendente = null;
+    if (p && p.idx != null && visitas[p.idx] === hash) { visitas.length = p.idx + 1; return 'volta'; }
+    if (p && p.trocar && visitas.length) { visitas[visitas.length - 1] = hash; return p.dir || 'aba'; }
+    if (visitas[visitas.length - 1] === hash) return 'aba';
+    if (visitas.length > 1 && visitas[visitas.length - 2] === hash) { visitas.pop(); return 'volta'; } // voltar do celular
+    visitas.push(hash);
+    if (visitas.length > 80) visitas.shift();
+    return 'frente';
+  }
+  // history.replaceState (calendário, dia) troca o endereço sem avisar: acompanha aqui
+  const replaceOriginal = history.replaceState.bind(history);
+  history.replaceState = function (st, t, url) {
+    replaceOriginal(st, t, url);
+    if (url != null && visitas.length) visitas[visitas.length - 1] = String(url).replace(/^[^#]*#\/?/, '');
+  };
+  // troca a tela atual sem empilhar (abas internas, voltar sem histórico)
+  function trocarPara(rota, dir) {
+    if (location.hash.replace(/^#\/?/, '') === rota) return;
+    navPendente = { trocar: true, dir };
+    location.replace('#/' + rota);
+  }
+  function raizDaAba() {
+    const papel = P.Auth.isDono() ? 'DONO' : 'OPERADOR';
+    const ab = atual && atual.def ? (typeof atual.def.tab === 'function' ? atual.def.tab() : atual.def.tab) : null;
+    const t = TABS[papel].find(x => x.id === ab) || TABS[papel][0];
+    return t.rota;
+  }
+  function ehRaiz(def) {
+    const papel = P.Auth.isDono() ? 'DONO' : 'OPERADOR';
+    return TABS[papel].some(t => t.rota === def.padrao);
+  }
+  // Voltar do topo: 1) a tela de onde veio, pulando formulários já salvos e laços
+  // (A → B → A volta para antes do primeiro A); 2) sem histórico (abriu direto ou
+  // recarregou): o destino que a tela indica (link "voltar" dela) ou a aba da tela.
+  function voltar() {
+    const n = visitas.length;
+    const aqui = visitas[n - 1];
+    let ini = n - 2;
+    const antes = n > 1 ? visitas.lastIndexOf(aqui, n - 2) : -1;
+    if (antes >= 0) ini = antes - 1;
+    let idx = -1;
+    for (let i = ini; i >= 0; i--) {
+      if (visitas[i] !== aqui && !TRANSITORIA.test(visitas[i])) { idx = i; break; }
+    }
+    P.vibrar(8);
+    if (idx >= 0) { navPendente = { idx }; history.go(idx - (n - 1)); return; }
+    const view = $('#view');
+    const expl = view && view.querySelector('a.voltar[href], a.cm-voltar[href]');
+    trocarPara(expl ? expl.getAttribute('href').replace(/^#\/?/, '') : raizDaAba(), 'volta');
+  }
 
   let atual = null;
   function render() {
@@ -409,21 +478,26 @@
     const u = P.Auth.usuario();
     if (!u) {
       document.body.classList.add('sem-sessao');
+      corDaBarra();
       P.Auth.telaPin(view);
       return;
     }
     document.body.classList.remove('sem-sessao');
+    corDaBarra();
     const hash = location.hash.replace(/^#\/?/, '');
     const m = casar(hash);
     if (!m || (m.def.dono && !P.Auth.isDono())) {
       if (hash !== 'mesas') location.replace('#/mesas');
       return;
     }
-    // entrada suave (só na troca de tela; atualizações ao vivo não re-animam).
+    // entrada rápida (só na troca de tela; atualizações ao vivo não re-animam).
     // Atributo e não classe: cada tela redefine o className do #view.
+    const dir = registrar(hash);
     clearTimeout(render._t);
-    view.setAttribute('data-entra', '');
-    render._t = setTimeout(() => view.removeAttribute('data-entra'), 900);
+    view.removeAttribute('data-entra');
+    void view.offsetWidth; // reinicia a animação mesmo se a anterior não terminou
+    view.setAttribute('data-entra', ehRaiz(m.def) && dir === 'frente' ? 'aba' : dir);
+    render._t = setTimeout(() => view.removeAttribute('data-entra'), 450);
     let r = null;
     try { r = m.def.render(view, m.params) || {}; } catch (e) {
       console.error(e);
@@ -443,6 +517,11 @@
   function montarTopo(def, params) {
     const u = P.Auth.usuario();
     $('#top-titulo').textContent = typeof def.titulo === 'function' ? def.titulo(params) : (def.titulo || '');
+    // telas de dentro: o selo vira o botão de voltar
+    const dentro = !ehRaiz(def);
+    $('#top-voltar').hidden = !dentro;
+    $('.top-marca').hidden = dentro;
+    document.body.classList.toggle('com-voltar', dentro);
     // ação da tela no topo (ex.: Painel → Relatório)
     const slot = $('#top-acao');
     slot.replaceChildren();
@@ -499,8 +578,7 @@
     const aPagar = P.Compras ? P.Compras.aPagar().length : 0;
     marcar('mesas', abertas, 'info');
     marcar('compras', aPagar, 'aviso');
-    if (P.Auth.isDono()) marcar('fichas', velhos, 'aviso');
-    else marcar('mais', velhos, 'aviso');
+    marcar('mais', velhos, 'aviso');
   }
 
   // Pílula de status: online / offline / N pendentes
@@ -526,7 +604,8 @@
   function montarCasca() {
     $('#topbar').replaceChildren(
       h('a', { class: 'top-marca', href: '#/', 'aria-label': 'Início', onClick: e => { e.preventDefault(); location.hash = P.Auth.isDono() ? '#/painel' : '#/mesas'; } },
-        marca(38)),
+        marca(40)),
+      h('button', { id: 'top-voltar', type: 'button', class: 'top-voltar', 'aria-label': 'Voltar', hidden: true, onClick: voltar }, icone('voltar')),
       h('div', { class: 'top-tit' }, h('div', { id: 'top-titulo', class: 'top-titulo' }), h('div', { id: 'top-sub', class: 'top-sub' })),
       h('span', { id: 'top-acao' }),
       h('button', { id: 'top-sync', type: 'button', class: 'pilula', onClick: async () => {
@@ -541,8 +620,10 @@
 
   // Sub-navegação dentro de um módulo
   function subnav(itens, ativo) {
+    // abas internas trocam a tela sem empilhar: o voltar leva para onde estava antes do módulo
     const el = h('div', { class: 'subnav' }, itens.map(i =>
-      h('a', { href: '#/' + i.rota, class: i.id === ativo ? 'on' : '' }, i.rotulo,
+      h('a', { href: '#/' + i.rota, class: i.id === ativo ? 'on' : '', 'aria-current': i.id === ativo ? 'page' : null,
+        onClick: e => { e.preventDefault(); if (i.id !== ativo) { P.vibrar(6); trocarPara(i.rota, 'aba'); } } }, i.rotulo,
         i.badge ? h('span', { class: 'badge-in' }, i.badge) : null)));
     // a aba ativa fica à vista quando a barra é mais larga que a tela
     requestAnimationFrame(() => {
@@ -556,27 +637,27 @@
   }
 
   // ---------------------------------------------------------------
-  //  Marca (espeto na brasa) — SVG, nítido em qualquer tamanho
+  //  Marca Maria Simone (js/marca.js) — vetorial, cor pelo tema
   // ---------------------------------------------------------------
-  let nMarca = 0;
+  function svgMarca(vb, caminhos) {
+    return '<svg viewBox="' + vb + '" aria-hidden="true">' +
+      caminhos.map(d => '<path fill="currentColor" fill-rule="evenodd" d="' + d + '"/>').join('') + '</svg>';
+  }
+  // selo: a baiana do "O" de SIMONE num quadrado vermelho arredondado
   function marca(tam, cls) {
-    const id = 'mk' + (++nMarca);
     const w = document.createElement('span');
     w.className = 'marca' + (cls ? ' ' + cls : '');
     w.style.setProperty('--t', (tam || 36) + 'px');
-    w.innerHTML = '<svg viewBox="0 0 48 48" aria-hidden="true">' +
-      '<defs><linearGradient id="' + id + 'b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffc063"/><stop offset=".5" stop-color="#ff6b2c"/><stop offset="1" stop-color="#d4331a"/></linearGradient>' +
-      '<radialGradient id="' + id + 'f" cx=".3" cy=".15" r="1.05"><stop offset="0" stop-color="#3a2519"/><stop offset=".55" stop-color="#1a120e"/><stop offset="1" stop-color="#0d0908"/></radialGradient>' +
-      '<radialGradient id="' + id + 'g" cx=".5" cy=".62" r=".5"><stop offset="0" stop-color="#ff6b2c" stop-opacity=".55"/><stop offset="1" stop-color="#ff6b2c" stop-opacity="0"/></radialGradient></defs>' +
-      '<rect width="48" height="48" rx="13" fill="url(#' + id + 'f)"/>' +
-      '<ellipse cx="24" cy="30" rx="20" ry="15" fill="url(#' + id + 'g)"/>' +
-      '<rect x=".5" y=".5" width="47" height="47" rx="12.5" fill="none" stroke="#ffd2ad" stroke-opacity=".16"/>' +
-      '<g transform="rotate(-42 24 24)"><line x1="6" y1="24" x2="42" y2="24" stroke="#f3dcc2" stroke-width="1.9" stroke-linecap="round"/>' +
-      '<rect x="10.5" y="18" width="7.5" height="12" rx="3.2" fill="url(#' + id + 'b)"/>' +
-      '<rect x="20.3" y="18" width="7.5" height="12" rx="3.2" fill="#f6ede3"/>' +
-      '<rect x="30.1" y="18" width="7.5" height="12" rx="3.2" fill="url(#' + id + 'b)"/></g>' +
-      '<circle cx="37" cy="37.5" r="1.5" fill="#ffb049"/><circle cx="32.5" cy="41" r="1" fill="#ff8a3c" opacity=".8"/><circle cx="40.5" cy="32" r=".9" fill="#ffc063" opacity=".7"/>' +
-      '</svg>';
+    w.innerHTML = svgMarca(P.MARCA.seloVB, P.MARCA.selo);
+    return w;
+  }
+  // logo inteiro: MARIA SIMONE + faixa RESTAURANTE & MARMITAS
+  function logo(cls) {
+    const w = document.createElement('span');
+    w.className = 'logo' + (cls ? ' ' + cls : '');
+    w.setAttribute('role', 'img');
+    w.setAttribute('aria-label', 'Maria Simone — Restaurante & Marmitas');
+    w.innerHTML = svgMarca(P.MARCA.logoVB, [P.MARCA.logo]);
     return w;
   }
 
@@ -687,6 +768,6 @@
   P.UI = {
     h, icone, tema, toast, sheet, fecharSheets, confirmar, numpad, pedirNumero, stepper, seg, escolher, baixar,
     rota, render, subnav, montarCasca, atualizarPilula, semAcento, iniciais, vazio,
-    marca, statusPill, anel, pilha, colunas, medidor, contar, busca, campoBusca,
+    marca, logo, voltar, statusPill, anel, pilha, colunas, medidor, contar, busca, campoBusca,
   };
 })();

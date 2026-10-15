@@ -1,15 +1,26 @@
-# Pátio do Pari · Restaurante
+# Maria Simone · Restaurante & Marmitas (Pátio do Pari)
 
 App de gestão do restaurante: **mesas e comandas ao vivo**, **compras com lucro em
 tempo real**, **contador de fluxo**, **fichas técnicas com preço vivo** e **painel do
 dono**. Programa novo, independente do ERP da Agro Bras (não usa nada dele).
 
-Navegação (barra de baixo) — dono: Painel · Mesas · Compras · Fichas · Mais.
-Operador: Mesas · Compras · Fluxo · Mais. Em **Mais** fica tudo o resto, com um número
-ao vivo em cada atalho (fiado, a pagar, despesas, preços desatualizados…).
+Navegação (barra de baixo, 4 atalhos fixos) — dono: Painel · Mesas · Compras · Mais.
+Operador: Mesas · Compras · Fluxo · Mais. Em **Mais** fica tudo o resto em listas por grupo
+(Dia a dia, Compras e contas, Gestão, Dono, Aparelho), com um número ao vivo em cada linha
+(fiado, a pagar, despesas, preços desatualizados…) e uma **busca** no topo ("fiado", "gás",
+"equipe"). **Fichas técnicas** fica em Mais → Gestão (saiu da barra de baixo).
+Nas telas de dentro, o selo do topo vira o botão **voltar**: ele leva para a tela de onde você
+veio (pula formulário já salvo) e, se o app foi aberto direto na tela, para a aba dela. As abas
+de cima de cada módulo (ex.: Mesas · Fechadas · Totais) trocam a tela sem empilhar: o voltar
+sai do módulo de uma vez.
 
 - Funciona **offline**: tudo é gravado no celular na hora; sincroniza quando há rede.
-- Tema escuro, botões grandes (mínimo 56 px), uso com uma mão.
+- Visual da marca **Maria Simone**: vermelho `#B23A43` e creme `#F6EFDF` (cores do logo
+  oficial), logo e selo vetorizados (`js/marca.js`), títulos e números na fonte condensada
+  da faixa "Restaurante & Marmitas" (Barlow Condensed). Tema **claro (creme)** por padrão e
+  **escuro (vinho)** em Mais → Tema. Botões grandes (mínimo 56 px), uso com uma mão.
+- Leve no celular: sem desfoque nem textura por cima da tela; a troca de tela leva 0,2 s
+  (entra da direita ao avançar, da esquerda ao voltar).
 - Dia operacional começa **às 03:00** (domingo conta como segunda).
 - HTML + JavaScript puro, sem instalação. Para publicar é só subir a pasta.
 
@@ -302,8 +313,10 @@ Abre em tela cheia e funciona sem internet depois da primeira abertura.
 
 Para atualizar: altere os arquivos, aumente a versão em `sw.js` (ex.: `pari-v3` → `pari-v4`)
 e faça `git push`. Sem aumentar a versão o celular continua abrindo a versão guardada.
-A fonte (Inter) vem do Google Fonts e fica guardada no celular na primeira abertura
-com internet; sem ela, o app usa a fonte do sistema.
+As fontes (Plus Jakarta Sans e Barlow Condensed) vêm do Google Fonts e ficam guardadas no
+celular na primeira abertura com internet; sem elas, o app usa a fonte do sistema.
+Ícone do app: o selo redondo Maria Simone (`icons/`). Quem já instalou continua com o ícone
+antigo até remover e instalar de novo (o Android às vezes troca sozinho depois de alguns dias).
 
 O app tem endereço próprio (organização separada), então não divide o armazenamento
 do navegador com o ERP nem com a contagem, que ficam em `agrobras123-lab.github.io`.
