@@ -1,9 +1,10 @@
-# Próximos passos — situação em 13/10/2026
+# Próximos passos — situação em 15/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
+| App v1.11 (visual da marca Maria Simone, navegação com voltar no topo, Mais em listas com busca, Fichas fora da barra de baixo) | branch `claude/tool-navigation-design-yjz1he` | **em revisão** (não muda dados nem o `schema.sql`) |
 | App v1.10 (decimais no celular, Dia e período, Rendimento por lote) | `main` | **publicado** (rodar o `schema.sql` — tabela nova `lotes`) |
 | App v1.10.1 (Importar com lotes de carne; frango ao molho conta na coxa) | `main` | **publicado** |
 | Lançamentos de 09/10 a 12/10 (sexta, sábado, retirada de domingo e segunda), com lotes de costela e coxa e Belo Boi = Açougue Antigo | pacote `.json` no computador do dono (fora do Git) | **esperando importar** (precisa da v1.10.1) |
@@ -21,6 +22,15 @@ lançamentos → arquivo de 06/10 → conferir → Lançar; 4) montar a quarta e
 e resolver as pendências.
 
 Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodado.
+
+## O que entrou na v1.11 (pedido de 15/10)
+
+| Pedido | No app |
+|---|---|
+| Navegação travada, difícil de entender | botão **voltar** no topo das telas de dentro (volta para onde você estava); abas de cima trocam sem empilhar; troca de tela em 0,2 s, da direita ao avançar e da esquerda ao voltar; tirados o desfoque e a textura por cima da tela, que pesavam na rolagem do celular |
+| Layout cru | Mais em listas por grupo com busca; cartões, botões, abas e folhas redesenhados; títulos e números grandes na fonte condensada da marca |
+| Cores e logo da marca | vermelho `#B23A43` e creme `#F6EFDF` do logo; tela do PIN vermelha com o logo; selo (a baiana do "O") no topo; ícone do app com o selo redondo; tema claro (creme) por padrão e escuro (vinho) em Mais → Tema |
+| Tirar Fichas dos atalhos fixos de baixo | barra do dono: Painel · Mesas · Compras · Mais; Fichas técnicas em Mais → Gestão |
 
 ## O que entrou na v1.10
 

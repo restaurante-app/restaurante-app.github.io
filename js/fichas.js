@@ -672,15 +672,15 @@
   // ---------------------------------------------------------------
   //  Rotas
   // ---------------------------------------------------------------
-  const tabPrecos = () => (P.Auth.isDono() ? 'fichas' : 'mais');
-  P.UI.rota('fichas', { titulo: 'Fichas', tab: 'fichas', dono: true, render: telaMargem });
-  P.UI.rota('fichas/item/:id', { titulo: 'Ficha técnica', tab: 'fichas', dono: true, render: telaItem });
-  P.UI.rota('fichas/simular', { titulo: 'Simulação', tab: 'fichas', dono: true, render: telaSimular });
-  P.UI.rota('fichas/simular/:id', { titulo: 'Simulação', tab: 'fichas', dono: true, render: telaSimular });
-  P.UI.rota('fichas/cadastro', { titulo: 'Cadastro', tab: 'fichas', dono: true, render: telaCadastro });
-  P.UI.rota('fichas/cadastro/:aba', { titulo: 'Cadastro', tab: 'fichas', dono: true, render: telaCadastro });
-  P.UI.rota('fichas/insumo/:id', { titulo: 'Insumo', tab: 'fichas', dono: true, render: telaInsumo });
-  P.UI.rota('fichas/editar/:id', { titulo: 'Editar ficha', tab: 'fichas', dono: true, render: telaEditarItem });
+  const tabPrecos = 'mais'; // Fichas saiu da barra de baixo (fica em Mais)
+  P.UI.rota('fichas', { titulo: 'Fichas', tab: 'mais', dono: true, render: telaMargem });
+  P.UI.rota('fichas/item/:id', { titulo: 'Ficha técnica', tab: 'mais', dono: true, render: telaItem });
+  P.UI.rota('fichas/simular', { titulo: 'Simulação', tab: 'mais', dono: true, render: telaSimular });
+  P.UI.rota('fichas/simular/:id', { titulo: 'Simulação', tab: 'mais', dono: true, render: telaSimular });
+  P.UI.rota('fichas/cadastro', { titulo: 'Cadastro', tab: 'mais', dono: true, render: telaCadastro });
+  P.UI.rota('fichas/cadastro/:aba', { titulo: 'Cadastro', tab: 'mais', dono: true, render: telaCadastro });
+  P.UI.rota('fichas/insumo/:id', { titulo: 'Insumo', tab: 'mais', dono: true, render: telaInsumo });
+  P.UI.rota('fichas/editar/:id', { titulo: 'Editar ficha', tab: 'mais', dono: true, render: telaEditarItem });
   P.UI.rota('precos', { titulo: 'Preços', tab: tabPrecos, render: telaPrecos });
   P.UI.rota('precos/:id', { titulo: 'Preços', tab: tabPrecos, render: telaPrecos });
 

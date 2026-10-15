@@ -165,9 +165,8 @@
       : null;
     view.append(
       h('div', { class: 'pin-marca' },
-        P.UI.marca(92, 'pin-logo'),
-        h('div', { class: 'pin-nome' }, 'Pátio do Pari'),
-        h('div', { class: 'pin-nome2' }, 'Restaurante · Brás')),
+        P.UI.logo('pin-logo'),
+        h('div', { class: 'pin-local' }, 'Pátio do Pari · Brás')),
       tit, sub, dots, msg, pad, aviso);
     desenhar();
   }
