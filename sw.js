@@ -5,7 +5,7 @@
    Publicado em endereço próprio (restaurante-app.github.io). Mesmo assim, por
    garantia: só apaga cache com o prefixo deste app e refaz o cache se sumir. */
 const PREFIXO = 'pari-';
-const CACHE = PREFIXO + 'v36';
+const CACHE = PREFIXO + 'v37';
 const FONTES = PREFIXO + 'fontes'; // fontes (Google Fonts): guardadas na 1ª abertura com internet
 // cache: 'reload' = baixa do servidor, nunca do cache HTTP do navegador (senão a versão nova
 // podia ser guardada com arquivos velhos e o celular não via a mudança)

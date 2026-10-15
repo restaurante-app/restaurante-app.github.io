@@ -37,6 +37,8 @@
   ];
   // ingredientes de preparo: nunca viram lote
   const EXCLUI = 'bacon, toscana, feijao, baiao';
+  // lista de antes da v1.10.3, gravada sem querer junto com outros ajustes: vale a de agora
+  const EXCLUI_V1 = 'calabresa, bacon, linguica, salgad, charque, pe de porco, rabo de porco, pe e rabo, orelha, paio, feijoada, feijao, baiao';
 
   // qual prato usa qual carne (pelo nome do prato; editável em Rendimento → Ajustes)
   const REGRAS_PRATO = [
@@ -89,9 +91,10 @@
   // ---------------------------------------------------------------
   function cfg() {
     const c = JSON.parse(JSON.stringify(P.cfg('rendimento') || {})); // cópia: salvarCfg mexe nela
-    return { carnes: c.carnes || {}, pratos: c.pratos || {}, movidos: c.movidos || [], ignorar: c.ignorar || [], excluir: c.excluir != null ? c.excluir : EXCLUI };
+    return { carnes: c.carnes || {}, pratos: c.pratos || {}, movidos: c.movidos || [], ignorar: c.ignorar || [], excluir: c.excluir != null && c.excluir !== EXCLUI_V1 ? c.excluir : EXCLUI };
   }
-  function salvarCfg(muda) { const c = cfg(); muda(c); P.salvarCfg('rendimento', c); }
+  // só grava a lista "nunca vira lote" quando o dono mudou (senão a padrão segue a do app)
+  function salvarCfg(muda) { const c = cfg(); muda(c); if (c.excluir === EXCLUI) delete c.excluir; P.salvarCfg('rendimento', c); }
   const palavras = t => String(t || '').split(',').map(sa).filter(Boolean);
   function carnes() {
     const c = cfg();
