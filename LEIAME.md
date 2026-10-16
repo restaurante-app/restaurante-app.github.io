@@ -216,7 +216,7 @@ compras por item, despesas, equipe, caixa, fiado e gás). Só lê o que já est�
 
 **Rendimento por lote** (só o dono; Mais → Rendimento) — cada compra de carne ou peixe (só a carne
 principal: contra filé, capa de filé, costela, rabada, filé de frango, coxa, galinha, tilápia,
-carne seca, bisteca, fígado, bucho, costelinha, bacalhau, calabresa e os pertences da feijoada —
+carne seca, bisteca, fígado, bucho, costelinha, bacalhau, carneiro, calabresa e os pertences da feijoada —
 salgados, costela suína, paio, charque) vira um **lote**; os pertences contam as feijoadas. Ao salvar a compra, o
 app pergunta se abre um lote novo e, se já houver um aberto da mesma carne, se o anterior acabou
 (com "não", os dois ficam abertos). As vendas dos pratos que usam a carne entram sozinhas no lote

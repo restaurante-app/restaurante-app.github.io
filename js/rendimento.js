@@ -18,6 +18,7 @@
   const CARNES = [
     ['contra_file', 'Contra filé', 'contra file, contrafile, contra-file', 250],
     ['capa_file', 'Capa de filé', 'capa de file, capa do file, capa file', 200],
+    ['carneiro', 'Carneiro', 'carneiro, cordeiro, borrego', null], // antes da costela: "costela de carneiro"
     // pertences da feijoada (antes da costela: "costela suína" e "costela salgada" são da feijoada)
     ['feijoada', 'Feijoada (pertences)', 'salgad, pe de porco, pe suino, rabo de porco, rabo suino, orelha, paio, charque, costela suina, feijoada', null],
     ['costelinha', 'Costelinha', 'costelinha', null],
@@ -43,6 +44,7 @@
   // qual prato usa qual carne (pelo nome do prato; editável em Rendimento → Ajustes)
   const REGRAS_PRATO = [
     [/feijoada/, 'feijoada'],
+    [/carneiro|cordeiro|borrego/, 'carneiro'],
     [/calabresa/, 'calabresa'],
     [/virado|omelete/, null],
     [/parmegiana de frango|frango a parmegiana|file de frango|peito de frango|panqueca/, 'file_frango'],
