@@ -62,6 +62,10 @@ O dono vê no topo das Mesas: vendido hoje, em aberto nas mesas e o lucro do dia
 o total pago) e como pagou (Dinheiro, Pix, Cartão ou **A prazo**). Cada item de insumo
 **atualiza o preço da ficha técnica** e o app mostra na hora o efeito nos pratos
 ("Filé de frango saiu de 37% para 39%"). Item sem ficha (gelo, sacola) entra só no gasto.
+**Criar na hora**: em *Adicionar item*, escreva o nome na busca; se o insumo não existe, *Criar o insumo "…"*
+cadastra ali mesmo (kg, litro ou unidade, com o preço desta compra) e já põe na compra — como o "Criar e pôr
+na comanda" da marmita. *"…" sem ficha* lança só no gasto sem perguntar o nome de novo. No item da nota marcado
+*ligar à ficha* também dá para criar o insumo com o nome da nota (o app lembra para as próximas notas).
 **Dia da compra**: a compra nasce no dia aberto em Compras (ou hoje); toque no dia no formulário
 para escolher outro no calendário (compra de ontem lançada hoje, por exemplo).
 Compra de dia passado ou editada não passa por cima do preço de uma compra mais nova.
@@ -163,6 +167,17 @@ entrar) e a **montagem**: tudo que foi gasto antes do dia da abertura (Ajustes �
 sábado; o dono monta, na ordem que quiser). Na comanda, os pratos do dia aparecem primeiro e o
 resto fica em "Outros pratos"; dia sem cardápio = todos os pratos. Botões para copiar o cardápio
 de hoje ou mandar no WhatsApp.
+
+**Folha da cozinha** (Mais → Folha da cozinha, ou a aba ao lado do Cardápio do dia) — a folha A4 que fica
+impressa na cozinha para as cozinheiras saberem o que fazer: os **pratos do dia** de cada dia da semana e os
+**fixos da chapa** (saem todos os dias), cada um com o que **leva**. Toque no dia (Seg a Sáb), em *Adicionar
+prato* (busca nos pratos já usados na cozinha e nos da comanda, ou escreva um novo) e escreva o que leva; o
+"Leva" fica guardado no prato e volta pronto quando ele entra em outro dia. *Trazer do cardápio* puxa os pratos
+do Cardápio do dia; *Copiar outro dia* copia a folha de outro dia; a seta sobe o prato; o X tira (com
+Desfazer). *Imprimir* sai numa folha A4 no visual da marca (faixa Maria Simone, creme, cartões com borda
+vermelha), com a data do dia escolhido ou só o dia da semana (para deixar a mesma folha impressa por mais
+tempo). Com muito prato a letra encolhe sozinha para caber numa página (e avisa se não couber). O dono monta;
+todos veem e imprimem. Começa com a folha de sexta montada com o dono (16/10).
 
 **Buscas** — Compras e Despesas têm uma busca no topo que aceita nome, data e valor juntos
 (ex.: "gás 05/10", "coca", "380", "247,80"): procura em tudo o que já foi lançado. Na comanda

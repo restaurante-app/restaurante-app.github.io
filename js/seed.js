@@ -136,6 +136,23 @@
     cartao: { nome: null, vencimento_dia: 1 }, // cartão de crédito das compras: fatura vence todo dia X
     // cardápio de cada dia da semana: { '1': [ids dos pratos de segunda], …, '6': sábado }; dia sem lista = todos os pratos
     cardapio_semana: { dias: {} },
+    // folha da cozinha (js/cozinha.js): o que cada prato leva, os pratos do dia de cada dia da semana e
+    // os fixos da chapa. Começa com a folha de sexta montada com o dono (16/10/2026).
+    cozinha: {
+      com_data: true,
+      pratos: {
+        cz_baiao: { nome: 'Baião completo', leva: 'arroz parboilizado, feijão de corda, carne seca desfiada, bacon, queijo coalho em cubos, cebola, alho, coentro e manteiga de garrafa por cima.' },
+        cz_jaba: { nome: 'Jabá com mandioca frita', leva: 'carne seca desfiada e acebolada com alho, coentro e manteiga de garrafa, mandioca cozida e depois frita, e feijão de corda.' },
+        cz_file_tilapia: { nome: 'Filé de tilápia', leva: 'filé de tilápia temperado com limão, alho, sal e pimenta-do-reino, grelhado na chapa na hora.' },
+        cz_posta_tilapia: { nome: 'Posta de tilápia', leva: 'posta de tilápia temperada com limão, alho e sal, passada na farinha de trigo e frita em óleo bem quente.' },
+        cz_contra_file: { nome: 'Contra filé', leva: 'contra filé e sal grosso, chapa bem quente.' },
+        cz_calabresa: { nome: 'Calabresa acebolada', leva: 'calabresa fatiada e cebola em tiras.' },
+        cz_file_frango: { nome: 'Filé de frango', leva: 'peito aberto, alho, limão, sal e pimenta-do-reino.' },
+        cz_omelete: { nome: 'Omelete', leva: 'ovos, cebola, tomate, cheiro-verde e sal.' },
+      },
+      dias: { 5: ['cz_baiao', 'cz_jaba', 'cz_file_tilapia', 'cz_posta_tilapia'] },
+      fixos: ['cz_contra_file', 'cz_calabresa', 'cz_file_frango', 'cz_omelete'],
+    },
     // resultado do dia: 'caixa' = entradas e saídas (padrão enquanto as fichas não estão montadas); 'fichas' = lucro pelo custo dos pratos
     painel: { modo: 'caixa' },
   };

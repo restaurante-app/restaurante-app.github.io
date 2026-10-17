@@ -48,6 +48,7 @@
       const velhos = P.Store.all('insumos').filter(P.Calc.precoVelho).length;
       const passou = P.Fluxo.totais('PASSOU').dia;
       const cardHoje = P.Cardapio.doDia(hoje);
+      const coz = P.Cozinha.resumo(cardHoje.sem);
       const bot = P.Gas.emUso();
       const botInfo = bot && P.Gas.info(bot);
       const avisoGas = P.Gas.aviso();
@@ -59,6 +60,7 @@
         { href: 'mesas/fiado', ic: 'fiado', cor: 'vermelho', t: 'Fiado', s: fiado ? P.brl0(fiado) + ' a receber' : 'ninguém devendo', destaque: !!fiado, k: 'devendo receber cliente pendura' },
         { href: 'mesas/despesas', ic: 'caixa', cor: 'laranja', t: 'Despesas', s: despHoje ? P.brl0(despHoje) + ' hoje' : dono ? 'salários, aluguel, contas, gás…' : 'gás, carvão, embalagem', k: 'gasto conta luz agua aluguel salario carvao embalagem' },
         { href: 'cardapio', ic: 'fichas', cor: 'laranja', t: 'Cardápio do dia', s: cardHoje.definido ? cardHoje.itens.length + ' pratos de ' + cardHoje.nome + ' · mandar no WhatsApp' : 'monte os pratos de cada dia', k: 'pratos whatsapp menu' },
+        { href: 'cardapio/cozinha', ic: 'imprimir', cor: 'vermelho', t: 'Folha da cozinha', s: coz.dia ? coz.dia + (coz.dia === 1 ? ' prato' : ' pratos') + ' de ' + cardHoje.nome + ' + ' + coz.fixos + (coz.fixos === 1 ? ' fixo' : ' fixos') + ' · imprimir' : 'pratos do dia e o que leva · imprimir', k: 'cozinha cozinheira cozinheiras imprimir impressao producao leva folha cardapio' },
         { href: 'gas', ic: 'fogo', cor: 'vermelho', t: 'Gás', s: avisoGas ? 'botijão perto de acabar' : bot ? (botInfo.corridos ? 'botijão em uso há ' + botInfo.corridos + (botInfo.corridos === 1 ? ' dia' : ' dias') : 'botijão ligado hoje') : 'quanto dura cada botijão', destaque: !!avisoGas, k: 'botijao' },
         { href: 'fluxo', ic: 'fluxo', cor: 'azul', t: 'Fluxo', s: 'contador · ' + P.num(passou) + ' passaram hoje', k: 'passou contador movimento pessoas' },
       ]));
