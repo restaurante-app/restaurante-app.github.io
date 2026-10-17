@@ -164,6 +164,17 @@ sábado; o dono monta, na ordem que quiser). Na comanda, os pratos do dia aparec
 resto fica em "Outros pratos"; dia sem cardápio = todos os pratos. Botões para copiar o cardápio
 de hoje ou mandar no WhatsApp.
 
+**Folha da cozinha** (Mais → Folha da cozinha, ou a aba ao lado do Cardápio do dia) — a folha A4 que fica
+impressa na cozinha para as cozinheiras saberem o que fazer: os **pratos do dia** de cada dia da semana e os
+**fixos da chapa** (saem todos os dias), cada um com o que **leva**. Toque no dia (Seg a Sáb), em *Adicionar
+prato* (busca nos pratos já usados na cozinha e nos da comanda, ou escreva um novo) e escreva o que leva; o
+"Leva" fica guardado no prato e volta pronto quando ele entra em outro dia. *Trazer do cardápio* puxa os pratos
+do Cardápio do dia; *Copiar outro dia* copia a folha de outro dia; a seta sobe o prato; o X tira (com
+Desfazer). *Imprimir* sai numa folha A4 no visual da marca (faixa Maria Simone, creme, cartões com borda
+vermelha), com a data do dia escolhido ou só o dia da semana (para deixar a mesma folha impressa por mais
+tempo). Com muito prato a letra encolhe sozinha para caber numa página (e avisa se não couber). O dono monta;
+todos veem e imprimem. Começa com a folha de sexta montada com o dono (16/10).
+
 **Buscas** — Compras e Despesas têm uma busca no topo que aceita nome, data e valor juntos
 (ex.: "gás 05/10", "coca", "380", "247,80"): procura em tudo o que já foi lançado. Na comanda
 (mesa, marmita ou venda rápida), "Buscar item" acha em todas as categorias; se o item não existe,

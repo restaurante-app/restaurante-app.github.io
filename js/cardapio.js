@@ -49,6 +49,10 @@
   // ---------------------------------------------------------------
   //  TELA
   // ---------------------------------------------------------------
+  // cardápio da comanda e folha da cozinha (js/cozinha.js) lado a lado
+  function subnav(ativo) {
+    return P.UI.subnav([{ id: 'cardapio', rota: 'cardapio', rotulo: 'Cardápio do dia' }, { id: 'cozinha', rota: 'cardapio/cozinha', rotulo: 'Folha da cozinha' }], ativo);
+  }
   function telaCardapio(view) {
     view.className = 'v-mesas v-cardapio';
     const dono = P.Auth.isDono();
@@ -115,11 +119,11 @@
       }
       if (!dono) corpo.appendChild(h('div', { class: 'dica' }, 'Só o dono muda o cardápio.'));
     }
-    view.append(corpo);
+    view.append(subnav('cardapio'), corpo);
     desenhar();
     return { onDados(t) { if (t.has('config') || t.has('itens')) desenhar(); } };
   }
 
   P.UI.rota('cardapio', { titulo: 'Cardápio do dia', tab: 'mais', render: telaCardapio });
-  P.Cardapio = { doDia, lista, salvar, texto, pratos, diaSemana, NOME, LONGO };
+  P.Cardapio = { doDia, lista, itensDe, salvar, texto, pratos, diaSemana, subnav, NOME, LONGO };
 })();

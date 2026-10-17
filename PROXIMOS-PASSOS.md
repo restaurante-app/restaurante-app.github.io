@@ -1,9 +1,10 @@
-# Próximos passos — situação em 15/10/2026
+# Próximos passos — situação em 16/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
+| App v1.12 (Folha da cozinha: pratos do dia e fixos com o que leva, imprimir em A4) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`: fica na tabela `config`) |
 | App v1.11 (visual da marca Maria Simone, navegação com voltar no topo, Mais em listas com busca, Fichas fora da barra de baixo) | branch `claude/tool-navigation-design-yjz1he` | **em revisão** (não muda dados nem o `schema.sql`) |
 | App v1.10 (decimais no celular, Dia e período, Rendimento por lote) | `main` | **publicado** (rodar o `schema.sql` — tabela nova `lotes`) |
 | App v1.10.1 (Importar com lotes de carne; frango ao molho conta na coxa) | `main` | **publicado** |
@@ -22,6 +23,17 @@ lançamentos → arquivo de 06/10 → conferir → Lançar; 4) montar a quarta e
 e resolver as pendências.
 
 Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodado.
+
+## O que entrou na v1.12 (pedido de 16/10)
+
+| Pedido | No app |
+|---|---|
+| Criar rápido o cardápio que fica impresso na cozinha (muda de vez em quando) | Mais → **Folha da cozinha**: pratos do dia de cada dia da semana e fixos da chapa, cada um com o que leva (guardado no prato); adicionar buscando ou escrevendo, trazer do Cardápio do dia, copiar de outro dia, subir e tirar com Desfazer |
+| Imprimir para deixar na cozinha | botão **Imprimir**: folha A4 no visual aprovado (faixa Maria Simone, creme, cartões), com a data ou só o dia da semana; a letra encolhe sozinha quando há muito prato |
+
+Já vem com a folha de sexta (baião completo, jabá com mandioca frita, filé e posta de tilápia; fixos: contra
+filé, calabresa acebolada, filé de frango e omelete). As fontes da folha (Bagel Fat One e Atkinson Hyperlegible)
+são baixadas na primeira vez que a tela abre com internet e ficam guardadas no aparelho.
 
 ## O que entrou na v1.11 (pedido de 15/10)
 
