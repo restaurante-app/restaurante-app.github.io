@@ -791,6 +791,8 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .cp-lin-v { white-space: nowrap; font-size: .95rem; letter-spacing: -.02em; }
 .cp-lin .btn.ic { width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--tx3); box-shadow: none; }
 .cp-add { border: 1.5px dashed var(--borda2); background: transparent; box-shadow: none; color: var(--marca-tx); }
+.cp-criar { border-color: var(--marca-borda); }
+.cp-criar .esc-rot { display: inline-flex; align-items: center; gap: 6px; color: var(--marca-tx); }
 .cp-ok { display: flex; align-items: center; gap: 12px; background: var(--bg-bom); color: var(--tx-bom); border-radius: 18px; padding: 13px 15px; }
 .cp-ok svg { width: 28px; height: 28px; }
 .cp-ok b { display: block; color: var(--tx); }

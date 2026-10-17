@@ -4,7 +4,7 @@
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.12 (Folha da cozinha: pratos do dia e fixos com o que leva, imprimir em A4) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`: fica na tabela `config`) |
+| App v1.12 (Folha da cozinha: pratos do dia e fixos com o que leva, imprimir em A4; criar insumo na hora de lançar a compra) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`: fica na tabela `config`) |
 | App v1.11 (visual da marca Maria Simone, navegação com voltar no topo, Mais em listas com busca, Fichas fora da barra de baixo) | branch `claude/tool-navigation-design-yjz1he` | **em revisão** (não muda dados nem o `schema.sql`) |
 | App v1.10 (decimais no celular, Dia e período, Rendimento por lote) | `main` | **publicado** (rodar o `schema.sql` — tabela nova `lotes`) |
 | App v1.10.1 (Importar com lotes de carne; frango ao molho conta na coxa) | `main` | **publicado** |
@@ -30,6 +30,7 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 |---|---|
 | Criar rápido o cardápio que fica impresso na cozinha (muda de vez em quando) | Mais → **Folha da cozinha**: pratos do dia de cada dia da semana e fixos da chapa, cada um com o que leva (guardado no prato); adicionar buscando ou escrevendo, trazer do Cardápio do dia, copiar de outro dia, subir e tirar com Desfazer |
 | Imprimir para deixar na cozinha | botão **Imprimir**: folha A4 no visual aprovado (faixa Maria Simone, creme, cartões), com a data ou só o dia da semana; a letra encolhe sozinha quando há muito prato |
+| Criar itens na hora de lançar a compra, como na marmita | Lançar compra → *Adicionar item*: busca pelo nome; o que não existe vira **Criar o insumo "…"** (unidade e preço desta compra, entra nas fichas) ou **"…" sem ficha**; no item da nota "ligar à ficha" também dá para criar o insumo com o nome da nota |
 
 Já vem com a folha de sexta (baião completo, jabá com mandioca frita, filé e posta de tilápia; fixos: contra
 filé, calabresa acebolada, filé de frango e omelete). As fontes da folha (Bagel Fat One e Atkinson Hyperlegible)

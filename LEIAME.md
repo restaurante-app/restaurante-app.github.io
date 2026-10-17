@@ -62,6 +62,10 @@ O dono vê no topo das Mesas: vendido hoje, em aberto nas mesas e o lucro do dia
 o total pago) e como pagou (Dinheiro, Pix, Cartão ou **A prazo**). Cada item de insumo
 **atualiza o preço da ficha técnica** e o app mostra na hora o efeito nos pratos
 ("Filé de frango saiu de 37% para 39%"). Item sem ficha (gelo, sacola) entra só no gasto.
+**Criar na hora**: em *Adicionar item*, escreva o nome na busca; se o insumo não existe, *Criar o insumo "…"*
+cadastra ali mesmo (kg, litro ou unidade, com o preço desta compra) e já põe na compra — como o "Criar e pôr
+na comanda" da marmita. *"…" sem ficha* lança só no gasto sem perguntar o nome de novo. No item da nota marcado
+*ligar à ficha* também dá para criar o insumo com o nome da nota (o app lembra para as próximas notas).
 **Dia da compra**: a compra nasce no dia aberto em Compras (ou hoje); toque no dia no formulário
 para escolher outro no calendário (compra de ontem lançada hoje, por exemplo).
 Compra de dia passado ou editada não passa por cima do preço de uma compra mais nova.
