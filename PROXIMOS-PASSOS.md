@@ -1,10 +1,11 @@
-# Próximos passos — situação em 16/10/2026
+# Próximos passos — situação em 17/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.12 (Folha da cozinha: pratos do dia e fixos com o que leva, imprimir em A4; criar insumo na hora de lançar a compra) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`: fica na tabela `config`) |
+| App v1.13 (Fechar caixa: dinheiro da gaveta, Pix e maquininha conferidos com as vendas, o fiado recebido e o que saiu) | `main` → https://restaurante-app.github.io/ | **publicado** (não muda o `schema.sql`: fica na tabela `config`) |
+| App v1.12 (Folha da cozinha: pratos do dia e fixos com o que leva, imprimir em A4; criar insumo na hora de lançar a compra) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.11 (visual da marca Maria Simone, navegação com voltar no topo, Mais em listas com busca, Fichas fora da barra de baixo) | branch `claude/tool-navigation-design-yjz1he` | **em revisão** (não muda dados nem o `schema.sql`) |
 | App v1.10 (decimais no celular, Dia e período, Rendimento por lote) | `main` | **publicado** (rodar o `schema.sql` — tabela nova `lotes`) |
 | App v1.10.1 (Importar com lotes de carne; frango ao molho conta na coxa) | `main` | **publicado** |
@@ -23,6 +24,12 @@ lançamentos → arquivo de 06/10 → conferir → Lançar; 4) montar a quarta e
 e resolver as pendências.
 
 Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodado.
+
+## O que entrou na v1.13 (pedido de 17/10)
+
+| Pedido | No app |
+|---|---|
+| Fechar caixa: informar o total de dinheiro, Pix e cartão do dia e ver se bateu com os recebimentos, as entradas e as saídas | Mesas → **Fechar caixa** (e Mais): dinheiro contado na gaveta × troco do início + recebido em dinheiro − pago em dinheiro; Pix que entrou × vendas e fiado no Pix; maquininha × débito + crédito. Bateu / sobrou / faltou em cada um e no total, aviso de conta aberta e de despesa sem forma, fechamento guardado com quem fechou e a hora |
 
 ## O que entrou na v1.12 (pedido de 16/10)
 

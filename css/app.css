@@ -1403,3 +1403,26 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .ct-mais-t { font-size: 6.4rem; font-weight: 700; }
 @media (max-height: 900px) { .pn-num { font-size: 2.2rem; } }
 @media (max-height: 690px) { .pn-num { font-size: 1.8rem; } }
+
+/* ---------- Fechar caixa (Mesas → Fechar caixa) ---------- */
+.fc-card { margin-bottom: 12px; }
+.fc-ic { background: var(--marca-bg2); color: var(--marca-tx); border: 0; }
+.fc-ic svg { width: 20px; height: 20px; }
+.fc-troco { width: 100%; border: 0; background: none; padding: 5px 0; text-align: left; cursor: pointer; }
+.fc-troco svg { width: 14px; height: 14px; vertical-align: -2px; color: var(--tx3); }
+.fc-esp { border-top: 1px solid var(--borda); margin-top: 3px; padding-top: 8px; color: var(--tx); font-weight: 700; }
+.fc-inf { justify-content: space-between; }
+.fc-inf span { font-size: .84rem; font-weight: 700; color: var(--tx2); }
+.fc-inf.fc-sem b { color: var(--marca-tx); }
+.fc-res { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 10px 12px; border-radius: 12px; font-size: .9rem; }
+.fc-res svg { width: 18px; height: 18px; }
+.fc-res b { color: inherit; }
+.fc-res.ok { background: var(--bg-bom); color: var(--tx-bom); }
+.fc-res.sobra { background: var(--bg-atencao); color: var(--tx-atencao); }
+.fc-res.falta { background: var(--bg-critico); color: var(--tx-critico); }
+.fc-det summary { cursor: pointer; font-size: .74rem; color: var(--tx2); padding: 4px 0; }
+.fc-sai { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0 4px 10px; font-size: .74rem; color: var(--tx2); }
+.fc-sai b { color: var(--tx); white-space: nowrap; }
+.fc-sai small { color: var(--tx3); }
+.fc-nota { display: block; color: var(--tx3); font-size: .7rem; line-height: 1.4; padding: 4px 0; }
+.fc-obs { min-height: 64px; margin-top: 12px; padding: 10px 15px; font-family: var(--fonte); line-height: 1.45; resize: vertical; }

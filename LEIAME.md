@@ -168,6 +168,18 @@ sábado; o dono monta, na ordem que quiser). Na comanda, os pratos do dia aparec
 resto fica em "Outros pratos"; dia sem cardápio = todos os pratos. Botões para copiar o cardápio
 de hoje ou mandar no WhatsApp.
 
+**Fechar caixa** (Mesas → Fechar caixa, ou Mais → Fechar caixa) — no fim do dia, informe o **dinheiro
+contado na gaveta**, o **Pix que entrou na conta** e o **total da maquininha**; o app confere com o que
+registrou no dia e mostra, em cada um, **bateu**, **sobrou** ou **faltou** (e quanto):
+- Dinheiro = troco do início + vendas e fiado recebidos em dinheiro − compras e despesas pagas em dinheiro
+  (a lista do que saiu fica à mão). O troco do início vem do último fechamento; toque para mudar.
+- Pix = vendas e fiado recebidos no Pix (o que saiu no Pix aparece à parte e não entra nesta conta).
+- Cartão = débito + crédito das vendas (e do fiado recebido no cartão).
+Avisa se ainda há conta aberta no dia e se há despesa sem forma de pagamento. *Fechar o caixa* guarda o que
+foi informado, quem fechou e a hora (dá para salvar de novo ou desfazer); a conta é refeita ao vivo se algo
+for lançado depois. Mais → Fechar caixa e Dia e período (no dia) mostram o resultado. Todos fecham; o que é
+só do dono (salário, retirada…) entra na conta sem mostrar o que é.
+
 **Folha da cozinha** (Mais → Folha da cozinha, ou a aba ao lado do Cardápio do dia) — a folha A4 que fica
 impressa na cozinha para as cozinheiras saberem o que fazer: os **pratos do dia** de cada dia da semana e os
 **fixos da chapa** (saem todos os dias), cada um com o que **leva**. Toque no dia (Seg a Sáb), em *Adicionar
