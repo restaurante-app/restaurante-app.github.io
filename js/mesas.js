@@ -164,6 +164,7 @@
       { id: 'abertas', rota: 'mesas', rotulo: 'Mesas' },
       { id: 'hoje', rota: 'mesas/hoje', rotulo: 'Fechadas' },
       { id: 'totais', rota: 'mesas/totais', rotulo: 'Totais do dia' },
+      { id: 'caixa', rota: 'mesas/caixa', rotulo: 'Fechar caixa' },
       { id: 'despesas', rota: 'mesas/despesas', rotulo: 'Despesas' },
       { id: 'fiado', rota: 'mesas/fiado', rotulo: 'Fiado', badge: nFiado || null },
     ], ativo);
@@ -979,7 +980,7 @@
   P.UI.rota('mesas/fiado', { titulo: 'Fiado', tab: 'mesas', render: telaFiado });
 
   P.Mesas = {
-    linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, fiadoAberto, totaisDoDia,
+    linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, navDia, fiadoAberto, totaisDoDia,
     FORMAS, NOME_FORMA, ICONE_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP, DESP_FIXA, DESP_DONO, DESP_FORA, FORMAS_DESP, NOME_FORMA_DESP, despVisivel, subDesp,
     SUBTIPOS, NOME_SUBTIPO, competenciaDe, rotuloCompetencia, inicioSemana, novaDespesa, semHora, jaFechada, criarItem,
     _abrir: abrir, _adicionar: adicionar, _fechar: fechar, _tirar: tirar,

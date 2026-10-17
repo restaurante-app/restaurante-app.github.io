@@ -65,6 +65,11 @@
       h('div', { class: 'rl-tr th rl-tr3' }, h('span', null, 'Item'), h('span', null, 'Qtd'), h('span', null, 'Valor')),
       lista.map(g => h('div', { class: 'rl-tr rl-tr3' }, h('span', null, g.nome), h('span', null, P.num(g.q, g.q % 1 ? 1 : 0)), h('span', null, P.brl(g.fat)))));
   }
+  // um dia só: como foi o fechamento do caixa (Mesas → Fechar caixa)
+  function fechCaixa(dias) {
+    const f = dias.length === 1 && P.Fechamento ? P.Fechamento.resultado(dias[0]) : null;
+    return f ? linhaV('Fechamento do caixa' + (f.f.por ? ' (' + f.f.por + ')' : ''), f.texto, f.bateu ? 't-verde' : 'aviso') : null;
+  }
   function blocos(r, dias) {
     const varios = dias.length > 1;
     const quando = d => (varios ? P.Dia.rotuloCurto(d) + ' · ' : '');
@@ -122,7 +127,8 @@
       linhaV('Entrou (vendas recebidas' + (r.fiadoRecebidoTotal ? ' e fiado recebido' : '') + ')', P.brl(r.entradas)),
       linhaV('Saiu (compras pagas, despesas e equipe)', P.brl(r.saidas)),
       linhaV('= Saldo', P.brl(r.saldo), 'total ' + (r.saldo >= 0 ? 't-verde' : 't-vermelho')),
-      r.comprasAPrazo ? linhaV('Comprado e ainda não pago (a prazo / cartão de crédito)', P.brl(r.comprasAPrazo), 'aviso') : null));
+      r.comprasAPrazo ? linhaV('Comprado e ainda não pago (a prazo / cartão de crédito)', P.brl(r.comprasAPrazo), 'aviso') : null,
+      fechCaixa(dias)));
 
     out.push(secao('Fiado',
       linhaV('Vendido no fiado', P.brl(r.fiadoDadoTotal), r.fiadoDadoTotal ? 'aviso' : null),
