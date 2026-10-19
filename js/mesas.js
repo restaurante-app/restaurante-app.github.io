@@ -154,6 +154,27 @@
     const u = P.Auth.usuario();
     P.Store.put('comandas', Object.assign({}, c, { status: 'CANCELADA', fechada_em: P.agoraISO(), cancelada_por: u && u.id }));
   }
+  // Excluir uma venda (lançada errada ou repetida; só o dono): a conta, os itens e os pagamentos
+  // somem das vendas, do caixa, do fiado e dos lotes de carne. Pergunta antes e o aviso tem Desfazer.
+  async function excluirVenda(c) {
+    const pags = P.Store.all('pagamentos').filter(p => p.comanda_id === c.id);
+    const recebido = pags.filter(p => p.forma === 'FIADO' && p.recebido_em).reduce((s, p) => s + (+p.valor || 0), 0);
+    const valor = c.status === 'CANCELADA' ? 'cancelada' : P.brl(c.total);
+    if (!(await P.UI.confirmar('Excluir a venda de ' + rotulo(c) + ' (' + valor + ', ' + P.Dia.rotulo(c.dia_operacional) + ')? Ela sai das vendas, do caixa e dos lotes de carne.' +
+      (recebido ? ' O fiado recebido dela (' + P.brl(recebido) + ') também sai do caixa.' : '') + ' Use para venda lançada errada ou repetida. Ela fica na Lixeira (Mais → Lixeira) e pode ser restaurada.', { ok: 'Excluir venda', perigo: true }))) return false;
+    const itens = P.Store.all('comanda_itens').filter(l => l.comanda_id === c.id);
+    const com = P.Store.get('comandas', c.id);
+    itens.forEach(l => P.Store.remove('comanda_itens', l.id));
+    pags.forEach(p => P.Store.remove('pagamentos', p.id));
+    P.Store.remove('comandas', c.id);
+    P.vibrar(20);
+    P.UI.toast('Venda excluída · ' + rotulo(c), { acao: { rotulo: 'Desfazer', fn: () => {
+      if (com) P.Store.put('comandas', Object.assign({}, com, { excluido: false }));
+      itens.forEach(l => P.Store.put('comanda_itens', Object.assign({}, l, { excluido: false })));
+      pags.forEach(p => P.Store.put('pagamentos', Object.assign({}, p, { excluido: false })));
+    } } });
+    return true;
+  }
 
   // ---------------------------------------------------------------
   //  Componentes de tela
@@ -558,7 +579,10 @@
         reabrir(c);
         location.hash = '#/mesas/c/' + c.id;
         P.UI.render();
-      } }, P.UI.icone('refresh'), 'Reabrir para corrigir') : null);
+      } }, P.UI.icone('refresh'), 'Reabrir para corrigir') : null,
+      P.Auth.isDono() && c.status !== 'ABERTA' ? h('button', { type: 'button', class: 'btn perigo bloco', onClick: async () => {
+        if (await excluirVenda(c)) location.hash = '#/mesas/hoje';
+      } }, P.UI.icone('lixo'), 'Excluir venda') : null);
     return {};
   }
 
@@ -846,7 +870,7 @@
         h('b', null, P.brl(d.valor))),
       h('button', { type: 'button', class: 'btn ic perigo', 'aria-label': 'Excluir', onClick: () => {
         P.Store.remove('despesas', d.id);
-        P.UI.toast('Despesa excluída', { acao: { rotulo: 'Desfazer', fn: () => P.Store.put('despesas', Object.assign({}, d, { excluido: false })) } });
+        P.UI.toast('Despesa excluída (fica na Lixeira)', { acao: { rotulo: 'Desfazer', fn: () => P.Store.put('despesas', Object.assign({}, d, { excluido: false })) } });
       } }, P.UI.icone('lixo')));
     // linhas "nome ........ valor" com barra proporcional
     const barras = (pares, total) => h('div', { class: 'ds-barras' }, pares.map(([nome, v]) => h('div', { class: 'ds-barra' },
@@ -982,7 +1006,7 @@
   P.Mesas = {
     linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, navDia, fiadoAberto, totaisDoDia,
     FORMAS, NOME_FORMA, ICONE_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP, DESP_FIXA, DESP_DONO, DESP_FORA, FORMAS_DESP, NOME_FORMA_DESP, despVisivel, subDesp,
-    SUBTIPOS, NOME_SUBTIPO, competenciaDe, rotuloCompetencia, inicioSemana, novaDespesa, semHora, jaFechada, criarItem,
+    SUBTIPOS, NOME_SUBTIPO, competenciaDe, rotuloCompetencia, inicioSemana, novaDespesa, semHora, jaFechada, criarItem, excluirVenda,
     _abrir: abrir, _adicionar: adicionar, _fechar: fechar, _tirar: tirar,
   };
 })();

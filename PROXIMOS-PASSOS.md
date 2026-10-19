@@ -1,9 +1,10 @@
-# Próximos passos — situação em 17/10/2026
+# Próximos passos — situação em 19/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
+| App v1.14 (busca nos lotes de carne, excluir compra e excluir venda, Lixeira para restaurar) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
 | App v1.13 (Fechar caixa: dinheiro da gaveta, Pix e maquininha conferidos com as vendas, o fiado recebido e o que saiu) | `main` → https://restaurante-app.github.io/ | **publicado** (não muda o `schema.sql`: fica na tabela `config`) |
 | App v1.12 (Folha da cozinha: pratos do dia e fixos com o que leva, imprimir em A4; criar insumo na hora de lançar a compra) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.11 (visual da marca Maria Simone, navegação com voltar no topo, Mais em listas com busca, Fichas fora da barra de baixo) | branch `claude/tool-navigation-design-yjz1he` | **em revisão** (não muda dados nem o `schema.sql`) |
@@ -24,6 +25,15 @@ lançamentos → arquivo de 06/10 → conferir → Lançar; 4) montar a quarta e
 e resolver as pendências.
 
 Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodado.
+
+## O que entrou na v1.14 (pedido de 19/10)
+
+| Pedido | No app |
+|---|---|
+| Busca nos lotes de carne | Rendimento → Lotes: busca no topo por carne, fornecedor, dia ou valor, nos lotes abertos e fechados |
+| Excluir compras | detalhe da compra → **Excluir compra** (dono): sai do gasto e do caixa, junto com o lote de carne aberto por ela; Desfazer no aviso |
+| Excluir vendas | Mesas → Fechadas → toque na conta → **Excluir venda** (dono): sai das vendas, do caixa, do fiado e dos lotes; Desfazer no aviso |
+| Cuidado para não apagar as coisas | tudo pergunta antes de excluir; a lista de Fechadas não tem lixeira; **Mais → Lixeira** (dono) guarda por 90 dias tudo o que foi excluído (vendas, compras, despesas, lotes) com **Restaurar** |
 
 ## O que entrou na v1.13 (pedido de 17/10)
 

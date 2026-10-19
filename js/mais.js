@@ -77,6 +77,7 @@
         const nAl = P.Analise ? P.Analise.contar() : 0;
         const nPend = P.Anotacoes ? P.Anotacoes.abertas().length : 0;
         const nEq = P.Store.all('pessoas').filter(p => p.ativo !== false).length;
+        const nLixo = P.Lixeira ? P.Lixeira.lista().length : 0;
         grupos.push(grupo('Gestão', [
           { href: 'fichas', ic: 'fichas', cor: 'roxo', t: 'Fichas técnicas', s: 'margem de cada prato · cadastro', k: 'ficha cmv food cost insumos itens cadastro' },
           { href: 'relatorio', ic: 'relatorio', cor: 'azul', t: 'Relatório detalhado', s: 'vendas, caixa, compras, CSV', k: 'exportar planilha imprimir' },
@@ -91,6 +92,8 @@
           { href: 'anotacoes', ic: 'fiado', cor: 'amarelo', t: 'Pendências', s: nPend ? nPend + ' para confirmar' : 'anotações e lembretes', destaque: !!nPend, k: 'anotacao lembrete' },
           { href: 'equipe', ic: 'usuario', cor: 'verde', t: 'Equipe', s: nEq ? nEq + (nEq === 1 ? ' pessoa' : ' pessoas') + ' · vales, salários, pró-labore' : 'vales, salários e pró-labore', k: 'funcionario vale salario pro-labore retirada' },
           { href: 'caixa', ic: 'caixa', cor: 'azul', t: 'Capital e caixa', s: 'desde a abertura e a montagem', k: 'saldo investimento' },
+          { href: 'lixeira', ic: 'lixo', cor: 'cinza', t: 'Lixeira', s: nLixo ? nLixo + (nLixo === 1 ? ' excluído' : ' excluídos') + ' nos últimos 90 dias · restaurar' : 'o que for excluído pode voltar daqui',
+            k: 'excluido excluida apagado apagada restaurar recuperar desfazer lixo' },
           { href: 'importar', ic: 'upload', cor: 'cinza', t: 'Importar lançamentos', s: 'relatório ou caderno, com conferência', k: 'json pacote caderno' },
         ]));
       }

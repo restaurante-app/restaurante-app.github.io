@@ -37,7 +37,7 @@ Em **Ajustes → Pessoas e PINs** o dono cadastra os operadores.
 | Contador de fluxo (passou) | ✓ | ✓ |
 | Atualizar preço de compra | ✓ | ✓ |
 | Painel, relatório, análise do fluxo, fichas, simulação, cadastro | ✓ | — |
-| Reabrir conta fechada | ✓ | — |
+| Reabrir ou excluir conta fechada (venda) | ✓ | — |
 
 A sessão do dono trava sozinha depois de 10 minutos com o app em segundo plano.
 
@@ -56,6 +56,13 @@ pagos). Os custos fixos de Ajustes ficam só como **base**: a projeção do mês
 fixos do mês não forem lançados. O operador não vê essas despesas,
 **Fiado** (quem deve, com "Recebi em…").
 Item tirado de uma comanda e conta cancelada ficam registrados com quem fez.
+**Excluir venda** (dono): venda lançada errada ou repetida sai pelo botão *Excluir venda* no resumo da conta
+(Fechadas → toque na conta; a lista não tem lixeira, para não apagar sem querer). Pergunta antes; some das
+vendas, do caixa, do fiado e dos lotes de carne; o aviso tem *Desfazer* e ela fica na **Lixeira**.
+
+**Lixeira** (dono; Mais → Lixeira) — nada que é excluído some de verdade: fica guardado (no aparelho e na
+nuvem) e aparece aqui por 90 dias — vendas, compras, despesas e lotes de carne — com **Restaurar**. A venda
+volta com os itens e os pagamentos; a compra, com os itens e o lote de carne apagados junto.
 O dono vê no topo das Mesas: vendido hoje, em aberto nas mesas e o lucro do dia.
 
 **Compras** — *Lançar compra*: de quem comprou, os itens (quantidade + preço por kg, ou
@@ -98,6 +105,9 @@ fornecedor), que procura em todas as compras pelo nome do produto como veio na n
 o app sugere o próximo vencimento, que fica em Ajustes → Cartão de crédito) ou **A prazo**
 (com vencimento, se quiser). *Dividir* lança a compra em partes (ex.: parte no crédito e o resto
 em dinheiro; a última parte fica com o que falta).
+**Excluir compra** (dono): no detalhe da compra, *Excluir compra* tira a compra do gasto e do caixa (e apaga o
+lote de carne aberto por ela, se houver); pergunta antes, o aviso tem *Desfazer* e ela fica na **Lixeira**. Os preços
+das fichas não voltam atrás.
 **A pagar**: o que está em aberto, por fornecedor (a prazo) e por fatura do cartão, com o
 vencimento ("vence 01/11 (27 dias)"); ao pagar, escolhe-se o dia do pagamento e a forma.
 No caixa, a compra a prazo ou no crédito só sai no dia em que é paga.
@@ -251,7 +261,8 @@ app pergunta se abre um lote novo e, se já houver um aberto da mesma carne, se 
 para **mover** os pratos de um dia para outro lote (até de outra carne em uso no dia, ex.: costela feita com a costelinha). **Acabou** fecha o lote e mostra pratos, venda
 dos pratos (só a comida), gramas por prato, carne por prato, carne / venda (até 35% verde, até 45%
 amarelo, acima vermelho) e a sobra depois da carne. **Peso que sobrou** estima quantos pratos ainda
-saem. Avisa quando passa da meta de gramas por prato. **Comparar**: lotes da mesma carne
+saem. Avisa quando passa da meta de gramas por prato. **Busca** no topo dos lotes: carne, fornecedor, dia
+(05/10) ou valor (380, 52,90 o kg), nos abertos e nos fechados. **Comparar**: lotes da mesma carne
 (fornecedor, R$/kg, g por prato, carne / venda). **Ajustes**: qual prato usa qual carne, metas e as
 palavras da compra que abrem lote. **Vendas contam desde**: o dia em que começou a usar o lote (para
 um lote comprado antes e guardado, ex.: pertences que entram de uma vez numa feijoada futura). Os lotes de 01 a 08/10 entram uma vez em cada

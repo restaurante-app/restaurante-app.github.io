@@ -1346,17 +1346,34 @@
       const acoes = h('div', { class: 'row gap acoes' });
       if (partesAbertas(c).length) acoes.appendChild(h('button', { type: 'button', class: 'btn primario grow', onClick: () => pagarSheet([c], nomeCompra(c)) }, P.UI.icone('check'), 'Marcar como pago'));
       acoes.appendChild(h('a', { class: 'btn grow', href: '#/compras/editar/' + c.id }, P.UI.icone('lapis'), 'Editar'));
-      if (P.Auth.isDono()) acoes.appendChild(h('button', { type: 'button', class: 'btn perigo', 'aria-label': 'Excluir', onClick: async () => {
-        if (!(await P.UI.confirmar('Excluir esta compra de ' + P.brl(c.total) + '? Os preços das fichas não voltam atrás.', { ok: 'Excluir', perigo: true }))) return;
-        itensDe(c.id).forEach(l => P.Store.remove('compra_itens', l.id));
-        P.Store.remove('compras', c.id);
-        location.hash = '#/compras';
-      } }, P.UI.icone('lixo')));
       corpo.appendChild(acoes);
+      if (P.Auth.isDono()) corpo.appendChild(h('button', { type: 'button', class: 'btn perigo bloco', onClick: async () => { if (await excluir(c)) location.hash = '#/compras'; } },
+        P.UI.icone('lixo'), 'Excluir compra'));
     }
     view.append(voltar('#/compras', 'Compras'), corpo);
     desenhar();
     return { onDados: desenhar };
+  }
+
+  // Excluir uma compra (lançada errada ou repetida; só o dono): a compra, os itens e o lote de carne
+  // aberto por ela somem do gasto, do caixa e do Rendimento. Os preços das fichas não voltam atrás.
+  // Pergunta antes e o aviso tem Desfazer. → true se excluiu
+  async function excluir(c) {
+    const lotes = P.Store.all('lotes').filter(l => l.compra_id === c.id);
+    const nomesLote = lotes.map(l => (P.Rendimento ? P.Rendimento.nomeCarne(l.carne) : 'carne').toLowerCase()).join(', ');
+    if (!(await P.UI.confirmar('Excluir a compra ' + nomeCompra(c) + ' de ' + P.brl(c.total) + ' (' + P.Dia.rotulo(c.dia_operacional) + ')? Ela sai do gasto e do caixa.' +
+      (lotes.length ? ' O lote de ' + nomesLote + ' aberto por ela também é apagado.' : '') + ' Os preços das fichas não voltam atrás. Ela fica na Lixeira (Mais → Lixeira) e pode ser restaurada.', { ok: 'Excluir compra', perigo: true }))) return false;
+    const itens = itensDe(c.id);
+    itens.forEach(l => P.Store.remove('compra_itens', l.id));
+    lotes.forEach(l => P.Store.remove('lotes', l.id));
+    P.Store.remove('compras', c.id);
+    P.vibrar(20);
+    P.UI.toast('Compra excluída · ' + nomeCompra(c), { acao: { rotulo: 'Desfazer', fn: () => {
+      P.Store.put('compras', Object.assign({}, c, { excluido: false }));
+      itens.forEach(l => P.Store.put('compra_itens', Object.assign({}, l, { excluido: false })));
+      lotes.forEach(l => P.Store.put('lotes', Object.assign({}, l, { excluido: false })));
+    } } });
+    return true;
   }
 
   // ---------------------------------------------------------------
@@ -1570,7 +1587,7 @@
   P.UI.rota('compras/custos', { titulo: 'Custos', tab: 'compras', dono: true, render: telaCustos });
 
   P.Compras = {
-    subnav: subnavCompras, calendario, itensDe, aPagar, doDia, salvar, pagar, custos, variacoes, NOME_FORMA, cardResultado,
+    subnav: subnavCompras, calendario, itensDe, aPagar, doDia, salvar, pagar, excluir, custos, variacoes, NOME_FORMA, cardResultado,
     partes, partesAbertas, valorAberto, saidas, textoPartes, contasAPagar, proximaFatura, meioDia, rotuloVence, quandoVence, aPrazoForma,
   };
 })();

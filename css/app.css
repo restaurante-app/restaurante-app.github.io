@@ -1426,3 +1426,11 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .fc-sai small { color: var(--tx3); }
 .fc-nota { display: block; color: var(--tx3); font-size: .7rem; line-height: 1.4; padding: 4px 0; }
 .fc-obs { min-height: 64px; margin-top: 12px; padding: 10px 15px; font-family: var(--fonte); line-height: 1.45; resize: vertical; }
+
+/* ---------- Lixeira (Mais → Lixeira) ---------- */
+.lx-card { gap: 10px; align-items: flex-start; }
+.lx-card .ms-card-n small { white-space: normal; }
+.lx-card .lx-quando { color: var(--tx3); }
+.lx-dir { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.lx-card .btn.mini { flex: 0 0 auto; gap: 5px; }
+.lx-card .btn.mini svg { width: 15px; height: 15px; }
