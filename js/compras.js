@@ -1362,7 +1362,7 @@
     const lotes = P.Store.all('lotes').filter(l => l.compra_id === c.id);
     const nomesLote = lotes.map(l => (P.Rendimento ? P.Rendimento.nomeCarne(l.carne) : 'carne').toLowerCase()).join(', ');
     if (!(await P.UI.confirmar('Excluir a compra ' + nomeCompra(c) + ' de ' + P.brl(c.total) + ' (' + P.Dia.rotulo(c.dia_operacional) + ')? Ela sai do gasto e do caixa.' +
-      (lotes.length ? ' O lote de ' + nomesLote + ' aberto por ela também é apagado.' : '') + ' Os preços das fichas não voltam atrás.', { ok: 'Excluir compra', perigo: true }))) return false;
+      (lotes.length ? ' O lote de ' + nomesLote + ' aberto por ela também é apagado.' : '') + ' Os preços das fichas não voltam atrás. Ela fica na Lixeira (Mais → Lixeira) e pode ser restaurada.', { ok: 'Excluir compra', perigo: true }))) return false;
     const itens = itensDe(c.id);
     itens.forEach(l => P.Store.remove('compra_itens', l.id));
     lotes.forEach(l => P.Store.remove('lotes', l.id));

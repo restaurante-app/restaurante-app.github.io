@@ -13,7 +13,7 @@ const ARQUIVOS = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/config.js', './js/core.js', './js/marca.js', './js/db.js', './js/calc.js', './js/seed.js', './js/ui.js', './js/auth.js',
   './js/fluxo.js', './js/fichas.js', './js/mesas.js', './js/painel.js', './js/compras.js', './js/analise.js',
-  './js/equipe.js', './js/anotacoes.js', './js/caixa.js', './js/cardapio.js', './js/cozinha.js', './js/fechamento.js', './js/gas.js', './js/importar.js', './js/relatorio.js', './js/dia.js', './js/rendimento.js',
+  './js/equipe.js', './js/anotacoes.js', './js/caixa.js', './js/cardapio.js', './js/cozinha.js', './js/fechamento.js', './js/gas.js', './js/importar.js', './js/relatorio.js', './js/dia.js', './js/rendimento.js', './js/lixeira.js',
   './js/mais.js', './js/app.js',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/icon-apple-180.png', './icons/faixa-cozinha.png',
 ];

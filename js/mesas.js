@@ -161,7 +161,7 @@
     const recebido = pags.filter(p => p.forma === 'FIADO' && p.recebido_em).reduce((s, p) => s + (+p.valor || 0), 0);
     const valor = c.status === 'CANCELADA' ? 'cancelada' : P.brl(c.total);
     if (!(await P.UI.confirmar('Excluir a venda de ' + rotulo(c) + ' (' + valor + ', ' + P.Dia.rotulo(c.dia_operacional) + ')? Ela sai das vendas, do caixa e dos lotes de carne.' +
-      (recebido ? ' O fiado recebido dela (' + P.brl(recebido) + ') também sai do caixa.' : '') + ' Use para venda lançada errada ou repetida.', { ok: 'Excluir venda', perigo: true }))) return false;
+      (recebido ? ' O fiado recebido dela (' + P.brl(recebido) + ') também sai do caixa.' : '') + ' Use para venda lançada errada ou repetida. Ela fica na Lixeira (Mais → Lixeira) e pode ser restaurada.', { ok: 'Excluir venda', perigo: true }))) return false;
     const itens = P.Store.all('comanda_itens').filter(l => l.comanda_id === c.id);
     const com = P.Store.get('comandas', c.id);
     itens.forEach(l => P.Store.remove('comanda_itens', l.id));
@@ -701,19 +701,11 @@
         h('div', { class: 'fx-tot' }, h('small', null, cs.filter(c => c.status === 'FECHADA').length + ' contas'), h('b', null, P.brl(tot))),
         h('div', { class: 'fx-formas' }, FORMAS.filter(f => porForma[f.v]).map(f => h('span', { class: 'fx-f f-' + f.v.toLowerCase() }, f.rotulo + ' ', h('b', null, P.brl(porForma[f.v])))))));
       if (!cs.length) { corpo.appendChild(P.UI.vazio('Nenhuma conta fechada neste dia.')); return; }
-      // dono: lixeira em cada conta (venda lançada errada ou repetida)
-      const dono = P.Auth.isDono();
-      corpo.appendChild(h('div', { class: 'ms-lista' }, cs.map(c => {
-        const miolo = [
-          h('div', { class: 'ms-card-n' }, rotulo(c),
-            h('small', null, (semHora(c) ? 'lançada depois' : P.Dia.hora(c.aberta_em) + '–' + P.Dia.hora(c.fechada_em)) + ' · ' + NOME_CANAL[c.canal] + ' · ' +
-              (c.status === 'CANCELADA' ? 'cancelada' : pagamentos(c.id).map(p => NOME_FORMA[p.forma]).join(' + ')))),
-          h('b', null, c.status === 'CANCELADA' ? '—' : P.brl(c.total))];
-        const cls = 'ms-card' + (c.status === 'CANCELADA' ? ' cancelada' : '');
-        return dono ? h('div', { class: cls }, h('a', { class: 'ds-card', href: '#/mesas/c/' + c.id }, miolo),
-          h('button', { type: 'button', class: 'btn ic perigo', 'aria-label': 'Excluir a venda de ' + rotulo(c), onClick: () => excluirVenda(c) }, P.UI.icone('lixo')))
-          : h('a', { class: cls, href: '#/mesas/c/' + c.id }, miolo);
-      })));
+      corpo.appendChild(h('div', { class: 'ms-lista' }, cs.map(c => h('a', { class: 'ms-card' + (c.status === 'CANCELADA' ? ' cancelada' : ''), href: '#/mesas/c/' + c.id },
+        h('div', { class: 'ms-card-n' }, rotulo(c),
+          h('small', null, (semHora(c) ? 'lançada depois' : P.Dia.hora(c.aberta_em) + '–' + P.Dia.hora(c.fechada_em)) + ' · ' + NOME_CANAL[c.canal] + ' · ' +
+            (c.status === 'CANCELADA' ? 'cancelada' : pagamentos(c.id).map(p => NOME_FORMA[p.forma]).join(' + ')))),
+        h('b', null, c.status === 'CANCELADA' ? '—' : P.brl(c.total))))));
     }
     view.append(subnavMesas('hoje'), corpo);
     desenhar();
@@ -878,7 +870,7 @@
         h('b', null, P.brl(d.valor))),
       h('button', { type: 'button', class: 'btn ic perigo', 'aria-label': 'Excluir', onClick: () => {
         P.Store.remove('despesas', d.id);
-        P.UI.toast('Despesa excluída', { acao: { rotulo: 'Desfazer', fn: () => P.Store.put('despesas', Object.assign({}, d, { excluido: false })) } });
+        P.UI.toast('Despesa excluída (fica na Lixeira)', { acao: { rotulo: 'Desfazer', fn: () => P.Store.put('despesas', Object.assign({}, d, { excluido: false })) } });
       } }, P.UI.icone('lixo')));
     // linhas "nome ........ valor" com barra proporcional
     const barras = (pares, total) => h('div', { class: 'ds-barras' }, pares.map(([nome, v]) => h('div', { class: 'ds-barra' },
