@@ -13,14 +13,14 @@
   const CURTO = { 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb' };
 
   // pratos que podem entrar no cardápio: os que estão à venda (ativos, com preço) na categoria Prato
-  const pratos = () => P.Store.all('itens').filter(it => it.categoria === 'PRATO' && P.Calc.vendavel(it)).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  const pratos = () => P.Store.all('itens').filter(it => it.categoria === 'PRATO' && P.Calc.vendavel(it) && !P.Calc.espetoOculto(it)).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   const diaSemana = dia => { const s = P.Dia.semana(dia); return s === 0 ? 1 : s; };
   function lista(sem) {
     const l = (P.cfg('cardapio_semana').dias || {})[sem];
     return Array.isArray(l) ? l : [];
   }
   // os pratos de um dia da semana na ordem montada (só os que continuam à venda)
-  const itensDe = sem => lista(sem).map(id => P.Store.get('itens', id)).filter(it => it && it.categoria === 'PRATO' && P.Calc.vendavel(it));
+  const itensDe = sem => lista(sem).map(id => P.Store.get('itens', id)).filter(it => it && it.categoria === 'PRATO' && P.Calc.vendavel(it) && !P.Calc.espetoOculto(it));
   function doDia(dia) {
     const sem = diaSemana(dia || P.Dia.hoje());
     const itens = itensDe(sem);

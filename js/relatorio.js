@@ -199,11 +199,13 @@
         r.porForma.FIADO ? linhaV('Vendido no fiado neste período (a receber)', P.brl(r.porForma.FIADO), 'aviso') : null,
         r.comprasAPrazo ? linhaV('Comprado neste período e ainda não pago (a prazo / cartão de crédito)', P.brl(r.comprasAPrazo), 'aviso') : null));
 
+      // espeto só com o turno ligado (ou se teve venda nele no período)
+      const canais = ['SALAO', 'ESPETO', 'MARMITA'].filter(k => k !== 'ESPETO' || P.Calc.espetoLigado() || r.porCanal.ESPETO.contas > 0);
       corpo.appendChild(secao('Por canal',
-        P.UI.pilha(['SALAO', 'ESPETO', 'MARMITA'].map(k => ({ rotulo: NOME_CANAL[k], valor: r.porCanal[k].fat, serie: k.toLowerCase() })), P.brl0),
+        P.UI.pilha(canais.map(k => ({ rotulo: NOME_CANAL[k], valor: r.porCanal[k].fat, serie: k.toLowerCase() })), P.brl0),
         h('div', { class: 'rl-tab' },
           h('div', { class: 'rl-tr th' }, h('span', null, 'Canal'), h('span', null, 'Faturamento'), h('span', null, 'CMV'), h('span', null, 'Contas'), h('span', null, 'Ticket')),
-          ['SALAO', 'ESPETO', 'MARMITA'].map(k => { const c = r.porCanal[k]; return h('div', { class: 'rl-tr' },
+          canais.map(k => { const c = r.porCanal[k]; return h('div', { class: 'rl-tr' },
             h('span', null, h('i', { class: 'leg-dot serie-' + k.toLowerCase() }), NOME_CANAL[k]), h('span', null, P.brl0(c.fat)), h('span', null, P.pct(c.fat ? c.cmv / c.fat * 100 : null, 0)),
             h('span', null, c.contas), h('span', null, c.contas ? P.brl(c.totContas / c.contas) : '—')); }))));
 

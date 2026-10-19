@@ -148,7 +148,9 @@ por faixa, conversão, filtro por dia da semana, 3 maiores e 3 menores, exportar
 preço um por vez ("Contra filé grelhado saiu de 38% para 42%"), simulação de porção e
 preço, cadastro de insumos e itens (item pode conter outro item).
 
-**Painel** — três cards (dia, semana, mês) que cabem na tela, atualizando ao vivo:
+**Painel** — três cards (dia, semana, mês) que cabem na tela, atualizando ao vivo. A **semana é a do
+calendário** (segunda a sábado do dia escolhido) e o **mês é o mês inteiro** (até hoje): trocar o dia nas setas
+só muda o card do dia, a semana e o mês só mudam quando o dia escolhido cai em outra semana ou outro mês:
 lucro ou prejuízo do dia com semáforo e caixa (entrou × saiu), prime cost, food cost
 ficha × real (compras ÷ vendas), bebida junto por canal, projeção do mês e a escada de
 espetos/dia. **Relatório detalhado**: resultado, caixa por forma de pagamento, compras
@@ -268,6 +270,13 @@ palavras da compra que abrem lote. **Vendas contam desde**: o dia em que começo
 um lote comprado antes e guardado, ex.: pertences que entram de uma vez numa feijoada futura). Os lotes de 01 a 08/10 entram uma vez em cada
 aparelho (contagem do dono); a partir de 09/10 as vendas contam sozinhas. Não muda vendas, compras,
 caixa nem relatórios.
+
+**Espeto desligado** (por enquanto) — o turno do espeto (madrugada) ainda não abriu, então tudo do espeto fica
+escondido: os espetos e o "Baião + espeto de frango" saem da comanda, da busca, do cardápio, das fichas e do
+painel; a comanda nova não entra mais como "Espeto" pelo horário; somem a barra "Espeto" dos canais, os
+espetos/dia, a escada de espetos e as metas e horários do espeto em Ajustes. **Nada é apagado**: os itens e as
+fichas continuam guardados, e venda que já tenha sido feita no canal Espeto continua contando (o canal aparece se
+tiver venda). Para voltar: Ajustes → Salão e turnos → **Turno do espeto** → Ligar.
 
 ## Dados iniciais
 

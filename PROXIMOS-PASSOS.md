@@ -4,7 +4,8 @@
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.14 (busca nos lotes de carne, excluir compra e excluir venda, Lixeira para restaurar) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.15 (Painel: semana do calendário e mês inteiro; espeto desligado por enquanto) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.14 (busca nos lotes de carne, excluir compra e excluir venda, Lixeira para restaurar) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.13 (Fechar caixa: dinheiro da gaveta, Pix e maquininha conferidos com as vendas, o fiado recebido e o que saiu) | `main` → https://restaurante-app.github.io/ | **publicado** (não muda o `schema.sql`: fica na tabela `config`) |
 | App v1.12 (Folha da cozinha: pratos do dia e fixos com o que leva, imprimir em A4; criar insumo na hora de lançar a compra) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.11 (visual da marca Maria Simone, navegação com voltar no topo, Mais em listas com busca, Fichas fora da barra de baixo) | branch `claude/tool-navigation-design-yjz1he` | **em revisão** (não muda dados nem o `schema.sql`) |
@@ -25,6 +26,13 @@ lançamentos → arquivo de 06/10 → conferir → Lançar; 4) montar a quarta e
 e resolver as pendências.
 
 Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodado.
+
+## O que entrou na v1.15 (pedido de 19/10)
+
+| Pedido | No app |
+|---|---|
+| Por que trocar o dia muda a semana? Mudar para a semana do calendário | Painel: a semana agora é de segunda a sábado do dia escolhido ("12 a 17/10 · 3/6 dias"); o mês é o mês inteiro até hoje. Trocar o dia nas setas não muda mais a semana nem o mês, só o card do dia |
+| Tirar tudo do espeto por enquanto, sem afetar o resto | chave **Turno do espeto** (Ajustes → Salão e turnos), desligada: espetos, combo com espeto e acompanhamento do espeto saem da comanda, do cardápio, das fichas, da análise, do painel e de Ajustes; comanda nova não vira "Espeto" pelo horário. Nada é apagado; venda antiga no canal Espeto continua contando. Ligar a chave traz tudo de volta |
 
 ## O que entrou na v1.14 (pedido de 19/10)
 

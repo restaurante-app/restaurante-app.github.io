@@ -134,6 +134,16 @@
     const centroPct = (frac, sub) => [h('b', null, Math.max(0, Math.round((frac || 0) * 100)) + '%'), h('small', null, sub)];
     const mil = v => 'R$ ' + (Math.abs(v) >= 1000 ? P.num(v / 1000, 1).replace(/,0$/, '') + ' mil' : Math.round(v).toLocaleString('pt-BR'));
 
+    // barra por canal: o espeto só aparece com o turno ligado (ou se teve venda nele)
+    const pilhaCanais = r => P.UI.pilha([
+      { rotulo: 'Salão', valor: r.canal.SALAO.fat, serie: 'salao' },
+      P.Calc.espetoLigado() || r.canal.ESPETO.fat > 0 ? { rotulo: 'Espeto', valor: r.canal.ESPETO.fat, serie: 'espeto' } : null,
+      { rotulo: 'Marmita', valor: r.canal.MARMITA.fat, serie: 'marmita' }].filter(Boolean), P.brl0);
+    // semana do calendário (segunda a sábado): "12 a 17/10" ou "28/09 a 03/10"
+    function faixaSemana(dias) {
+      const seg = dias[dias.length - 1], sab = dias[0];
+      return (seg.slice(5, 7) === sab.slice(5, 7) ? seg.slice(8, 10) : P.Dia.rotuloCurto(seg)) + ' a ' + P.Dia.rotuloCurto(sab);
+    }
     function cab(titulo, sub, st, rotSt, navegar) {
       return h('div', { class: 'pn-cab' },
         navegar ? h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Dia anterior', onClick: () => { dia = P.Dia.anterior(dia); desenhar(); } }, P.UI.icone('voltar')) : null,
@@ -179,10 +189,7 @@
                 ? ['meta de ' + P.brl0(metaDia) + ' · ', valorCor('+' + P.brl0(dif), 'verde')]
                 : ['faltam ', h('b', null, P.brl0(-dif)), ' para a meta de ' + P.brl0(metaDia)])),
             P.UI.anel(fracDia, ST[semDia], centroPct(fracDia, 'da meta'), 'Lucro do dia: ' + Math.round(Math.max(0, fracDia) * 100) + '% da meta diária')),
-          P.UI.pilha([
-            { rotulo: 'Salão', valor: rd.canal.SALAO.fat, serie: 'salao' },
-            { rotulo: 'Espeto', valor: rd.canal.ESPETO.fat, serie: 'espeto' },
-            { rotulo: 'Marmita', valor: rd.canal.MARMITA.fat, serie: 'marmita' }], P.brl0),
+          pilhaCanais(rd),
           h('div', { class: 'pn-linha' },
             mini('Vendas', P.brl0(rd.fat)),
             mini('Custo vendido', P.brl0(rd.cmv), null, P.pct(rd.fat ? rd.cmv / rd.fat * 100 : null, 0)),
@@ -193,8 +200,9 @@
           avisoSemCusto(rd),
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado neste dia.'), h('a', { href: '#/mesas', class: 'btn mini primario' }, 'Abrir mesas'))));
 
-      // ---------- SEMANA (6 dias operacionais = 1 semana do mercado) ----------
-      const diasSem = P.Dia.ultimos(6, dia);
+      // ---------- SEMANA (do calendário: segunda a sábado do dia escolhido) ----------
+      const diasSem = P.Dia.semanaDe(dia);
+      const nDiasSem = diasSem.filter(d => d <= hoje).length; // dias que já passaram
       const rs = agregar(diasSem);
       const nS = rs.dias.size;
       const folhaDia = (+cfg('custos_fixos').folha || 0) / D;
@@ -209,7 +217,7 @@
         return { rotulo: P.Dia.rotulo(d), curto: P.Dia.nomeSemana(d), atual: d === dia, valor: mov ? a.fat - a.cmv - a.outras : null };
       });
       wrap.appendChild(h('section', { class: 'pn-card s-' + semS },
-        cab('Semana', nS + '/' + diasSem.length + ' dias', ST[semS],
+        cab('Semana', faixaSemana(diasSem) + ' · ' + nS + '/' + nDiasSem + ' dias', ST[semS],
           { verde: 'custo sob controle', amarelo: 'no limite', vermelho: 'custo alto', cinza: 'sem vendas' }[semS]),
         nS ? [
           h('div', { class: 'pn-hero' },
@@ -220,21 +228,21 @@
             h('div', { class: 'pn-spark' }, h('small', null, 'Lucro por dia'),
               P.UI.colunas(porDia, P.brl0, { aria: 'Lucro por dia na semana: ' + porDia.map(p => p.curto + ' ' + (p.valor == null ? 'sem movimento' : P.brl0(p.valor))).join(', ') }))),
           h('div', { class: 'pn-linha pn-vol' },
-            mini('Espetos/dia', P.num(rs.espetos / nS, 0), corMin(rs.espetos / nS, +metas.espeto_empate_dia)),
+            P.Calc.espetoLigado() ? mini('Espetos/dia', P.num(rs.espetos / nS, 0), corMin(rs.espetos / nS, +metas.espeto_empate_dia)) : mini('Vendas/dia', P.brl0(rs.fat / nS)),
             mini('Pratos/dia', P.num(rs.canal.SALAO.pratos / nS, 0)),
             mini('Marmitas/dia', P.num(rs.canal.MARMITA.pratos / nS, 0))),
           h('div', { class: 'pn-txt' }, 'Food cost · ficha ', valorCor(P.pct(fcFicha, 0), corMax(fcFicha, +metas.food_cost_max)),
             ' · real ', fcReal == null ? h('b', null, 'sem compras') : valorCor(P.pct(fcReal, 0), corMax(fcReal, +metas.food_cost_max)),
             fcReal != null && fcFicha != null ? [' · perda oculta ', valorCor((fcReal - fcFicha >= 0 ? '+' : '') + P.num(fcReal - fcFicha, 0) + ' pts', fcReal - fcFicha > 3 ? 'vermelho' : 'verde')] : null),
-          h('div', { class: 'pn-txt' }, 'Bebida junto · espeto ',
-            valorCor(P.pct(rs.anexacao.ESPETO, 0), corMin(rs.anexacao.ESPETO, +metas.anexacao_espeto)), ' · salão ',
+          h('div', { class: 'pn-txt' }, 'Bebida junto · ',
+            P.Calc.espetoLigado() ? ['espeto ', valorCor(P.pct(rs.anexacao.ESPETO, 0), corMin(rs.anexacao.ESPETO, +metas.anexacao_espeto)), ' · '] : null, 'salão ',
             valorCor(P.pct(rs.anexacao.SALAO, 0), corMin(rs.anexacao.SALAO, +metas.anexacao_salao)), ' · marmita ',
             valorCor(P.pct(rs.anexacao.MARMITA, 0), corMin(rs.anexacao.MARMITA, +metas.anexacao_marmita))),
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nenhum dia com venda nesta semana.'))));
 
-      // ---------- MÊS ----------
+      // ---------- MÊS (o mês inteiro do dia escolhido, até hoje) ----------
       const mes = P.Dia.mes(dia);
-      const rm = agregar(P.Dia.doMes(mes, dia));
+      const rm = agregar(P.Dia.doMes(mes, hoje));
       const nM = rm.dias.size;
       const lucroM = rm.fat - rm.cmv - rm.outras;
       const projFat = nM ? rm.fat / nM * D : 0;
@@ -261,7 +269,7 @@
             mini('Margem líq.', P.pct(margem, 1), margem == null ? null : margem >= 0 ? 'verde' : 'vermelho')),
           h('div', { class: 'pn-txt' }, 'Fixos lançados ', h('b', null, P.brl0(rm.fixoPago)), ' de ', h('b', null, P.brl0(fixoM)), ' previstos (base em Ajustes)'),
           avisoSemCusto(rm),
-          escada(rm.espetos / nM),
+          P.Calc.espetoLigado() ? escada(rm.espetos / nM) : null,
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nenhum dia com venda neste mês.'))));
     }
 
@@ -286,17 +294,15 @@
         cab(dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), P.Dia.rotuloCurto(dia) + (dia === hoje ? ' · ao vivo' : ''), ST[sd], ROT[sd], true),
         mov(rd) ? [
           h('div', { class: 'pn-hero' }, heroL('Entradas − saídas do dia', rd)),
-          P.UI.pilha([
-            { rotulo: 'Salão', valor: rd.canal.SALAO.fat, serie: 'salao' },
-            { rotulo: 'Espeto', valor: rd.canal.ESPETO.fat, serie: 'espeto' },
-            { rotulo: 'Marmita', valor: rd.canal.MARMITA.fat, serie: 'marmita' }], P.brl0),
+          pilhaCanais(rd),
           linhaSaidas(rd),
           Math.abs(rd.compras - rd.saiuCompras) > 0.5 ? h('div', { class: 'pn-txt', title: 'Compra a prazo ou no cartão sai do caixa no dia em que é paga' }, 'Comprado no dia ', h('b', null, P.brl0(rd.compras)), ' · pago ', h('b', null, P.brl0(rd.saiuCompras))) : null,
           rd.fat - rd.entrou > 0.5 ? h('div', { class: 'pn-txt' }, 'Fiado: ', h('b', null, P.brl0(rd.fat - rd.entrou)), ' (entra quando receber)') : null,
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado neste dia.'), h('a', { href: '#/mesas', class: 'btn mini primario' }, 'Abrir mesas'))));
 
-      // semana (6 dias do mercado)
-      const diasSem = P.Dia.ultimos(6, dia);
+      // semana do calendário (segunda a sábado do dia escolhido)
+      const diasSem = P.Dia.semanaDe(dia);
+      const nDiasSem = diasSem.filter(d => d <= hoje).length; // dias que já passaram
       const rs = agregar(diasSem);
       const nS = rs.dias.size;
       const ss = cor(rs);
@@ -306,7 +312,7 @@
       });
       const pctCompras = rs.fat > 0 ? rs.mercadoria / rs.fat * 100 : null;
       wrap.appendChild(h('section', { class: 'pn-card s-' + ss },
-        cab('Semana', nS + '/' + diasSem.length + ' dias com venda', ST[ss], ROT[ss]),
+        cab('Semana', faixaSemana(diasSem) + ' · ' + nS + '/' + nDiasSem + ' dias', ST[ss], ROT[ss]),
         mov(rs) ? [
           h('div', { class: 'pn-hero' }, heroL('Entradas − saídas', rs),
             h('div', { class: 'pn-spark' }, h('small', null, 'Saldo por dia'),
@@ -318,9 +324,9 @@
           pctCompras != null ? h('div', { class: 'pn-txt' }, 'Compras: ', h('b', null, P.pct(pctCompras, 0)), ' das vendas (com o estoque)') : null,
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado nesta semana.'))));
 
-      // mês
+      // mês inteiro do dia escolhido (até hoje)
       const mes = P.Dia.mes(dia);
-      const rm = agregar(P.Dia.doMes(mes, dia));
+      const rm = agregar(P.Dia.doMes(mes, hoje));
       const sm = cor(rm);
       const aPagar = P.Compras.contasAPagar().reduce((s, g) => s + g.total, 0);
       const fiado = P.Mesas.fiadoAberto().reduce((s, p) => s + (+p.valor || 0), 0);
@@ -485,19 +491,20 @@
         linha('Fatura vence todo dia', String(ca.vencimento_dia || 1), editar('cartao', 'vencimento_dia', { titulo: 'Dia do vencimento da fatura', decimais: 0, maxInteiros: 2 }))));
 
       const m = cfg('metas');
+      const esp = P.Calc.espetoLigado();
       const pct = t => ({ titulo: t, decimais: 1, sufixo: '%', maxInteiros: 3 });
       corpo.appendChild(secao('Metas',
         linha('Meta de lucro no mês', P.brl(m.lucro_mensal), editar('metas', 'lucro_mensal', Object.assign({ titulo: 'Meta de lucro no mês' }, money)), 'por dia: ' + P.brl((+m.lucro_mensal || 0) / diasMes())),
-        linha('Espetos/dia para empatar', String(m.espeto_empate_dia), editar('metas', 'espeto_empate_dia', { titulo: 'Espetos por dia para empatar', decimais: 0 })),
-        linha('Anexação de bebida — espeto', P.pct(m.anexacao_espeto, 0), editar('metas', 'anexacao_espeto', pct('Anexação — turno espeto'))),
+        esp ? linha('Espetos/dia para empatar', String(m.espeto_empate_dia), editar('metas', 'espeto_empate_dia', { titulo: 'Espetos por dia para empatar', decimais: 0 })) : null,
+        esp ? linha('Anexação de bebida — espeto', P.pct(m.anexacao_espeto, 0), editar('metas', 'anexacao_espeto', pct('Anexação — turno espeto'))) : null,
         linha('Anexação de bebida — salão', P.pct(m.anexacao_salao, 0), editar('metas', 'anexacao_salao', pct('Anexação — almoço salão'))),
         linha('Anexação de bebida — marmita', P.pct(m.anexacao_marmita, 0), editar('metas', 'anexacao_marmita', pct('Anexação — marmita'))),
         linha('Food cost máximo', P.pct(m.food_cost_max, 0), editar('metas', 'food_cost_max', pct('Food cost máximo'))),
         linha('Prime cost máximo', P.pct(m.prime_cost_max, 0), editar('metas', 'prime_cost_max', pct('Prime cost máximo'))),
-        linha('Perda de espeto máxima', P.pct(m.perda_espeto_max, 0), editar('metas', 'perda_espeto_max', pct('Perda de espeto máxima')), 'usada quando existir o módulo Espetos')));
+        esp ? linha('Perda de espeto máxima', P.pct(m.perda_espeto_max, 0), editar('metas', 'perda_espeto_max', pct('Perda de espeto máxima')), 'usada quando existir o módulo Espetos') : null));
 
       const degraus = (cfg('escada_espetos').degraus || []).slice();
-      corpo.appendChild(secao('Escada de espetos/dia',
+      if (esp) corpo.appendChild(secao('Escada de espetos/dia',
         degraus.map((d, i) => linha(d.espetos + ' espetos/dia', d.lucro > 0 ? P.brl0(d.lucro) + '/mês' : 'empata', async () => {
           const e = await P.UI.pedirNumero({ titulo: 'Espetos por dia (degrau ' + (i + 1) + ')', valor: d.espetos, decimais: 0 });
           if (e == null) return;
@@ -512,8 +519,14 @@
       const hora = t2 => ({ titulo: t2, decimais: 0, maxInteiros: 2, sufixo: 'h' });
       corpo.appendChild(secao('Salão e turnos',
         linha('Mesas no salão', String(P.cfg('mesas').quantidade), editar('mesas', 'quantidade', { titulo: 'Quantas mesas?', decimais: 0, maxInteiros: 2 })),
-        linha('Espeto começa', t.espeto_ini + 'h', editar('turnos', 'espeto_ini', hora('Turno espeto — começa às'))),
-        linha('Espeto termina', t.espeto_fim + 'h', editar('turnos', 'espeto_fim', hora('Turno espeto — termina às')), 'comanda aberta nesse horário entra como Espeto'),
+        linha('Turno do espeto', esp ? 'ligado' : 'desligado', async () => {
+          const liga = !esp;
+          if (!(await P.UI.confirmar(liga ? 'Ligar o turno do espeto? Os espetos voltam à comanda, ao cardápio, às fichas e ao painel, e a comanda aberta no horário do espeto entra como Espeto.'
+            : 'Desligar o turno do espeto? Os espetos saem da comanda, do cardápio, das fichas e do painel. Nada é apagado: o que já foi vendido continua contando.', { ok: liga ? 'Ligar' : 'Desligar' }))) return;
+          const o = cfg('operacao'); o.espeto = liga; P.salvarCfg('operacao', o); desenhar();
+        }, esp ? null : 'espetos escondidos até o turno da madrugada abrir'),
+        esp ? linha('Espeto começa', t.espeto_ini + 'h', editar('turnos', 'espeto_ini', hora('Turno espeto — começa às'))) : null,
+        esp ? linha('Espeto termina', t.espeto_fim + 'h', editar('turnos', 'espeto_fim', hora('Turno espeto — termina às')), 'comanda aberta nesse horário entra como Espeto') : null,
         linha('Almoço começa', t.almoco_ini + 'h', editar('turnos', 'almoco_ini', hora('Almoço — começa às'))),
         linha('Almoço termina', t.almoco_fim + 'h', editar('turnos', 'almoco_fim', hora('Almoço — termina às')))));
 

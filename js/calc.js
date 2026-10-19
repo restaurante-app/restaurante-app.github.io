@@ -198,12 +198,25 @@
   }
 
   const vendavel = it => it && it.ativo !== false && (+it.preco_venda || 0) > 0;
+  // Espeto (turno da madrugada): desligado até o turno abrir. Desligado, os espetos e os combos com
+  // espeto saem das listas de venda, do cardápio, das fichas e do painel; nada é apagado e o que já
+  // foi vendido continua contando em tudo. Liga em Ajustes → Salão e turnos.
+  const espetoLigado = () => P.cfg('operacao').espeto === true;
+  // espeto, combo com espeto, ou componente usado só dentro de espetos (ex.: acompanhamento do espeto)
+  function ehEspeto(it) {
+    if (!it) return false;
+    if (it.categoria === 'ESPETO' || espetosPorUnidade(it.id) > 0) return true;
+    if (+it.preco_venda > 0) return false;
+    const usos = usosDoItem(it.id);
+    return usos.length > 0 && usos.every(u => u.categoria === 'ESPETO' || espetosPorUnidade(u.id) > 0);
+  }
+  const espetoOculto = it => !espetoLigado() && ehEspeto(it);
 
   // foto do food cost de todos os itens vendáveis (para comparar antes × depois)
   function snapshot() {
     const m = new Map();
     idx().itens.forEach(it => {
-      if (!vendavel(it)) return;
+      if (!vendavel(it) || espetoOculto(it)) return;
       const f = ficha(it);
       m.set(it.id, { nome: it.nome, fc: f.fc, faixa: f.faixa, cmv: f.cmv });
     });
@@ -252,7 +265,7 @@
 
   P.Calc = {
     cfgFichas, idx, custoInsumo, custoBruto, custoLista, ficha, fichaCom, linhas, faixa, estimado, cmvLinha,
-    espetosPorUnidade, contem, usosDoInsumo, usosDoItem, vendavel, snapshot, diferencas, paraAlvo, consumo,
+    espetosPorUnidade, espetoLigado, ehEspeto, espetoOculto, contem, usosDoInsumo, usosDoItem, vendavel, snapshot, diferencas, paraAlvo, consumo,
     unidadeQtd, divisor,
     componentesDe: itemId => (idx().comps.get(itemId) || []).slice(),
     precoVelho: ins => P.Dia.diasDesde(ins.atualizado_em) > cfgFichas().dias_preco_velho,

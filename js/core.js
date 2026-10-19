@@ -54,6 +54,13 @@
     }
     return out;
   }
+  // Semana do calendário (segunda a sábado) do dia, do sábado para a segunda (mais recente primeiro)
+  function semanaDe(dia) {
+    const seg = somaDias(dia, -((parse(dia).getDay() + 6) % 7));
+    const out = [];
+    for (let i = 5; i >= 0; i--) out.push(somaDias(seg, i));
+    return out;
+  }
   function doMes(mes, ate) { // mes = 'YYYY-MM' → dias operacionais (seg–sáb) do mês, até `ate` se dado
     const [y, m] = mes.split('-').map(Number);
     const out = [];
@@ -71,7 +78,7 @@
     diaOperacional,
     hoje: () => diaOperacional(),
     faixa: ts => new Date(ts == null ? Date.now() : ts).getHours(),
-    parse, somaDias, anterior, seguinte, ultimos, doMes,
+    parse, somaDias, anterior, seguinte, ultimos, semanaDe, doMes,
     semana: dia => parse(dia).getDay(),
     mes: dia => dia.slice(0, 7),
     nomeSemana: dia => NOMES_SEMANA[parse(dia).getDay()],
