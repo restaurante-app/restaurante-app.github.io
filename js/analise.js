@@ -312,7 +312,7 @@
         vend.set(l.item_id, g);
       });
     });
-    const lista = P.Store.all('itens').filter(it => it.categoria !== 'GUARNICAO' && (P.Calc.vendavel(it) || vend.has(it.id))).map(it => {
+    const lista = P.Store.all('itens').filter(it => it.categoria !== 'GUARNICAO' && ((P.Calc.vendavel(it) && !P.Calc.espetoOculto(it)) || vend.has(it.id))).map(it => {
       const f = P.Calc.ficha(it);
       const v = vend.get(it.id) || { q: 0, fat: 0, cmvVenda: 0, qComCmv: 0 };
       const preco = +it.preco_venda || 0;
@@ -520,8 +520,8 @@
         box('compensa', 'bom', 'Compensa'), box('limite', 'atencao', 'No limite'), box('ruim', 'critico', 'Não compensa'), box('sem_ficha', 'neutro', 'Sem ficha')));
       corpo.appendChild(h('div', { class: 'dica' }, 'Compensa = custo pela ficha até ' + R.cfg.verde_ate + '% do preço. No limite = até ' + R.cfg.vermelho_acima + '%. Acima disso, não compensa. "Deixou" = vendas menos o custo dos pratos vendidos no período.'));
       corpo.appendChild(P.UI.seg([
-        { v: 'TODOS', rotulo: 'Todos' }, { v: 'PRATO', rotulo: 'Pratos' }, { v: 'ESPETO', rotulo: 'Espetos' }, { v: 'BEBIDA', rotulo: 'Bebidas' },
-      ], cat, v => { cat = v; desenhar(); }, 'seg-p'));
+        { v: 'TODOS', rotulo: 'Todos' }, { v: 'PRATO', rotulo: 'Pratos' }, P.Calc.espetoLigado() ? { v: 'ESPETO', rotulo: 'Espetos' } : null, { v: 'BEBIDA', rotulo: 'Bebidas' },
+      ].filter(Boolean), cat, v => { cat = v; desenhar(); }, 'seg-p'));
       const ls = R.lista.filter(p => cat === 'TODOS' || p.it.categoria === cat);
       const top = ls.filter(p => p.lucro != null && p.lucro > 0).sort((a, b) => b.lucro - a.lucro)[0];
       if (top) corpo.appendChild(h('div', { class: 'banner ok' }, P.UI.icone('check'), h('span', { class: 'banner-t' }, 'Quem mais deixou dinheiro no período: ', h('b', null, top.it.nome), ' (' + P.brl0(top.lucro) + ')')));

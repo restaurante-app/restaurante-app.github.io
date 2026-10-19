@@ -76,7 +76,7 @@
   }
   function canalPeloRelogio() {
     const f = P.Dia.faixa(), t = P.cfg('turnos');
-    return f >= t.espeto_ini && f <= t.espeto_fim ? 'ESPETO' : 'SALAO';
+    return P.Calc.espetoLigado() && f >= t.espeto_ini && f <= t.espeto_fim ? 'ESPETO' : 'SALAO';
   }
 
   function abrir({ mesa, cliente, canal }) {
@@ -322,7 +322,8 @@
   function criarItem(nome0, cat0) {
     return new Promise(resolve => {
       let feito = false;
-      let cat = CATS_ITEM.some(x => x.v === cat0) ? cat0 : 'PRATO';
+      const cats = CATS_ITEM.filter(x => x.v !== 'ESPETO' || P.Calc.espetoLigado());
+      let cat = cats.some(x => x.v === cat0) ? cat0 : 'PRATO';
       let preco = null;
       const inNome = h('input', { class: 'campo', type: 'text', value: nome0 ? nome0.charAt(0).toUpperCase() + nome0.slice(1) : '', placeholder: 'Nome do item (ex.: Suco de laranja)', autocomplete: 'off' });
       const bPreco = h('button', { type: 'button', class: 'btn valor bloco' });
@@ -357,7 +358,7 @@
       inNome.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (preco > 0 || existente()) salvar(); else bPreco.click(); } });
       const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
         inNome,
-        P.UI.seg(CATS_ITEM, cat, v => { cat = v; }, 'seg-p'),
+        P.UI.seg(cats, cat, v => { cat = v; }, 'seg-p'),
         bPreco, aviso,
         h('div', { class: 'row gap' },
           h('button', { type: 'button', class: 'btn', onClick: () => sh.fechar() }, 'Cancelar'),
@@ -376,6 +377,7 @@
     if (!c) { view.append(voltar('#/mesas', 'Mesas'), P.UI.vazio('Comanda não encontrada.')); return {}; }
     if (c.status !== 'ABERTA') return telaResumo(view, c);
     let cat = ORDEM[c.canal] ? ORDEM[c.canal][0] : 'PRATO';
+    if (cat === 'ESPETO' && !P.Calc.espetoLigado()) cat = 'PRATO';
     let verOutros = false; // pratos fora do cardápio do dia
     // busca de item em todas as categorias; o que não existe dá para criar na hora
     let termo = '';
@@ -414,7 +416,7 @@
     const elGrade = h('div', { class: 'cm-grade' });
     const elConsumo = h('div', { class: 'cm-consumo' });
 
-    function vendaveis() { return P.Store.all('itens').filter(P.Calc.vendavel); }
+    function vendaveis() { return P.Store.all('itens').filter(it => P.Calc.vendavel(it) && !P.Calc.espetoOculto(it)); }
     function qtdPorItem() {
       const m = new Map();
       linhas(c.id).forEach(l => m.set(l.item_id, (m.get(l.item_id) || 0) + (+l.quantidade || 0)));
@@ -514,7 +516,7 @@
       desenharCab();
     }
     function trocarCanal() {
-      const ordem = ['ESPETO', 'SALAO', 'MARMITA'];
+      const ordem = P.Calc.espetoLigado() ? ['ESPETO', 'SALAO', 'MARMITA'] : ['SALAO', 'MARMITA'];
       const prox = ordem[(ordem.indexOf(c.canal) + 1) % ordem.length];
       c = P.Store.put('comandas', Object.assign({}, P.Store.get('comandas', c.id), { canal: prox }));
       P.vibrar(10);
@@ -745,7 +747,7 @@
     function desenhar() {
       corpo.innerHTML = '';
       corpo.appendChild(navDia(dia, d => { dia = d; desenhar(); }));
-      corpo.appendChild(P.UI.seg([{ v: 'TODOS', rotulo: 'Todos' }, { v: 'ESPETO', rotulo: 'Espeto' }, { v: 'SALAO', rotulo: 'Salão' }, { v: 'MARMITA', rotulo: 'Marmita' }],
+      corpo.appendChild(P.UI.seg([{ v: 'TODOS', rotulo: 'Todos' }, P.Calc.espetoLigado() ? { v: 'ESPETO', rotulo: 'Espeto' } : null, { v: 'SALAO', rotulo: 'Salão' }, { v: 'MARMITA', rotulo: 'Marmita' }].filter(Boolean),
         canal, v => { canal = v; desenhar(); }, 'seg-p'));
       const t = totaisDoDia(dia, canal);
       corpo.appendChild(h('div', { class: 'fx-resumo' },

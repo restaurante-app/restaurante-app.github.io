@@ -100,8 +100,8 @@
       corpo.innerHTML = '';
       const cfg = P.Calc.cfgFichas();
       const itens = P.Store.all('itens');
-      const vend = itens.filter(P.Calc.vendavel).map(it => P.Calc.ficha(it)).sort((a, b) => b.fc - a.fc);
-      const comps = itens.filter(it => it.ativo !== false && !(+it.preco_venda > 0)).map(it => P.Calc.ficha(it));
+      const vend = itens.filter(it => P.Calc.vendavel(it) && !P.Calc.espetoOculto(it)).map(it => P.Calc.ficha(it)).sort((a, b) => b.fc - a.fc);
+      const comps = itens.filter(it => it.ativo !== false && !(+it.preco_venda > 0) && !P.Calc.espetoOculto(it)).map(it => P.Calc.ficha(it));
       const velhos = P.Store.all('insumos').filter(P.Calc.precoVelho);
       if (velhos.length) {
         corpo.appendChild(banner('aviso', velhos.length + (velhos.length === 1 ? ' insumo com preço' : ' insumos com preço') +
@@ -130,8 +130,8 @@
         semaf('amarelo', 'alerta', cfg.verde_ate + '–' + cfg.vermelho_acima + '%'),
         semaf('vermelho', 'alerta', 'acima de ' + cfg.vermelho_acima + '%')));
       corpo.appendChild(P.UI.seg([
-        { v: 'TODOS', rotulo: 'Todos' }, { v: 'ESPETO', rotulo: 'Espetos' }, { v: 'PRATO', rotulo: 'Pratos' }, { v: 'BEBIDA', rotulo: 'Bebidas' },
-      ], cat, v => { cat = v; desenhar(); }, 'seg-p'));
+        { v: 'TODOS', rotulo: 'Todos' }, P.Calc.espetoLigado() ? { v: 'ESPETO', rotulo: 'Espetos' } : null, { v: 'PRATO', rotulo: 'Pratos' }, { v: 'BEBIDA', rotulo: 'Bebidas' },
+      ].filter(Boolean), cat, v => { cat = v; desenhar(); }, 'seg-p'));
       const lista = h('div', { class: 'mg-lista' });
       // medidor de food cost em escala 0–60%, com marcas nos limites do semáforo
       const ESC = 60;
@@ -330,7 +330,7 @@
   function telaSimular(view, params) {
     view.className = 'v-fichas';
     if (!params.id) {
-      const vend = P.Store.all('itens').filter(P.Calc.vendavel).map(it => P.Calc.ficha(it)).sort((a, b) => b.fc - a.fc);
+      const vend = P.Store.all('itens').filter(it => P.Calc.vendavel(it) && !P.Calc.espetoOculto(it)).map(it => P.Calc.ficha(it)).sort((a, b) => b.fc - a.fc);
       view.append(subnavFichas('simular'), h('div', { class: 'dica' }, 'Escolha um item para testar porção e preço antes de salvar.'),
         h('div', { class: 'mg-lista' }, vend.map(f => h('a', { href: '#/fichas/simular/' + f.item.id, class: 'mg-lin f-' + f.faixa },
           h('div', { class: 'mg-nome' }, f.item.nome), h('div', { class: 'mg-fc' }, P.pct(f.fc)),
@@ -442,8 +442,9 @@
       if (aba === 'itens') {
         corpo.appendChild(h('a', { class: 'btn primario bloco', href: '#/fichas/editar/novo' }, P.UI.icone('mais'), 'Novo item'));
         const todos = P.Store.all('itens');
+        // espetos e combos com espeto: escondidos enquanto o turno do espeto estiver desligado (Ajustes)
         CATS.forEach(cat => {
-          const l = todos.filter(i => i.categoria === cat).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+          const l = todos.filter(i => i.categoria === cat && !P.Calc.espetoOculto(i)).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
           if (!l.length) return;
           corpo.appendChild(h('div', { class: 'secao' }, CAT[cat] + ' (' + l.length + ')'));
           corpo.appendChild(h('div', { class: 'cad-lista' }, l.map(it => {
@@ -647,7 +648,7 @@
       h('div', { class: 'form' },
         h('div', { class: 'form-tit' }, novo ? 'Novo item' : 'Editar ficha'),
         campo('Nome', nome),
-        campo('Categoria', P.UI.seg(CATS.map(c => ({ v: c, rotulo: CAT[c] })), d.categoria, v => { d.categoria = v; }, 'seg-p seg-cat')),
+        campo('Categoria', P.UI.seg(CATS.filter(c => c !== 'ESPETO' || P.Calc.espetoLigado() || d.categoria === 'ESPETO').map(c => ({ v: c, rotulo: CAT[c] })), d.categoria, v => { d.categoria = v; }, 'seg-p seg-cat')),
         campo('Preço de venda', bPreco),
         campo('Perda operacional', stPerda.el),
         campo('Situação', P.UI.seg([{ v: true, rotulo: 'Ativo' }, { v: false, rotulo: 'Inativo' }], d.ativo !== false, v => { d.ativo = v; }, 'seg-p')),

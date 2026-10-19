@@ -117,7 +117,9 @@
 
   const CONFIG = {
     custos_fixos: { aluguel: 5000, folha: 14129, prolabore_inss: 6660, outros: 4230 },
-    operacao: { dias_mes: 26, abertura: null }, // abertura: dia em que o restaurante abriu (antes disso = montagem)
+    // abertura: dia em que o restaurante abriu (antes disso = montagem)
+    // espeto: turno do espeto (madrugada) ligado? Desligado até o turno abrir (Ajustes → Salão e turnos)
+    operacao: { dias_mes: 26, abertura: null, espeto: false },
     metas: {
       espeto_empate_dia: 22,
       anexacao_espeto: 80, anexacao_salao: 75, anexacao_marmita: 60,
