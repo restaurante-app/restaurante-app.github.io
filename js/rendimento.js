@@ -397,12 +397,32 @@
     P.UI.toast('Lote de ' + nomeCarne(cr).toLowerCase() + ' aberto');
   }
 
+  // busca nos lotes: carne, fornecedor, dia (05/10) e valor (380, 52,90 o kg) — abertos e fechados
+  function alvoLote(l) {
+    const m = metricas(l);
+    return {
+      texto: P.UI.semAcento([nomeCarne(l.carne), l.carne, l.fornecedor, l.obs, l.fim ? 'fechado acabou' : 'aberto'].filter(Boolean).join(' ')),
+      dias: [l.dia, l.fim, contaDesde(l)].filter(Boolean),
+      valores: [l.valor, l.kg, m.rsKg].filter(v => v != null),
+    };
+  }
   function telaLotes(view) {
     view.className = 'v-rend';
     const corpo = h('div');
     let verFechados = false;
+    let filtro = '';
+    const busca = P.UI.campoBusca('Buscar: costela, Belo Boi, 05/10, 380', q => { filtro = q; desenhar(); });
     function desenhar() {
       const R = calcular();
+      const b = P.UI.busca(filtro);
+      if (!b.vazia) {
+        // abertos primeiro, depois do mais novo para o mais velho
+        const achados = R.lotes.filter(l => b.casa(alvoLote(l))).sort((x, y) => (!!x.fim - !!y.fim) || (x.dia < y.dia ? 1 : x.dia > y.dia ? -1 : 0));
+        trocar(corpo,
+          h('div', { class: 'secao' }, achados.length + (achados.length === 1 ? ' lote' : ' lotes') + ' com "' + filtro + '"'),
+          achados.length ? h('div', { class: 'rd-lista' }, achados.map(cartao)) : h('div', { class: 'dica' }, 'Nenhum lote com "' + filtro + '". Busque pela carne, pelo fornecedor, pelo dia (05/10) ou pelo valor.'));
+        return;
+      }
       const ab = R.lotes.filter(l => !l.fim).sort((a, b) => (nomeCarne(a.carne).localeCompare(nomeCarne(b.carne), 'pt-BR')) || ordemLote(a, b));
       const fe = R.lotes.filter(l => l.fim).sort((a, b) => (a.fim < b.fim ? 1 : a.fim > b.fim ? -1 : ordemLote(b, a)));
       const pend = comprasSemLote();
@@ -422,7 +442,7 @@
         !verFechados && fe.length > 12 ? h('button', { type: 'button', class: 'btn bloco', onClick: () => { verFechados = true; desenhar(); } }, 'Mostrar todos os ' + fe.length) : null,
         h('div', { class: 'dica' }, 'Cor pela carne / venda: até 35% verde, de 35% a 45% amarelo, acima de 45% vermelho.'));
     }
-    view.append(subnavRend('lotes'), corpo);
+    view.append(subnavRend('lotes'), busca.el, corpo);
     desenhar();
     return { onDados: desenhar };
   }
