@@ -150,7 +150,12 @@ preço, cadastro de insumos e itens (item pode conter outro item).
 
 **Painel** — três cards (dia, semana, mês) que cabem na tela, atualizando ao vivo. A **semana é a do
 calendário** (segunda a sábado do dia escolhido) e o **mês é o mês inteiro** (até hoje): trocar o dia nas setas
-só muda o card do dia, a semana e o mês só mudam quando o dia escolhido cai em outra semana ou outro mês:
+só muda o card do dia, a semana e o mês só mudam quando o dia escolhido cai em outra semana ou outro mês.
+**Tocar no título do dia** abre o calendário para escolher qualquer dia (o painel inteiro vai para ele). No
+card do mês, **Calendário do mês** mostra cada dia com o resultado (entrou − saiu, ou o lucro pelas fichas;
+verde ou vermelho); as setas trocam o mês e **tocar num dia** abre tudo daquele dia (vendas, pratos e bebidas,
+compras com os itens, despesas, equipe, caixa e fechamento, fiado e gás), com as setas para o dia anterior e
+o seguinte, "Ver no painel" e "Abrir em Dia e período". Nos cards:
 lucro ou prejuízo do dia com semáforo e caixa (entrou × saiu), prime cost, food cost
 ficha × real (compras ÷ vendas), bebida junto por canal, projeção do mês e a escada de
 espetos/dia. **Relatório detalhado**: resultado, caixa por forma de pagamento, compras

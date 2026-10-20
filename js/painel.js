@@ -144,12 +144,64 @@
       const seg = dias[dias.length - 1], sab = dias[0];
       return (seg.slice(5, 7) === sab.slice(5, 7) ? seg.slice(8, 10) : P.Dia.rotuloCurto(seg)) + ' a ' + P.Dia.rotuloCurto(sab);
     }
+    // card do dia: tocar no título abre o calendário para escolher qualquer dia (o painel todo vai para ele)
+    function escolherDia() {
+      P.Compras.calendario(dia, iso => { dia = iso; desenhar(); }, { titulo: 'Ver o painel de que dia?' });
+    }
     function cab(titulo, sub, st, rotSt, navegar) {
       return h('div', { class: 'pn-cab' },
         navegar ? h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Dia anterior', onClick: () => { dia = P.Dia.anterior(dia); desenhar(); } }, P.UI.icone('voltar')) : null,
-        h('div', { class: 'pn-tit' }, h('span', null, titulo), h('small', null, sub)),
+        navegar ? h('button', { type: 'button', class: 'pn-tit pn-tit-btn', 'aria-label': 'Escolher o dia no calendário', onClick: escolherDia },
+          h('span', null, titulo), P.UI.icone('calendario'), h('small', null, sub))
+          : h('div', { class: 'pn-tit' }, h('span', null, titulo), h('small', null, sub)),
         navegar ? h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo dia', disabled: dia >= P.Dia.hoje(), onClick: () => { dia = P.Dia.seguinte(dia); desenhar(); } }, P.UI.icone('avancar')) : null,
         P.UI.statusPill(st, rotSt));
+    }
+
+    // ---------- CALENDÁRIO DO MÊS (no card do mês): o resultado de cada dia; tocar abre tudo do dia ----------
+    let verCal = (() => { try { return localStorage.getItem('pari.painel.cal') === '1'; } catch (e) { return false; } })();
+    const curto = v => (v < 0 ? '−' : '+') + (Math.abs(v) >= 1000 ? P.num(Math.abs(v) / 1000, 1).replace(/,0$/, '') + 'k' : Math.round(Math.abs(v)));
+    // outro mês: o mesmo dia do mês (ou o último), nunca depois de hoje nem num domingo
+    function mudaMes(n) {
+      const [y, m] = P.Dia.mes(dia).split('-').map(Number);
+      const alvo = new Date(y, m - 1 + n, 1);
+      const ultimo = new Date(alvo.getFullYear(), alvo.getMonth() + 1, 0).getDate();
+      let d = alvo.getFullYear() + '-' + String(alvo.getMonth() + 1).padStart(2, '0') + '-' + String(Math.min(+dia.slice(8, 10), ultimo)).padStart(2, '0');
+      if (d > P.Dia.hoje()) d = P.Dia.hoje();
+      if (P.Dia.semana(d) === 0) d = P.Dia.somaDias(d, -1);
+      dia = d;
+      desenhar();
+    }
+    function botaoCal() {
+      return h('button', { type: 'button', class: 'btn mini bloco pn-calbtn' + (verCal ? ' on' : ''), 'aria-expanded': String(verCal),
+        onClick: () => { verCal = !verCal; try { localStorage.setItem('pari.painel.cal', verCal ? '1' : '0'); } catch (e) { /* ok */ } desenhar(); } },
+      P.UI.icone('calendario'), verCal ? 'Esconder o calendário' : 'Calendário do mês (dia a dia)');
+    }
+    // valorDia(iso) → número do dia (null = sem movimento); legenda explica o que é
+    function calMes(mes, valorDia, legenda) {
+      const hoje = P.Dia.hoje();
+      const [y, m] = mes.split('-').map(Number);
+      const vazios = (new Date(y, m - 1, 1).getDay() + 6) % 7; // semana começa na segunda
+      const ultimo = new Date(y, m, 0).getDate();
+      const cel = [];
+      for (let i = 0; i < vazios; i++) cel.push(h('span', { class: 'cal-d vazio' }));
+      for (let d = 1; d <= ultimo; d++) {
+        const iso = mes + '-' + String(d).padStart(2, '0');
+        const domingo = new Date(y, m - 1, d).getDay() === 0;
+        const v = !domingo && iso <= hoje ? valorDia(iso) : null;
+        cel.push(h('button', { type: 'button', disabled: domingo || iso > hoje,
+          class: 'cal-d' + (v == null ? '' : v >= 0 ? ' pos' : ' neg') + (iso === dia ? ' sel' : '') + (iso === hoje ? ' hoje' : ''),
+          'aria-label': P.Dia.rotulo(iso) + (v == null ? ', sem movimento' : ', ' + P.brl0(v)),
+          onClick: () => P.DiaPeriodo.abrirDia(iso, { noPainel: x => { dia = x; desenhar(); } }) },
+        h('b', null, d), v == null ? null : h('small', null, curto(v))));
+      }
+      return h('div', { class: 'pn-cal' },
+        h('div', { class: 'cal-top' },
+          h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Mês anterior', onClick: () => mudaMes(-1) }, P.UI.icone('voltar')),
+          h('div', { class: 'cal-mes' }, P.Dia.rotuloMes(mes), h('small', null, 'toque num dia para ver tudo dele')),
+          h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo mês', disabled: mes >= P.Dia.mes(hoje), onClick: () => mudaMes(1) }, P.UI.icone('avancar'))),
+        h('div', { class: 'cal-grade' }, ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'].map(s => h('span', { class: 'cal-sem' }, s)), cel),
+        h('div', { class: 'pn-txt pn-cal-leg' }, legenda));
     }
 
     function desenhar() {
@@ -270,7 +322,10 @@
           h('div', { class: 'pn-txt' }, 'Fixos lançados ', h('b', null, P.brl0(rm.fixoPago)), ' de ', h('b', null, P.brl0(fixoM)), ' previstos (base em Ajustes)'),
           avisoSemCusto(rm),
           P.Calc.espetoLigado() ? escada(rm.espetos / nM) : null,
-        ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nenhum dia com venda neste mês.'))));
+        ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nenhum dia com venda neste mês.')),
+        botaoCal(),
+        verCal ? calMes(mes, d => { const a = agregar([d]); return a.dias.size > 0 || a.outras > 0 ? a.fat - a.cmv - a.outras : null; },
+          'Em cada dia: lucro pelas fichas (verde: lucro · vermelho: prejuízo).') : null));
     }
 
     // ---------- ENTRADAS E SAÍDAS (caixa): o que entrou − o que saiu, sem depender das fichas ----------
@@ -338,7 +393,10 @@
           aPagar || fiado ? h('a', { class: 'pn-caixa', href: '#/caixa' }, P.UI.icone('caixa'),
             h('span', null, 'Ainda a pagar ', h('b', null, P.brl0(aPagar)), fiado ? [' · fiado a receber ', h('b', null, P.brl0(fiado))] : null), P.UI.icone('avancar')) : null,
           h('div', { class: 'pn-txt' }, 'Fixos pagos no mês ', h('b', null, P.brl0(rm.fixoPago)), ' de ', h('b', null, P.brl0(fixoMensal())), ' previstos (aluguel, salários, contas — base em Ajustes)'),
-        ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado neste mês.'))));
+        ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado neste mês.')),
+        botaoCal(),
+        verCal ? calMes(mes, d => { const a = agregar([d]); return mov(a) ? a.entrou - a.saiu : null; },
+          'Em cada dia: o que entrou − o que saiu (verde: entrou mais · vermelho: saiu mais).') : null));
       wrap.appendChild(h('div', { class: 'dica' }, 'Entradas e saídas: o que entrou no caixa (vendas recebidas) menos o que saiu (compras pagas, despesas, retiradas e investimentos). ' +
         'Compra para estoque pesa no dia em que é paga. Para ver o lucro pelo custo de cada prato, monte as fichas e escolha "Lucro pelas fichas".'));
     }

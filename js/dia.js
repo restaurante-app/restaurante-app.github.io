@@ -356,8 +356,33 @@
     P.UI.baixar('periodo_' + p.de + '_a_' + p.ate + '.csv', txt, 'text/csv;charset=utf-8');
   }
 
+  // ---------------------------------------------------------------
+  //  FOLHA: tudo de um dia, por cima da tela (Painel → calendário do mês).
+  //  Setas para o dia anterior e o seguinte; o.noPainel(dia) mostra o dia no Painel.
+  // ---------------------------------------------------------------
+  function abrirDia(dia, o) {
+    o = o || {};
+    const hoje = P.Dia.hoje();
+    const corpo = h('div', { class: 'dp-folha' });
+    const sh = P.UI.sheet(corpo, { cls: 'sheet-dia' });
+    function desenhar() {
+      trocar(corpo,
+        h('div', { class: 'lc-dia' },
+          h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Dia anterior', onClick: () => { dia = P.Dia.anterior(dia); desenhar(); } }, P.UI.icone('voltar')),
+          h('div', { class: 'lc-dia-t' }, dia === hoje ? 'Hoje' : P.Dia.nomeSemana(dia), h('small', null, P.Dia.rotuloCurto(dia) + '/' + dia.slice(0, 4))),
+          h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo dia', disabled: dia >= hoje, onClick: () => { dia = P.Dia.seguinte(dia); desenhar(); } }, P.UI.icone('avancar'))),
+        h('div', { class: 'row gap dp-folha-a' },
+          o.noPainel ? h('button', { type: 'button', class: 'btn grow', onClick: () => { sh.fechar(); o.noPainel(dia); } }, P.UI.icone('painel'), 'Ver no painel') : null,
+          h('a', { class: 'btn grow', href: '#/dia/' + dia }, P.UI.icone('calendario'), 'Abrir em Dia e período')),
+        ...blocos(resumo([dia]), [dia]));
+      corpo.parentElement && corpo.parentElement.scrollTo({ top: 0 });
+    }
+    desenhar();
+    return sh;
+  }
+
   P.UI.rota('dia', { titulo: 'Dia', tab: 'mais', dono: true, render: telaDia });
   P.UI.rota('dia/:dia', { titulo: 'Dia', tab: 'mais', dono: true, render: telaDia });
   P.UI.rota('periodo', { titulo: 'Período', tab: 'mais', dono: true, render: telaPeriodo });
-  P.DiaPeriodo = { resumo };
+  P.DiaPeriodo = { resumo, blocos, abrirDia };
 })();

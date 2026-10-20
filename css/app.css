@@ -1302,6 +1302,20 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 
 /* ---------- DIA E PERÍODO (dono) ---------- */
 .dp-cal { border-radius: var(--r); padding: 10px; margin-bottom: 12px; background: linear-gradient(180deg, var(--brilho), transparent 42%), var(--s1); border: 1px solid var(--borda); }
+.dp-folha-a { margin: -2px 0 12px; }
+.dp-folha-a .btn { font-size: .8rem; }
+
+/* Painel: escolher o dia no calendário e calendário do mês, dia a dia */
+.pn-tit-btn { background: none; border: 0; padding: 0; margin: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.pn-tit-btn svg { width: 14px; height: 14px; flex: 0 0 auto; align-self: center; margin-left: -4px; color: var(--marca-tx); }
+.pn-calbtn { margin-top: 10px; position: relative; }
+.pn-calbtn.on { color: var(--marca-tx); border-color: var(--marca-tx); }
+.pn-cal { margin-top: 10px; position: relative; }
+.pn-cal .cal-d.pos { background: var(--bg-bom); }
+.pn-cal .cal-d.pos small { color: var(--tx-bom); }
+.pn-cal .cal-d.neg { background: var(--bg-critico); }
+.pn-cal .cal-d.neg small { color: var(--tx-critico); }
+.pn-cal-leg { margin-top: 6px; white-space: normal; overflow: visible; text-overflow: clip; }
 .dp-compras { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .dp-compra { display: block; border-radius: 18px; padding: 12px 14px; background: linear-gradient(180deg, var(--brilho), transparent 42%), var(--s1); border: 1px solid var(--borda); }
 .dp-compra-t { display: flex; justify-content: space-between; gap: 10px; font-size: .9rem; }
