@@ -212,6 +212,20 @@
   }
   const espetoOculto = it => !espetoLigado() && ehEspeto(it);
 
+  // Prato juntado em outro (Pratos repetidos): sai das listas de venda e as vendas dele somam no
+  // prato que ficou (relatório, análise, cardápio do dia). O que já foi vendido não muda.
+  let cacheJ = { v: -1, m: {} };
+  function juntados() {
+    const v = S().versao;
+    if (cacheJ.v !== v) cacheJ = { v, m: P.cfg('itens_juntados').de || {} };
+    return cacheJ.m;
+  }
+  function principal(id) {
+    const m = juntados();
+    for (let i = 0; i < 5 && id && m[id]; i++) id = m[id].para;
+    return id;
+  }
+
   // foto do food cost de todos os itens vendáveis (para comparar antes × depois)
   function snapshot() {
     const m = new Map();
@@ -265,7 +279,7 @@
 
   P.Calc = {
     cfgFichas, idx, custoInsumo, custoBruto, custoLista, ficha, fichaCom, linhas, faixa, estimado, cmvLinha,
-    espetosPorUnidade, espetoLigado, ehEspeto, espetoOculto, contem, usosDoInsumo, usosDoItem, vendavel, snapshot, diferencas, paraAlvo, consumo,
+    espetosPorUnidade, espetoLigado, ehEspeto, espetoOculto, juntados, principal, contem, usosDoInsumo, usosDoItem, vendavel, snapshot, diferencas, paraAlvo, consumo,
     unidadeQtd, divisor,
     componentesDe: itemId => (idx().comps.get(itemId) || []).slice(),
     precoVelho: ins => P.Dia.diasDesde(ins.atualizado_em) > cfgFichas().dias_preco_velho,

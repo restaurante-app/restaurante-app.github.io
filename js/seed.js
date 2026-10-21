@@ -155,6 +155,10 @@
       dias: { 5: ['cz_baiao', 'cz_jaba', 'cz_file_tilapia', 'cz_posta_tilapia'] },
       fixos: ['cz_contra_file', 'cz_calabresa', 'cz_file_frango', 'cz_omelete'],
     },
+    // acompanhamentos (js/acompanhamentos.js): ids dos itens que aparecem na comanda embaixo dos pratos
+    acompanhamentos: { ids: [] },
+    // pratos repetidos juntados: { de: { idQueSaiu: { para, ativo_antes, para_ativo_antes, comps, em, por } } }
+    itens_juntados: { de: {} },
     // resultado do dia: 'caixa' = entradas e saídas (padrão enquanto as fichas não estão montadas); 'fichas' = lucro pelo custo dos pratos
     painel: { modo: 'caixa' },
   };

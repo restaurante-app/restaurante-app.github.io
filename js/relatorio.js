@@ -42,9 +42,9 @@
     FORMAS.forEach(f => { r.porForma[f] = 0; r.recebidoFiado[f] = 0; });
 
     function addItem(itemId, nome, q, preco, cmvU, canal, hora) {
-      const it = I.itens.get(itemId);
-      const k = itemId;
-      if (!r.porItem.has(k)) r.porItem.set(k, { nome: nome || (it && it.nome) || '?', cat: it ? it.categoria : '', q: 0, fat: 0, cmv: 0 });
+      const k = P.Calc.principal(itemId); // prato juntado (Pratos repetidos) soma no que ficou
+      const it = I.itens.get(k);
+      if (!r.porItem.has(k)) r.porItem.set(k, { nome: (k !== itemId && it && it.nome) || nome || (it && it.nome) || '?', cat: it ? it.categoria : '', q: 0, fat: 0, cmv: 0 });
       const g = r.porItem.get(k);
       g.q += q; g.fat += q * preco; g.cmv += q * cmvU;
       r.fatBruto += q * preco; r.cmv += q * cmvU; r.qtd += q;

@@ -78,8 +78,14 @@
         const nPend = P.Anotacoes ? P.Anotacoes.abertas().length : 0;
         const nEq = P.Store.all('pessoas').filter(p => p.ativo !== false).length;
         const nLixo = P.Lixeira ? P.Lixeira.lista().length : 0;
+        const nAc = P.Acomp ? P.Acomp.lista().length : 0;
+        const nRep = P.Acomp ? P.Acomp.contar() : 0;
         grupos.push(grupo('Gestão', [
           { href: 'fichas', ic: 'fichas', cor: 'roxo', t: 'Fichas técnicas', s: 'margem de cada prato · cadastro', k: 'ficha cmv food cost insumos itens cadastro' },
+          { href: 'cardapio/acompanhamentos', ic: 'mais', cor: 'laranja', t: 'Acompanhamentos', s: nAc ? nAc + ' na comanda · ' + P.Acomp.lista().slice(0, 3).map(a => a.nome.toLowerCase()).join(', ') : 'batata, baião, comida extra na comanda',
+            k: 'adicional extra batata baiao ovo acrescimo' },
+          { href: 'cardapio/repetidos', ic: 'check', cor: 'roxo', t: 'Pratos repetidos', s: nRep ? nRep + (nRep === 1 ? ' sugestão para juntar' : ' sugestões para juntar') : 'juntar prato cadastrado duas vezes', destaque: !!nRep,
+            k: 'duplicado repetido juntar variacao igual' },
           { href: 'relatorio', ic: 'relatorio', cor: 'azul', t: 'Relatório detalhado', s: 'vendas, caixa, compras, CSV', k: 'exportar planilha imprimir' },
           { href: 'dia', ic: 'calendario', cor: 'azul', t: 'Dia e período', s: 'tudo de um dia · comparar períodos', k: 'comparar semana mes' },
           { href: 'compras/analise', ic: 'alerta', cor: 'amarelo', t: 'Análise de compras', s: nAl ? nAl + (nAl === 1 ? ' alerta nas compras' : ' alertas nas compras') : 'compras × vendas e pratos', destaque: !!nAl, k: 'alertas preco acima' },

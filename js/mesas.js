@@ -321,6 +321,8 @@
 
   // Criar item na hora (da comanda): nome, tipo e preço. Se já existe um item com o mesmo nome,
   // usa ele (e, se estava fora do cardápio, volta com o preço informado). Entra sem ficha técnica.
+  // Nome com um prato que já existe dentro ("filé de frango com batata") sugere o prato + o
+  // acompanhamento. Devolve { item, extras } (extras: acompanhamentos para pôr junto) ou null.
   function criarItem(nome0, cat0) {
     return new Promise(resolve => {
       let feito = false;
@@ -330,8 +332,27 @@
       const inNome = h('input', { class: 'campo', type: 'text', value: nome0 ? nome0.charAt(0).toUpperCase() + nome0.slice(1) : '', placeholder: 'Nome do item (ex.: Suco de laranja)', autocomplete: 'off' });
       const bPreco = h('button', { type: 'button', class: 'btn valor bloco' });
       const aviso = h('small', { class: 'campo-d' });
-      const existente = () => { const k = chaveNome(inNome.value); return k ? P.Store.all('itens').find(i => chaveNome(i.nome) === k) : null; };
+      const existente = () => {
+        const k = chaveNome(inNome.value);
+        const it = k ? P.Store.all('itens').find(i => chaveNome(i.nome) === k) : null;
+        return it ? P.Store.get('itens', P.Calc.principal(it.id)) || it : null; // juntado em outro (Pratos repetidos): o que ficou
+      };
+      // nome com um prato que já existe dentro ("filé de frango com batata"): sugere o prato + o acompanhamento
+      const elParecido = h('div', { class: 'cm-parecido', hidden: true });
+      function mostrarParecido() {
+        const p = !existente() && P.Acomp ? P.Acomp.parecido(inNome.value) : null;
+        elParecido.hidden = !p;
+        if (!p) return;
+        const tot = +p.base.preco_venda + p.acomps.reduce((s, a) => s + (+a.preco_venda || 0), 0);
+        const nome = [p.base.nome].concat(p.acomps.map(a => a.nome)).join(' + ');
+        elParecido.replaceChildren(...[
+          h('small', null, p.mesmo ? 'Já existe:' : 'Parecido com um prato que já existe:'),
+          h('button', { type: 'button', class: 'btn bloco primario', onClick: () => { feito = true; resolve({ item: p.base, extras: p.acomps }); sh.fechar(); } },
+            P.UI.icone('check'), 'Pôr ' + nome + ' · ' + P.brl(tot)),
+          p.acomps.length || p.mesmo ? null : h('small', null, 'Se for outro prato, crie abaixo.')].filter(Boolean));
+      }
       function mostrar() {
+        mostrarParecido();
         const ja = existente();
         bPreco.textContent = ja && P.Calc.vendavel(ja) ? P.brl(ja.preco_venda) : preco > 0 ? P.brl(preco) : 'Preço de venda (R$)';
         aviso.textContent = !ja ? 'Entra no cardápio agora, sem ficha técnica (dá para montar depois em Fichas).'
@@ -355,11 +376,11 @@
             : P.Store.put('itens', { id: P.uuid(), nome, categoria: cat, preco_venda: P.round(preco, 2),
               perda_pct: cat === 'PRATO' ? +P.Calc.cfgFichas().perda_padrao || 0 : 0, ativo: true, custo_estimado: null });
         }
-        feito = true; resolve(r); sh.fechar();
+        feito = true; resolve({ item: r, extras: [] }); sh.fechar();
       }
       inNome.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (preco > 0 || existente()) salvar(); else bPreco.click(); } });
       const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
-        inNome,
+        inNome, elParecido,
         P.UI.seg(cats, cat, v => { cat = v; }, 'seg-p'),
         bPreco, aviso,
         h('div', { class: 'row gap' },
@@ -367,8 +388,8 @@
           h('button', { type: 'button', class: 'btn primario grow', onClick: salvar }, P.UI.icone('check'), 'Criar e pôr na comanda'))),
       { titulo: 'Item novo', onFechar: () => { if (!feito) resolve(null); } });
       mostrar();
-      // com o nome já digitado na busca, abre direto o preço
-      setTimeout(() => { if (nome0 && !existente()) bPreco.click(); else inNome.focus(); }, 150);
+      // com o nome já digitado na busca, abre direto o preço (se não for parecido com um prato que já existe)
+      setTimeout(() => { if (nome0 && !existente() && elParecido.hidden) bPreco.click(); else inNome.focus(); }, 150);
     });
   }
 
@@ -406,16 +427,21 @@
       P.UI.toast('+1 ' + it.nome);
     }
     async function criarNaHora() {
-      const it = await criarItem(termo, cat);
-      if (!it) return;
-      cat = it.categoria;
-      escolher(it);
+      const r = await criarItem(termo, cat);
+      if (!r) return;
+      cat = r.item.categoria;
+      escolher(r.item);
+      if (!r.extras.length) return;
+      r.extras.forEach(a => adicionar(c, a));
+      atualizar();
+      P.UI.toast('+1 ' + [r.item.nome].concat(r.extras.map(a => a.nome)).join(' + '));
     }
 
     const elCab = h('div', { class: 'cm-cab' });
     const elTotal = h('div', { class: 'barra-acao' });
     const elCats = h('div', { class: 'cm-cats' });
     const elGrade = h('div', { class: 'cm-grade' });
+    const elAcomp = h('div', { class: 'cm-acomp' });
     const elConsumo = h('div', { class: 'cm-consumo' });
 
     function vendaveis() { return P.Store.all('itens').filter(it => P.Calc.vendavel(it) && !P.Calc.espetoOculto(it)); }
@@ -454,7 +480,22 @@
           cat = k; P.vibrar(10); desenharCats(); desenharGrade();
         } }, h('i', { class: 'cm-cat-dot' }), ROT_CAT[k], porCat[k] ? h('b', null, porCat[k]) : null)));
     }
+    // acompanhamentos (Batata frita, Baião, Comida extra…): na aba Pratos, logo acima dos pratos;
+    // toca no prato e depois no acompanhamento (entra como item à parte, com o preço dele)
+    function desenharAcomp() {
+      const acs = cat === 'PRATO' && !termo && P.Acomp ? P.Acomp.lista() : [];
+      elAcomp.hidden = !acs.length;
+      if (!acs.length) return;
+      const q = qtdPorItem();
+      elAcomp.replaceChildren(h('span', { class: 'cm-acomp-t' }, 'Com'), ...acs.map(it => h('button', { type: 'button', class: 'cm-ac' + (q.get(it.id) ? ' tem' : ''), onClick: () => {
+        adicionar(c, it);
+        P.vibrar(15);
+        atualizar();
+        P.UI.toast('+ ' + it.nome);
+      } }, '+ ' + it.nome, h('small', null, P.brl0(it.preco_venda)), q.get(it.id) ? h('b', null, q.get(it.id)) : null)));
+    }
     function desenharGrade() {
+      desenharAcomp();
       const q = qtdPorItem();
       elGrade.innerHTML = '';
       const botao = it => {
@@ -503,8 +544,9 @@
       elConsumo.innerHTML = '';
       if (!grupos.size) { elConsumo.appendChild(P.UI.vazio('Toque nos itens acima conforme forem saindo.')); return; }
       elConsumo.appendChild(h('div', { class: 'secao' }, 'Consumo'));
-      grupos.forEach((g, itemId) => elConsumo.appendChild(h('div', { class: 'cm-lin' },
-        h('div', { class: 'cm-lin-n' }, h('b', null, g.q + '×'), ' ' + g.nome, h('small', null, g.horas.join(' · '))),
+      const ehAc = id => P.Acomp && P.Acomp.ehAcomp(id);
+      grupos.forEach((g, itemId) => elConsumo.appendChild(h('div', { class: 'cm-lin' + (ehAc(itemId) ? ' ac' : '') },
+        h('div', { class: 'cm-lin-n' }, h('b', null, g.q + '×'), ' ' + (ehAc(itemId) ? '+ ' : '') + g.nome, h('small', null, g.horas.join(' · '))),
         h('div', { class: 'cm-lin-v' }, P.brl(g.v)),
         h('button', { type: 'button', class: 'lc-b', 'aria-label': 'Tirar um', onClick: () => { tirar(c, itemId); P.vibrar([10, 40, 10]); atualizar(); } }, P.UI.icone('menos')),
         h('button', { type: 'button', class: 'lc-b mais', 'aria-label': 'Mais um', onClick: () => { const it = P.Store.get('itens', itemId); if (it) { adicionar(c, it); P.vibrar(15); atualizar(); } } }, P.UI.icone('mais')))));
@@ -531,7 +573,7 @@
       location.hash = '#/mesas';
     }
 
-    view.append(elCab, busca.el, elCats, elGrade, elConsumo, elTotal);
+    view.append(elCab, busca.el, elCats, elAcomp, elGrade, elConsumo, elTotal);
     desenharCab(); desenharCats(); atualizar();
     if (rapida) P.UI.toast('Venda rápida: toque nos itens e depois em Fechar conta');
     const relogio = setInterval(desenharCab, 30000);
