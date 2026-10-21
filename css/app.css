@@ -1456,3 +1456,38 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .btn.fia-valor { flex-direction: column; align-items: flex-start; gap: 2px; padding-top: 10px; padding-bottom: 10px; height: auto; }
 .btn.fia-valor b { font-size: 1.35rem; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
 .btn.fia-valor small { color: var(--tx2); font-size: .74rem; font-weight: 600; }
+
+/* Acompanhamentos na comanda (faixa acima dos pratos) e telas de Acompanhamentos / Pratos repetidos */
+.cm-acomp { display: flex; align-items: center; gap: 7px; overflow-x: auto; margin: -2px -14px 10px; padding: 2px 14px; scrollbar-width: none; }
+.cm-acomp::-webkit-scrollbar { display: none; }
+.cm-acomp-t { flex: 0 0 auto; font-size: .64rem; font-weight: 800; color: var(--tx3); text-transform: uppercase; letter-spacing: .1em; }
+.cm-ac {
+  flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 13px; border-radius: 999px;
+  border: 1px dashed var(--borda); background: var(--s1); color: var(--tx); font-weight: 700; font-size: .8rem; white-space: nowrap;
+}
+.cm-ac small { color: var(--tx3); font-weight: 700; font-size: .7rem; }
+.cm-ac b { min-width: 20px; height: 20px; border-radius: 10px; padding: 0 6px; display: grid; place-items: center; font-size: .64rem; background: var(--marca); color: var(--no-marca); }
+.cm-ac.tem { border-style: solid; border-color: var(--marca); }
+.cm-ac:active { transform: scale(.96); }
+.cm-lin.ac .cm-lin-n { color: var(--tx2); }
+.cm-parecido { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: var(--r); background: var(--marca-bg); border: 1px solid var(--marca-borda); }
+.cm-parecido small { color: var(--tx2); font-size: .74rem; font-weight: 600; }
+.ac-lin .ac-n { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; background: none; border: 0; padding: 0; color: inherit; font: inherit; }
+.ac-lin .ac-n b { font-size: .92rem; }
+.ac-lin .ac-n small { color: var(--tx3); font-size: .7rem; font-weight: 600; }
+.ac-sug { gap: 10px; }
+.ac-sug > b { white-space: nowrap; font-size: .9rem; }
+.ac-sug svg { width: 18px; height: 18px; color: var(--marca-tx); flex: 0 0 auto; }
+.jt-card { flex-direction: column; align-items: stretch; gap: 9px; }
+.jt-card > .ms-card-n + .btn { align-self: flex-start; }
+.jt-par { display: grid; grid-template-columns: 1fr 22px 1fr; gap: 6px; align-items: center; }
+.jt-de, .jt-para { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.jt-de b, .jt-para b { font-size: .86rem; line-height: 1.25; }
+.jt-de small, .jt-para small { color: var(--tx3); font-size: .66rem; font-weight: 600; line-height: 1.3; }
+.jt-de > small:first-child, .jt-para > small:first-child { text-transform: uppercase; letter-spacing: .1em; font-weight: 800; font-size: .58rem; }
+.jt-para > small:first-child { color: var(--marca-tx); }
+.jt-de b { color: var(--tx2); text-decoration: line-through; text-decoration-color: var(--tx3); }
+.jt-seta svg { width: 18px; height: 18px; color: var(--tx3); }
+.jt-nota { color: var(--tx2); font-size: .72rem; line-height: 1.4; }
+.jt-card .row .btn.mini { gap: 5px; }
+.jt-esc { max-height: 52vh; overflow-y: auto; margin-top: 8px; }

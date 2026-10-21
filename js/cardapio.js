@@ -20,7 +20,8 @@
     return Array.isArray(l) ? l : [];
   }
   // os pratos de um dia da semana na ordem montada (só os que continuam à venda)
-  const itensDe = sem => lista(sem).map(id => P.Store.get('itens', id)).filter(it => it && it.categoria === 'PRATO' && P.Calc.vendavel(it) && !P.Calc.espetoOculto(it));
+  // (prato juntado em outro em Pratos repetidos vira o que ficou, sem repetir)
+  const itensDe = sem => [...new Set(lista(sem).map(P.Calc.principal))].map(id => P.Store.get('itens', id)).filter(it => it && it.categoria === 'PRATO' && P.Calc.vendavel(it) && !P.Calc.espetoOculto(it));
   function doDia(dia) {
     const sem = diaSemana(dia || P.Dia.hoje());
     const itens = itensDe(sem);
@@ -51,7 +52,9 @@
   // ---------------------------------------------------------------
   // cardápio da comanda e folha da cozinha (js/cozinha.js) lado a lado
   function subnav(ativo) {
-    return P.UI.subnav([{ id: 'cardapio', rota: 'cardapio', rotulo: 'Cardápio do dia' }, { id: 'cozinha', rota: 'cardapio/cozinha', rotulo: 'Folha da cozinha' }], ativo);
+    const abas = [{ id: 'cardapio', rota: 'cardapio', rotulo: 'Cardápio do dia' }, { id: 'cozinha', rota: 'cardapio/cozinha', rotulo: 'Folha da cozinha' }];
+    if (P.Auth.isDono() && P.Acomp) abas.push({ id: 'acomp', rota: 'cardapio/acompanhamentos', rotulo: 'Acompanhamentos' }, { id: 'repetidos', rota: 'cardapio/repetidos', rotulo: 'Repetidos', badge: P.Acomp.contar() || null });
+    return P.UI.subnav(abas, ativo);
   }
   function telaCardapio(view) {
     view.className = 'v-mesas v-cardapio';

@@ -63,6 +63,7 @@
     // gás: botijão ligado, que acabou ou em uso no período; e o que foi gasto com gás
     r.botijoes = de ? P.Gas.todos().filter(b => b.inicio <= ate && (!b.fim || b.fim >= de)) : [];
     r.gasDesp = r.despesas.filter(d => d.categoria === 'GAS_CARVAO').reduce((s, d) => s + (+d.valor || 0), 0);
+    // (a sobra do caixa já vem do relatório: r.sobra, dentro das vendas e do que entrou)
     r.saldo = r.entradas - r.saidas;
     return r;
   }
@@ -94,6 +95,7 @@
     out.push(secao('Vendas',
       linhaV('Vendido (itens)', P.brl(r.fatBruto)),
       r.desconto ? linhaV('(−) Descontos', P.brl(r.desconto)) : null,
+      r.sobra ? linhaV('(+) Sobra do caixa (Fechar caixa)', P.brl(r.sobra)) : null,
       linhaV('= Vendas', P.brl(r.fat), 'forte'),
       r.semDetalhe ? linhaV('Vendas sem anotação (diferença do caixa)', P.brl(r.semDetalhe), 'nota') : null,
       ['SALAO', 'ESPETO', 'MARMITA'].filter(k => r.porCanal[k].contas).map(k => linhaV(P.Mesas.NOME_CANAL[k], P.brl(r.porCanal[k].fat) + ' · ' + r.porCanal[k].contas + (r.porCanal[k].contas === 1 ? ' conta' : ' contas'))),
@@ -135,7 +137,7 @@
         h('b', null, P.brl(g.total))))) : h('div', { class: 'dica' }, 'Nenhum pagamento da equipe.')));
 
     out.push(secao('Caixa',
-      linhaV('Entrou (vendas recebidas' + (r.fiadoRecebidoTotal ? ' e fiado recebido' : '') + ')', P.brl(r.entradas)),
+      linhaV('Entrou (vendas recebidas' + (r.fiadoRecebidoTotal ? ', fiado recebido' : '') + (r.sobra ? ' e ' + P.brl(r.sobra) + ' de sobra do caixa' : '') + ')', P.brl(r.entradas)),
       linhaV('Saiu (compras pagas, despesas e equipe)', P.brl(r.saidas)),
       linhaV('= Saldo', P.brl(r.saldo), 'total ' + (r.saldo >= 0 ? 't-verde' : 't-vermelho')),
       r.comprasAPrazo ? linhaV('Comprado e ainda não pago (a prazo / cartão de crédito)', P.brl(r.comprasAPrazo), 'aviso') : null,

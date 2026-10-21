@@ -1,10 +1,11 @@
-# Próximos passos — situação em 21/10/2026
+# Próximos passos — situação em 21/10/2026 (noite)
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.17 (Fiado: o cliente paga uma parte e o resto continua devendo) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.18 (Acompanhamentos na comanda; Pratos repetidos para juntar; aviso de prato parecido) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.17 (Fiado: o cliente paga uma parte e o resto continua devendo) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.16 (Painel: escolher o dia no calendário e calendário do mês) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.15 (Painel: semana do calendário e mês inteiro; espeto desligado por enquanto) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.14 (busca nos lotes de carne, excluir compra e excluir venda, Lixeira para restaurar) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -38,11 +39,21 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
 
-## Em conversa: pratos repetidos e acompanhamentos (21/10)
+## O que entrou na v1.18 (pedido de 21/10)
 
-Lista dos repetidos e plano dos acompanhamentos (Comida extra, Baião, Batata frita, 2 ovos, Separada…) enviados ao
-dono; esperando as respostas (Costela = Costela assada? preços dos acompanhamentos; baião sempre +R$ 5?; Galinha com
-arroz e feijão). Nada foi juntado nem apagado.
+| Pedido | No app |
+|---|---|
+| Ver os pratos repetidos (sem limpar ainda) | lista enviada ao dono a partir do backup de 20/10; o dono confirmou: Costela = Costela assada e Contra filé acebolado = Contra filé grelhado |
+| Lançar acompanhamentos em vez de um prato para cada variação (Filé de frango 25, com batata 30…) | Mais → **Acompanhamentos**: sugeridos pelas vendas (Comida extra, Baião, Batata frita, 2 ovos, Feijão de corda, Feijão preto, Separada, todos +R$ 5, editáveis); na comanda, faixa *+ Batata frita* logo acima dos pratos |
+| Limpar os repetidos | Mais → **Pratos repetidos**: sugestões prontas (mesmo prato, prato + acompanhamento, cachaça cadastrada como prato), *Juntar* um por um com Desfazer, *Separar* depois; nada é apagado, as vendas do que sai somam no que fica |
+| Não lançar de novo um prato que já existe | criar prato na comanda com nome parecido sugere o prato + acompanhamento; nome de prato juntado entra como o que ficou |
+| Painel: o dinheiro que sobra no caixa entra como venda, deixando claro quanto sobrou | sobra do Fechar caixa (total informado − o que deveria ter) soma nas vendas e no que entrou do Painel (dia, semana, mês, calendário), de Dia e período, do Relatório e de Capital e caixa, sempre com a linha "Inclui R$ X de sobra do caixa" / "(+) Sobra do caixa"; refeita ao vivo (venda lançada depois tira a sobra); falta não entra |
+| "Ficou na gaveta" → "ficou no bolso", e já vira o troco do dia seguinte | Fechar caixa: "Dinheiro no bolso" / "Ficou no bolso"; o troco do início vem preenchido com o que ficou no bolso no último fechamento ("O que ficou no bolso no fechamento de ter 20/10") |
+
+Por dentro: a lista de acompanhamentos e os pratos juntados ficam na tabela `config` (`acompanhamentos`,
+`itens_juntados`); o prato que sai fica com `ativo = false`. Nada novo no banco.
+Ainda em aberto com o dono: preços dos acompanhamentos (sugeridos +R$ 5), se o baião é sempre +R$ 5 e se a
+Galinha com arroz e feijão continua como prato separado (não entrou nas sugestões).
 
 ## O que entrou na v1.15 (pedido de 19/10)
 

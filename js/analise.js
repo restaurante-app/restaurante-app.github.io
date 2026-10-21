@@ -305,11 +305,12 @@
       P.Mesas.linhas(c.id).forEach(l => {
         const q = +l.quantidade || 0;
         if (!(q > 0)) return;
-        const g = vend.get(l.item_id) || { q: 0, fat: 0, cmvVenda: 0, qComCmv: 0 };
+        const id = P.Calc.principal(l.item_id); // prato juntado soma no que ficou
+        const g = vend.get(id) || { q: 0, fat: 0, cmvVenda: 0, qComCmv: 0 };
         g.q += q;
         g.fat += q * (+l.preco_unit || 0);
         if (+l.cmv_unit > 0) { g.cmvVenda += q * (+l.cmv_unit); g.qComCmv += q; }
-        vend.set(l.item_id, g);
+        vend.set(id, g);
       });
     });
     const lista = P.Store.all('itens').filter(it => it.categoria !== 'GUARNICAO' && ((P.Calc.vendavel(it) && !P.Calc.espetoOculto(it)) || vend.has(it.id))).map(it => {

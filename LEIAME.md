@@ -189,16 +189,21 @@ resto fica em "Outros pratos"; dia sem cardápio = todos os pratos. Botões para
 de hoje ou mandar no WhatsApp.
 
 **Fechar caixa** (Mesas → Fechar caixa, ou Mais → Fechar caixa) — no fim do dia, informe o **dinheiro
-contado na gaveta**, o **Pix que entrou na conta** e o **total da maquininha**; o app confere com o que
+que ficou no bolso**, o **Pix que entrou na conta** e o **total da maquininha**; o app confere com o que
 registrou no dia e mostra, em cada um, **bateu**, **sobrou** ou **faltou** (e quanto):
 - Dinheiro = troco do início + vendas e fiado recebidos em dinheiro − compras e despesas pagas em dinheiro
-  (a lista do que saiu fica à mão). O troco do início vem do último fechamento; toque para mudar.
+  (a lista do que saiu fica à mão). O troco do início é o que **ficou no bolso** no último fechamento
+  (já vem preenchido no dia seguinte); toque para mudar.
 - Pix = vendas e fiado recebidos no Pix (o que saiu no Pix aparece à parte e não entra nesta conta).
 - Cartão = débito + crédito das vendas (e do fiado recebido no cartão).
 Avisa se ainda há conta aberta no dia e se há despesa sem forma de pagamento. *Fechar o caixa* guarda o que
 foi informado, quem fechou e a hora (dá para salvar de novo ou desfazer); a conta é refeita ao vivo se algo
 for lançado depois. Mais → Fechar caixa e Dia e período (no dia) mostram o resultado. Todos fecham; o que é
 só do dono (salário, retirada…) entra na conta sem mostrar o que é.
+**Sobra do caixa**: quando o total informado passa do que deveria ter, a sobra entra como **venda** no Painel
+(dia, semana, mês e calendário), em Dia e período, no Relatório e em Capital e caixa, sempre à parte ("Inclui R$ X de sobra do caixa",
+"(+) Sobra do caixa"). É refeita ao vivo: se a venda que faltava for lançada depois, a sobra diminui e não
+conta duas vezes. Falta não entra (fica só o aviso no fechamento).
 
 **Folha da cozinha** (Mais → Folha da cozinha, ou a aba ao lado do Cardápio do dia) — a folha A4 que fica
 impressa na cozinha para as cozinheiras saberem o que fazer: os **pratos do dia** de cada dia da semana e os
@@ -210,6 +215,22 @@ Desfazer). *Imprimir* sai numa folha A4 no visual da marca (faixa Maria Simone, 
 vermelha), com a data do dia escolhido ou só o dia da semana (para deixar a mesma folha impressa por mais
 tempo). Com muito prato a letra encolhe sozinha para caber numa página (e avisa se não couber). O dono monta;
 todos veem e imprimem. Começa com a folha de sexta montada com o dono (16/10).
+
+**Acompanhamentos** (Mais → Acompanhamentos, ou a aba no Cardápio; só o dono monta) — Batata frita, Baião,
+Comida extra, 2 ovos, Feijão de corda, Feijão preto, Separada… cada um com o preço que soma no prato. Na
+comanda, na aba Pratos, aparecem numa faixa logo acima dos pratos: toque no prato e depois em *+ Batata frita*
+(Filé de frango R$ 25 + Batata frita R$ 5 = R$ 30). O prato continua contando como 1 prato e o acompanhamento
+entra como item à parte (dá para ver quantos saíram). Os sugeridos saíram das vendas (o que vinha escrito no
+nome do prato); *Pôr todos os sugeridos* cria de uma vez, e toque no nome para mudar nome e preço.
+
+**Pratos repetidos** (Mais → Pratos repetidos, ou a aba *Repetidos* no Cardápio; só o dono) — o mesmo prato
+cadastrado duas vezes (Costela e Costela assada) ou com o acompanhamento no nome (Filé de frango com batata
+frita). *Juntar*: o de cima sai da comanda e do cardápio do dia (não é apagado) e as vendas dele passam a
+somar no que fica (relatório, análise, cardápio); as vendas antigas não mudam. Quando o que sai tem ficha
+técnica e o que fica não tem, a ficha passa junto. *Trocar qual fica* inverte; *Já juntados* → *Separar*
+desfaz. *Juntar outros dois pratos* escolhe quaisquer dois. Na comanda, criar um prato com nome parecido com
+um que já existe avisa: "Já existe: Pôr Filé de frango + Batata frita · R$ 30"; nome de prato juntado entra
+como o prato que ficou.
 
 **Buscas** — Compras e Despesas têm uma busca no topo que aceita nome, data e valor juntos
 (ex.: "gás 05/10", "coca", "380", "247,80"): procura em tudo o que já foi lançado. Na comanda

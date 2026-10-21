@@ -60,7 +60,7 @@
         { href: 'mesas/hoje', ic: 'check', cor: 'verde', t: 'Contas fechadas', s: fechadas + (fechadas === 1 ? ' conta hoje' : ' contas hoje'), k: 'comandas vendas' },
         { href: 'mesas/fiado', ic: 'fiado', cor: 'vermelho', t: 'Fiado', s: fiado ? P.brl0(fiado) + ' a receber' : 'ninguém devendo', destaque: !!fiado, k: 'devendo receber cliente pendura' },
         { href: 'mesas/caixa', ic: 'dinheiro', cor: 'verde', t: 'Fechar caixa', s: fech ? 'fechado hoje · ' + fech.texto : 'conferir dinheiro, Pix e cartão do dia', destaque: !!fech && !fech.bateu,
-          k: 'fechamento conferir gaveta maquininha pix dinheiro cartao bateu sobrou faltou troco' },
+          k: 'fechamento conferir gaveta bolso maquininha pix dinheiro cartao bateu sobrou sobra faltou troco' },
         { href: 'mesas/despesas', ic: 'caixa', cor: 'laranja', t: 'Despesas', s: despHoje ? P.brl0(despHoje) + ' hoje' : dono ? 'salários, aluguel, contas, gás…' : 'gás, carvão, embalagem', k: 'gasto conta luz agua aluguel salario carvao embalagem' },
         { href: 'cardapio', ic: 'fichas', cor: 'laranja', t: 'Cardápio do dia', s: cardHoje.definido ? cardHoje.itens.length + ' pratos de ' + cardHoje.nome + ' · mandar no WhatsApp' : 'monte os pratos de cada dia', k: 'pratos whatsapp menu' },
         { href: 'cardapio/cozinha', ic: 'imprimir', cor: 'vermelho', t: 'Folha da cozinha', s: coz.dia ? coz.dia + (coz.dia === 1 ? ' prato' : ' pratos') + ' de ' + cardHoje.nome + ' + ' + coz.fixos + (coz.fixos === 1 ? ' fixo' : ' fixos') + ' · imprimir' : 'pratos do dia e o que leva · imprimir', k: 'cozinha cozinheira cozinheiras imprimir impressao producao leva folha cardapio' },
@@ -78,8 +78,14 @@
         const nPend = P.Anotacoes ? P.Anotacoes.abertas().length : 0;
         const nEq = P.Store.all('pessoas').filter(p => p.ativo !== false).length;
         const nLixo = P.Lixeira ? P.Lixeira.lista().length : 0;
+        const nAc = P.Acomp ? P.Acomp.lista().length : 0;
+        const nRep = P.Acomp ? P.Acomp.contar() : 0;
         grupos.push(grupo('Gestão', [
           { href: 'fichas', ic: 'fichas', cor: 'roxo', t: 'Fichas técnicas', s: 'margem de cada prato · cadastro', k: 'ficha cmv food cost insumos itens cadastro' },
+          { href: 'cardapio/acompanhamentos', ic: 'mais', cor: 'laranja', t: 'Acompanhamentos', s: nAc ? nAc + ' na comanda · ' + P.Acomp.lista().slice(0, 3).map(a => a.nome.toLowerCase()).join(', ') : 'batata, baião, comida extra na comanda',
+            k: 'adicional extra batata baiao ovo acrescimo' },
+          { href: 'cardapio/repetidos', ic: 'check', cor: 'roxo', t: 'Pratos repetidos', s: nRep ? nRep + (nRep === 1 ? ' sugestão para juntar' : ' sugestões para juntar') : 'juntar prato cadastrado duas vezes', destaque: !!nRep,
+            k: 'duplicado repetido juntar variacao igual' },
           { href: 'relatorio', ic: 'relatorio', cor: 'azul', t: 'Relatório detalhado', s: 'vendas, caixa, compras, CSV', k: 'exportar planilha imprimir' },
           { href: 'dia', ic: 'calendario', cor: 'azul', t: 'Dia e período', s: 'tudo de um dia · comparar períodos', k: 'comparar semana mes' },
           { href: 'compras/analise', ic: 'alerta', cor: 'amarelo', t: 'Análise de compras', s: nAl ? nAl + (nAl === 1 ? ' alerta nas compras' : ' alertas nas compras') : 'compras × vendas e pratos', destaque: !!nAl, k: 'alertas preco acima' },
