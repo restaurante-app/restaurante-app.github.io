@@ -1,10 +1,12 @@
-# Próximos passos — situação em 19/10/2026
+# Próximos passos — situação em 21/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.15 (Painel: semana do calendário e mês inteiro; espeto desligado por enquanto) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.17 (Fiado: o cliente paga uma parte e o resto continua devendo) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.16 (Painel: escolher o dia no calendário e calendário do mês) | `main` | **publicado** (não muda o `schema.sql`) |
+| App v1.15 (Painel: semana do calendário e mês inteiro; espeto desligado por enquanto) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.14 (busca nos lotes de carne, excluir compra e excluir venda, Lixeira para restaurar) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.13 (Fechar caixa: dinheiro da gaveta, Pix e maquininha conferidos com as vendas, o fiado recebido e o que saiu) | `main` → https://restaurante-app.github.io/ | **publicado** (não muda o `schema.sql`: fica na tabela `config`) |
 | App v1.12 (Folha da cozinha: pratos do dia e fixos com o que leva, imprimir em A4; criar insumo na hora de lançar a compra) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -26,6 +28,21 @@ lançamentos → arquivo de 06/10 → conferir → Lançar; 4) montar a quarta e
 e resolver as pendências.
 
 Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodado.
+
+## O que entrou na v1.17 (pedido de 21/10)
+
+| Pedido | No app |
+|---|---|
+| Dar baixa na conta dos clientes: pagam um pouco, o resto fica e vou abatendo | Mesas → **Fiado** → toque no cliente → toque no valor e ponha quanto pagou → forma (Dinheiro, Pix, Débito, Crédito). Abate das contas mais antigas; a conta paga em parte fica com o que resta ("já pagou R$ 10 de R$ 35") e o cliente mostra o que já pagou e quando. O recebido entra no caixa e no Fechar caixa do dia em que foi pago; a venda continua no dia dela. Aviso com Desfazer; valor maior que a dívida não passa. Reabrir uma conta com fiado já pago avisa antes |
+
+Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
+que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## Em conversa: pratos repetidos e acompanhamentos (21/10)
+
+Lista dos repetidos e plano dos acompanhamentos (Comida extra, Baião, Batata frita, 2 ovos, Separada…) enviados ao
+dono; esperando as respostas (Costela = Costela assada? preços dos acompanhamentos; baião sempre +R$ 5?; Galinha com
+arroz e feijão). Nada foi juntado nem apagado.
 
 ## O que entrou na v1.15 (pedido de 19/10)
 

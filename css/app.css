@@ -1448,3 +1448,11 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .lx-dir { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .lx-card .btn.mini { flex: 0 0 auto; gap: 5px; }
 .lx-card .btn.mini svg { width: 15px; height: 15px; }
+
+/* Fiado: dar baixa (tudo ou só uma parte) */
+.fia-deve { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 2px 0 10px; }
+.fia-deve small { color: var(--tx2); font-size: .8rem; }
+.fia-deve b { font-size: 1.6rem; font-weight: 800; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.btn.fia-valor { flex-direction: column; align-items: flex-start; gap: 2px; padding-top: 10px; padding-bottom: 10px; height: auto; }
+.btn.fia-valor b { font-size: 1.35rem; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.btn.fia-valor small { color: var(--tx2); font-size: .74rem; font-weight: 600; }
