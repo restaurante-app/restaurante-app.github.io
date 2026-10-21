@@ -58,7 +58,7 @@
     }
     fechadas.forEach(c => {
       const pags = M.pagamentos(c.id);
-      const formas = pags.map(p => P.Mesas.NOME_FORMA[p.forma]).join(' + ');
+      const formas = M.formasDe(c);
       pags.forEach(p => { r.porForma[p.forma] = (r.porForma[p.forma] || 0) + (+p.valor || 0); });
       // venda lançada depois: entra em tudo, menos nas vendas por hora (não tem horário de verdade)
       const sh = M.semHora(c);
@@ -245,7 +245,7 @@
           h('div', { class: 'ms-lista' }, mostrar.map(c => h('a', { class: 'ms-card', href: '#/mesas/c/' + c.id },
             h('div', { class: 'ms-card-n' }, P.Mesas.rotulo(c),
               h('small', null, (dias.length > 1 ? P.Dia.rotuloCurto(c.dia_operacional) + ' · ' : '') + (P.Mesas.semHora(c) ? 'lançada depois' : P.Dia.hora(c.aberta_em) + '–' + P.Dia.hora(c.fechada_em)) + ' · ' + NOME_CANAL[c.canal] + ' · ' +
-                P.Mesas.pagamentos(c.id).map(p => P.Mesas.NOME_FORMA[p.forma]).join(' + '))),
+                P.Mesas.formasDe(c))),
             h('b', null, P.brl(c.total))))),
           lista.length > mostrar.length ? h('button', { type: 'button', class: 'btn bloco', onClick: () => { verTodas = true; desenhar(); } }, 'Mostrar todas as ' + lista.length) : null));
       }

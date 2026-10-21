@@ -54,7 +54,10 @@ toque numa despesa para editar; **Do mês** mostra o total por tipo e por forma 
 O **lucro** usa as despesas lançadas (salários, aluguel, contas e impostos entram no dia em que foram
 pagos). Os custos fixos de Ajustes ficam só como **base**: a projeção do mês usa a base enquanto os
 fixos do mês não forem lançados. O operador não vê essas despesas,
-**Fiado** (quem deve, com "Recebi em…").
+**Fiado** (quem deve, com "Recebi em…"). O cliente pode pagar **só uma parte**: toque no valor e ponha
+quanto pagou; abate das contas mais antigas e o resto continua no fiado (a conta paga em parte mostra
+"já pagou R$ X de R$ Y", e o cliente mostra o que já pagou). O recebido entra no caixa do dia em que
+foi pago, na forma escolhida; o aviso tem *Desfazer*.
 Item tirado de uma comanda e conta cancelada ficam registrados com quem fez.
 **Excluir venda** (dono): venda lançada errada ou repetida sai pelo botão *Excluir venda* no resumo da conta
 (Fechadas → toque na conta; a lista não tem lixeira, para não apagar sem querer). Pergunta antes; some das

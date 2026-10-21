@@ -146,6 +146,8 @@
       status: 'FECHADA', fechada_em: quando, dia_operacional: dia, desconto: d, total, fechada_por: u && u.id,
     }));
   }
+  // formas de pagamento de uma conta, sem repetir (fiado pago em parte fica em dois pagamentos)
+  const formasDe = c => [...new Set(pagamentos(c.id).map(p => NOME_FORMA[p.forma]))].join(' + ');
   function reabrir(c) {
     pagamentos(c.id).forEach(p => P.Store.remove('pagamentos', p.id));
     P.Store.put('comandas', Object.assign({}, c, { status: 'ABERTA', fechada_em: null, fechada_por: null }));
@@ -577,7 +579,9 @@
         h('span', { class: 'rs-v' }, P.brl(p.valor)))))] : null,
       h('div', { class: 'rs-quem' }, 'Aberta por ' + nomeUsu(c.usuario_id) + (c.fechada_por ? ' · fechada por ' + nomeUsu(c.fechada_por) : '') + (c.cancelada_por ? ' · cancelada por ' + nomeUsu(c.cancelada_por) : '')),
       P.Auth.isDono() && c.status !== 'ABERTA' ? h('button', { type: 'button', class: 'btn bloco', onClick: async () => {
-        if (!(await P.UI.confirmar('Reabrir a comanda de ' + rotulo(c) + '? Os pagamentos registrados serão desfeitos.', { ok: 'Reabrir' }))) return;
+        const recFiado = pags.filter(p => p.forma === 'FIADO' && p.recebido_em).reduce((s, p) => s + (+p.valor || 0), 0);
+        if (!(await P.UI.confirmar('Reabrir a comanda de ' + rotulo(c) + '? Os pagamentos registrados serão desfeitos.' +
+          (recFiado ? ' Isso inclui ' + P.brl(recFiado) + ' do fiado que o cliente já pagou: sai do caixa e volta a ficar devendo ao fechar de novo no fiado.' : ''), { ok: 'Reabrir' }))) return;
         reabrir(c);
         location.hash = '#/mesas/c/' + c.id;
         P.UI.render();
@@ -706,7 +710,7 @@
       corpo.appendChild(h('div', { class: 'ms-lista' }, cs.map(c => h('a', { class: 'ms-card' + (c.status === 'CANCELADA' ? ' cancelada' : ''), href: '#/mesas/c/' + c.id },
         h('div', { class: 'ms-card-n' }, rotulo(c),
           h('small', null, (semHora(c) ? 'lançada depois' : P.Dia.hora(c.aberta_em) + '–' + P.Dia.hora(c.fechada_em)) + ' · ' + NOME_CANAL[c.canal] + ' · ' +
-            (c.status === 'CANCELADA' ? 'cancelada' : pagamentos(c.id).map(p => NOME_FORMA[p.forma]).join(' + ')))),
+            (c.status === 'CANCELADA' ? 'cancelada' : formasDe(c)))),
         h('b', null, c.status === 'CANCELADA' ? '—' : P.brl(c.total))))));
     }
     view.append(subnavMesas('hoje'), corpo);
@@ -948,6 +952,39 @@
   function fiadoAberto() {
     return P.Store.all('pagamentos').filter(p => p.forma === 'FIADO' && !p.recebido_em);
   }
+  const clienteDe = p => { const c = P.Store.get('comandas', p.comanda_id); return (c && c.cliente) || 'Sem nome'; };
+  const ordemFiado = (a, b) => ((a.dia_operacional || '') + (a.pago_em || '') < (b.dia_operacional || '') + (b.pago_em || '') ? -1 : 1);
+  // Dar baixa no fiado: o cliente paga o que puder e o resto continua devendo. O valor abate das
+  // contas mais antigas; a conta paga só em parte vira duas (a parte recebida e a que segue em
+  // aberto), assim o caixa conta o recebido no dia e na forma em que entrou e a venda continua no
+  // dia dela. Devolve a função que desfaz.
+  function receberFiado(pags, valor, forma) {
+    const agora = P.agoraISO();
+    const rec = { recebido_em: agora, recebido_dia: P.Dia.diaOperacional(agora), recebido_forma: forma };
+    const antes = [], novos = [];
+    let resta = P.round(valor, 2);
+    pags.slice().sort(ordemFiado).forEach(p => {
+      if (resta < 0.01) return;
+      const v = +p.valor || 0;
+      antes.push(p);
+      if (resta >= v - 0.004) { P.Store.put('pagamentos', Object.assign({}, p, rec)); resta = P.round(resta - v, 2); return; }
+      P.Store.put('pagamentos', Object.assign({}, p, { valor: P.round(v - resta, 2) }));
+      novos.push(P.Store.put('pagamentos', Object.assign({}, p, rec, { id: P.uuid(), valor: resta })).id);
+      resta = 0;
+    });
+    return () => { antes.forEach(p => P.Store.put('pagamentos', p)); novos.forEach(id => P.Store.remove('pagamentos', id)); };
+  }
+  // o que o cliente já pagou do fiado (cada baixa, da mais recente para a mais antiga)
+  function baixasDe(k) {
+    const m = new Map();
+    P.Store.all('pagamentos').forEach(p => {
+      if (p.forma !== 'FIADO' || !p.recebido_em || P.UI.semAcento(clienteDe(p)) !== k) return;
+      const x = m.get(p.recebido_em) || { em: p.recebido_em, dia: p.recebido_dia, forma: p.recebido_forma, v: 0 };
+      x.v = P.round(x.v + (+p.valor || 0), 2);
+      m.set(p.recebido_em, x);
+    });
+    return [...m.values()].sort((a, b) => (a.em < b.em ? 1 : -1));
+  }
   function telaFiado(view) {
     view.className = 'v-mesas';
     const corpo = h('div');
@@ -955,12 +992,11 @@
       corpo.innerHTML = '';
       const grupos = new Map();
       fiadoAberto().forEach(p => {
-        const c = P.Store.get('comandas', p.comanda_id);
-        const nome = (c && c.cliente) || 'Sem nome';
+        const nome = clienteDe(p);
         const k = P.UI.semAcento(nome);
-        if (!grupos.has(k)) grupos.set(k, { nome, total: 0, pags: [] });
+        if (!grupos.has(k)) grupos.set(k, { k, nome, total: 0, pags: [] });
         const g = grupos.get(k);
-        g.total += +p.valor || 0;
+        g.total = P.round(g.total + (+p.valor || 0), 2);
         g.pags.push(p);
       });
       const lista = [...grupos.values()].sort((a, b) => b.total - a.total);
@@ -969,27 +1005,57 @@
       if (!lista.length) { corpo.appendChild(P.UI.vazio('Ninguém devendo. Fiado aparece aqui quando a conta é fechada como "Fiado".')); return; }
       corpo.appendChild(h('div', { class: 'ms-lista' }, lista.map(g => {
         const desde = g.pags.map(p => p.dia_operacional).sort()[0];
+        const ult = baixasDe(g.k)[0];
         return h('button', { type: 'button', class: 'ms-card', onClick: () => receber(g) },
-          h('div', { class: 'ms-card-n' }, g.nome, h('small', null, g.pags.length + (g.pags.length === 1 ? ' conta' : ' contas') + ' · desde ' + P.Dia.rotuloCurto(desde))),
+          h('div', { class: 'ms-card-n' }, g.nome, h('small', null, g.pags.length + (g.pags.length === 1 ? ' conta' : ' contas') + ' · desde ' + P.Dia.rotuloCurto(desde) +
+            (ult ? ' · pagou ' + P.brl(ult.v) + ' em ' + P.Dia.rotuloCurto(ult.dia) : ''))),
           h('b', null, P.brl(g.total)));
       })));
+      corpo.appendChild(h('div', { class: 'dica' }, 'Toque no cliente para dar baixa. Se pagou só uma parte, troque o valor: abate das contas mais antigas e o resto continua no fiado.'));
     }
     function receber(g) {
+      let valor = g.total;
+      const bValor = h('button', { type: 'button', class: 'btn valor bloco fia-valor' });
+      const tit = h('div', { class: 'secao' });
+      function mostrar() {
+        const tudo = valor >= g.total - 0.004;
+        bValor.replaceChildren(h('b', null, P.brl(valor)), h('small', null, tudo ? 'a dívida toda · pagou só uma parte? toque aqui' : 'continua devendo ' + P.brl(g.total - valor) + ' · trocar'));
+        tit.textContent = (tudo ? 'Recebi tudo (' : 'Recebi ') + P.brl(valor) + (tudo ? ') em:' : ' em:');
+      }
+      bValor.addEventListener('click', async () => {
+        const v = await P.UI.pedirNumero({ titulo: 'Quanto pagou agora?', valor: null, decimais: 2, prefixo: 'R$ ', sub: g.nome + ' deve ' + P.brl(g.total) + '. O resto continua no fiado.' });
+        if (v == null || !(v > 0)) return;
+        if (v > g.total + 0.004) { P.UI.toast('Maior que a dívida (' + P.brl(g.total) + ').', { tipo: 'perigo' }); return; }
+        valor = P.round(v, 2);
+        mostrar();
+      });
+      // quanto já foi pago de cada conta (a conta paga em parte mostra o que resta)
+      const pagoDa = id => P.Store.all('pagamentos').filter(p => p.comanda_id === id && p.forma === 'FIADO' && p.recebido_em).reduce((s, p) => s + (+p.valor || 0), 0);
+      const baixas = baixasDe(g.k).slice(0, 5);
       const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
-        h('div', { class: 'rs-itens' }, g.pags.sort((a, b) => (a.pago_em < b.pago_em ? -1 : 1)).map(p => h('div', { class: 'rs-l' },
-          h('span', { class: 'rs-h' }, P.Dia.rotuloCurto(p.dia_operacional)), h('span', { class: 'rs-n' }, rotulo(P.Store.get('comandas', p.comanda_id) || {})), h('span', { class: 'rs-v' }, P.brl(p.valor))))),
-        h('div', { class: 'secao' }, 'Recebi ' + P.brl(g.total) + ' em:'),
+        h('div', { class: 'fia-deve' }, h('small', null, 'Deve'), h('b', null, P.brl(g.total))),
+        h('div', { class: 'rs-itens' }, g.pags.slice().sort(ordemFiado).map(p => {
+          const pago = pagoDa(p.comanda_id);
+          return h('div', { class: 'rs-l' },
+            h('span', { class: 'rs-h' }, P.Dia.rotuloCurto(p.dia_operacional)),
+            h('span', { class: 'rs-n' }, rotulo(P.Store.get('comandas', p.comanda_id) || {}), pago ? h('small', null, 'já pagou ' + P.brl(pago) + ' de ' + P.brl(pago + (+p.valor || 0))) : null),
+            h('span', { class: 'rs-v' }, P.brl(p.valor)));
+        })),
+        baixas.length ? [h('div', { class: 'secao' }, 'Já pagou'), h('div', { class: 'rs-itens' }, baixas.map(b => h('div', { class: 'rs-l' },
+          h('span', { class: 'rs-h' }, P.Dia.rotuloCurto(b.dia)), h('span', { class: 'rs-n' }, NOME_FORMA[b.forma] || b.forma), h('span', { class: 'rs-v' }, P.brl(b.v)))))] : null,
+        h('div', { class: 'secao' }, 'Quanto pagou agora'),
+        bValor, tit,
         h('div', { class: 'pg-formas' }, FORMAS.filter(f => f.v !== 'FIADO').map(f => h('button', { type: 'button', class: 'pg-forma f-' + f.v.toLowerCase(), onClick: () => {
-          const agora = P.agoraISO();
-          const dia = P.Dia.diaOperacional(agora);
-          g.pags.forEach(p => P.Store.put('pagamentos', Object.assign({}, p, { recebido_em: agora, recebido_dia: dia, recebido_forma: f.v })));
+          const v = valor, resta = P.round(g.total - v, 2);
+          const desfazer = receberFiado(g.pags, v, f.v);
           P.vibrar([20, 40, 20]);
           sh.fechar();
-          P.UI.toast(g.nome + ': ' + P.brl(g.total) + ' recebido (' + f.rotulo + ')', {
-            acao: { rotulo: 'Desfazer', fn: () => g.pags.forEach(p => P.Store.put('pagamentos', Object.assign({}, p, { recebido_em: null, recebido_dia: null, recebido_forma: null }))) },
+          P.UI.toast(g.nome + ': ' + P.brl(v) + ' recebido (' + f.rotulo + ')' + (resta > 0.004 ? ' · continua devendo ' + P.brl(resta) : ' · quitou'), {
+            acao: { rotulo: 'Desfazer', fn: desfazer },
           });
         } }, h('span', { class: 'pg-ic' }, P.UI.icone(ICONE_FORMA[f.v])), f.rotulo)))),
       { titulo: 'Fiado de ' + g.nome });
+      mostrar();
     }
     view.append(subnavMesas('fiado'), corpo);
     desenhar();
@@ -1006,7 +1072,7 @@
   P.UI.rota('mesas/fiado', { titulo: 'Fiado', tab: 'mesas', render: telaFiado });
 
   P.Mesas = {
-    linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, navDia, fiadoAberto, totaisDoDia,
+    linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, navDia, fiadoAberto, receberFiado, baixasDe, formasDe, totaisDoDia,
     FORMAS, NOME_FORMA, ICONE_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP, DESP_FIXA, DESP_DONO, DESP_FORA, FORMAS_DESP, NOME_FORMA_DESP, despVisivel, subDesp,
     SUBTIPOS, NOME_SUBTIPO, competenciaDe, rotuloCompetencia, inicioSemana, novaDespesa, semHora, jaFechada, criarItem, excluirVenda,
     _abrir: abrir, _adicionar: adicionar, _fechar: fechar, _tirar: tirar,

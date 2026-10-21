@@ -11,6 +11,17 @@
   const kpi = (rot, val, sub, cor) => h('div', { class: 'kpi' }, h('div', { class: 'kpi-rot' }, rot), h('div', { class: 'kpi-val' + (cor ? ' t-' + cor : '') }, val), sub ? h('div', { class: 'kpi-sub' }, sub) : null);
   // troca o conteúdo ignorando partes opcionais vazias (null/false viraria o texto "null")
   const trocar = (el, ...k) => el.replaceChildren(...k.flat(Infinity).filter(x => x != null && x !== false));
+  // fiado vendido por conta (a conta paga em parte tem um pagamento recebido e outro em aberto)
+  function porConta(lista) {
+    const m = new Map();
+    lista.forEach(x => {
+      const g = m.get(x.c.id) || { c: x.c, dia: x.p.dia_operacional, v: 0, rec: 0 };
+      g.v += +x.p.valor || 0;
+      if (x.p.recebido_em) g.rec += +x.p.valor || 0;
+      m.set(x.c.id, g);
+    });
+    return [...m.values()];
+  }
 
   function subnavDia(ativo) {
     return P.UI.subnav([{ id: 'dia', rota: 'dia', rotulo: 'Dia' }, { id: 'periodo', rota: 'periodo', rotulo: 'Período' }], ativo);
@@ -132,7 +143,8 @@
 
     out.push(secao('Fiado',
       linhaV('Vendido no fiado', P.brl(r.fiadoDadoTotal), r.fiadoDadoTotal ? 'aviso' : null),
-      r.fiadoDado.map(x => h('div', { class: 'rl-ctrl' }, quando(x.p.dia_operacional) + (x.c.cliente || P.Mesas.rotulo(x.c)) + ' · ' + P.brl(x.p.valor) + (x.p.recebido_em ? ' · já recebido' : ''))),
+      porConta(r.fiadoDado).map(g => h('div', { class: 'rl-ctrl' }, quando(g.dia) + (g.c.cliente || P.Mesas.rotulo(g.c)) + ' · ' + P.brl(g.v) +
+        (g.rec >= g.v - 0.004 ? ' · já recebido' : g.rec ? ' · ' + P.brl(g.rec) + ' já recebido' : ''))),
       linhaV('Fiado recebido', P.brl(r.fiadoRecebidoTotal)),
       r.fiadoRecebido.map(x => h('div', { class: 'rl-ctrl' }, (varios ? P.Dia.rotuloCurto(x.p.recebido_dia) + ' · ' : '') + (x.c.cliente || P.Mesas.rotulo(x.c)) + ' · ' + P.brl(x.p.valor) + ' · ' + (P.Mesas.NOME_FORMA[x.p.recebido_forma] || '') + ' (vendido ' + P.Dia.rotuloCurto(x.p.dia_operacional) + ')'))));
 

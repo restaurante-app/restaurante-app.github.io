@@ -25,7 +25,7 @@
       const itens = excluidos('comanda_itens').filter(l => l.comanda_id === c.id && +l.quantidade > 0 && junto(l, c));
       const pags = excluidos('pagamentos').filter(p => p.comanda_id === c.id && junto(p, c));
       out.push({ tipo: 'venda', em: quando(c), titulo: 'Venda · ' + P.Mesas.rotulo(c), valor: c.status === 'CANCELADA' ? null : +c.total || 0,
-        sub: P.Dia.rotulo(c.dia_operacional) + ' · ' + (c.status === 'CANCELADA' ? 'cancelada' : pags.map(p => P.Mesas.NOME_FORMA[p.forma]).join(' + ') || 'sem pagamento'),
+        sub: P.Dia.rotulo(c.dia_operacional) + ' · ' + (c.status === 'CANCELADA' ? 'cancelada' : [...new Set(pags.map(p => P.Mesas.NOME_FORMA[p.forma]))].join(' + ') || 'sem pagamento'),
         restaurar: () => { volta('comandas', c); itens.forEach(l => volta('comanda_itens', l)); pags.forEach(p => volta('pagamentos', p)); } });
     });
     const lotesDeCompra = new Set();
