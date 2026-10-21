@@ -214,19 +214,26 @@
     P.salvarCfg('itens_juntados', Object.assign({}, c, { de: Object.assign({}, c.de, { [deId]: reg }) }));
     return reg;
   }
-  // desfaz: o prato volta como estava (à venda ou não) e a ficha copiada sai do que ficou
+  // desfaz: o prato volta como estava (à venda ou não). A ficha copiada sai do que ficou só se
+  // ninguém mexeu na ficha dele depois de juntar; se mexeu, fica como está (nada do que foi
+  // mudado à mão some). Devolve { fichaFicou } para o aviso.
   function separar(deId) {
     const c = P.cfg('itens_juntados');
     const reg = (c.de || {})[deId];
-    if (!reg) return;
+    if (!reg) return null;
     const de = P.Store.get('itens', deId), para = P.Store.get('itens', reg.para);
     if (de) P.Store.put('itens', Object.assign({}, de, { ativo: reg.ativo_antes !== false }));
     if (para && reg.para_ativo_antes === false) P.Store.put('itens', Object.assign({}, para, { ativo: false }));
-    (reg.comps || []).forEach(id => { if (P.Store.get('componentes', id)) P.Store.remove('componentes', id); });
+    const copiados = reg.comps || [];
+    const ate = (Date.parse(reg.em) || 0) + 10000;
+    const mexeu = copiados.length > 0 && (copiados.some(id => !P.Store.get('componentes', id)) ||
+      P.Calc.componentesDe(reg.para).some(k => (Date.parse(k.modificado_em) || 0) > ate));
+    if (!mexeu) copiados.forEach(id => { if (P.Store.get('componentes', id)) P.Store.remove('componentes', id); });
     if (reg.acomp && !ehAcomp(deId)) salvarIds(idsAcomp().concat(deId));
     const de2 = Object.assign({}, c.de);
     delete de2[deId];
     P.salvarCfg('itens_juntados', Object.assign({}, c, { de: de2 }));
+    return { fichaFicou: mexeu };
   }
 
   // quantas vezes cada item foi vendido (contas fechadas, desde o começo)
@@ -352,8 +359,8 @@
           return h('div', { class: 'ms-card jt-card' },
             h('div', { class: 'ms-card-n' }, it.nome, h('small', null, 'junto em ' + (fica ? fica.nome : '?') + ' · ' + nV(id) + ' · ' + P.Dia.rotuloCurto(P.Dia.diaOperacional(J[id].em)))),
             h('button', { type: 'button', class: 'btn mini', onClick: () => {
-              separar(id); P.vibrar(10); desenhar();
-              P.UI.toast(it.nome + ' separado de novo', { acao: { rotulo: 'Desfazer', fn: () => { juntar(id, J[id].para, { ficha: (J[id].comps || []).length > 0 }); desenhar(); } } });
+              const r = separar(id); P.vibrar(10); desenhar();
+              P.UI.toast(it.nome + ' separado de novo' + (r && r.fichaFicou ? ' (a ficha de ' + (fica ? fica.nome : '?') + ' foi mudada depois e ficou como está)' : ''), { acao: { rotulo: 'Desfazer', fn: () => { juntar(id, J[id].para, { ficha: (J[id].comps || []).length > 0 }); desenhar(); } } });
             } }, 'Separar'));
         })));
       }
