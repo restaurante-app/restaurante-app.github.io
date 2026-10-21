@@ -63,10 +63,7 @@
     // gás: botijão ligado, que acabou ou em uso no período; e o que foi gasto com gás
     r.botijoes = de ? P.Gas.todos().filter(b => b.inicio <= ate && (!b.fim || b.fim >= de)) : [];
     r.gasDesp = r.despesas.filter(d => d.categoria === 'GAS_CARVAO').reduce((s, d) => s + (+d.valor || 0), 0);
-    // sobra do caixa (Fechar caixa): entra nas vendas e no que entrou, mostrada à parte
-    const sb = P.Fechamento ? P.Fechamento.sobraDe(dias) : { v: 0, n: 0 };
-    r.sobra = sb.v;
-    r.fat += sb.v; r.entradas += sb.v;
+    // (a sobra do caixa já vem do relatório: r.sobra, dentro das vendas e do que entrou)
     r.saldo = r.entradas - r.saidas;
     return r;
   }

@@ -29,6 +29,9 @@
       r.desp[d.categoria] = (r.desp[d.categoria] || 0) + (+d.valor || 0);
       r.despTotal += +d.valor || 0;
     });
+    // sobra do caixa (Fechar caixa): entra nas vendas recebidas, à parte (r.sobra)
+    r.sobra = P.Fechamento ? P.Fechamento.sobraDe([...set]).v : 0;
+    r.vendas += r.sobra;
     r.saldo = r.vendas - r.compras - r.despTotal;
     return r;
   }
@@ -82,7 +85,7 @@
       corpo.appendChild(h('div', { class: 'an-base' }, 'Abriu em ' + P.Dia.rotulo(ab) + '/' + ab.slice(0, 4) + ' · ', h('button', { type: 'button', class: 'cp-link', onClick: escolherAbertura }, 'trocar')));
       const formas = Object.keys(cx.porForma).map(f => (f === 'FIADO_REC' ? 'fiado recebido' : (P.Mesas.NOME_FORMA[f] || f).toLowerCase()) + ' ' + P.brl0(cx.porForma[f])).join(' · ');
       corpo.appendChild(secao('Caixa desde a abertura',
-        linhaV('Vendas recebidas' + (formas ? ' (' + formas + ')' : ''), P.brl(cx.vendas)),
+        linhaV('Vendas recebidas' + (formas ? ' (' + formas + (cx.sobra ? ' · sobra do caixa ' + P.brl0(cx.sobra) : '') + ')' : ''), P.brl(cx.vendas)),
         linhaV('(−) Compras pagas', P.brl(cx.compras)),
         grupos.map(g => linhaV('(−) ' + g[0], P.brl(g[1]))),
         linhaV('= Saldo das operações', P.brl(cx.saldo), 'total ' + (cx.saldo >= 0 ? 't-verde' : 't-vermelho')),

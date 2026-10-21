@@ -201,7 +201,7 @@ foi informado, quem fechou e a hora (dá para salvar de novo ou desfazer); a con
 for lançado depois. Mais → Fechar caixa e Dia e período (no dia) mostram o resultado. Todos fecham; o que é
 só do dono (salário, retirada…) entra na conta sem mostrar o que é.
 **Sobra do caixa**: quando o total informado passa do que deveria ter, a sobra entra como **venda** no Painel
-(dia, semana, mês e calendário) e em Dia e período, sempre à parte ("Inclui R$ X de sobra do caixa",
+(dia, semana, mês e calendário), em Dia e período, no Relatório e em Capital e caixa, sempre à parte ("Inclui R$ X de sobra do caixa",
 "(+) Sobra do caixa"). É refeita ao vivo: se a venda que faltava for lançada depois, a sobra diminui e não
 conta duas vezes. Falta não entra (fica só o aviso no fechamento).
 

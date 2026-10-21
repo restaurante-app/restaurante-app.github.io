@@ -115,10 +115,12 @@
       .map(l => ({ l, c: porComanda.get(l.comanda_id), quem: usu(l.removido_por), valor: (+l.removidos || 0) * (+l.preco_unit || 0) }));
     r.canceladasValor = canceladas.map(c => ({ c, quem: usu(c.cancelada_por), valor: M.subtotal(c.id) }));
 
-    r.fat = r.fatBruto - r.desconto;
+    // sobra do caixa (Fechar caixa): entra como venda e no que entrou, sempre à parte (r.sobra)
+    r.sobra = P.Fechamento ? P.Fechamento.sobraDe(dias).v : 0;
+    r.fat = r.fatBruto - r.desconto + r.sobra;
     r.lucroBruto = r.fat - r.cmv;
     r.lucro = r.lucroBruto - r.outras;
-    r.entradas = ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].reduce((s, f) => s + r.porForma[f] + (r.recebidoFiado[f] || 0), 0);
+    r.entradas = ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].reduce((s, f) => s + r.porForma[f] + (r.recebidoFiado[f] || 0), 0) + r.sobra;
     r.saidas = r.comprasPagas + r.merc + r.outras + r.investimento;
     r.gastoMercadoria = r.comprasTotal + r.merc;
     r.ticket = fechadas.length ? fechadas.reduce((s, c) => s + (+c.total || 0), 0) / fechadas.length : null;
@@ -178,6 +180,7 @@
       corpo.appendChild(secao('Resultado',
         linhaV('Faturamento bruto (itens)', P.brl(r.fatBruto)),
         r.desconto ? linhaV('(−) Descontos', P.brl(r.desconto)) : null,
+        r.sobra ? linhaV('(+) Sobra do caixa (Fechar caixa)', P.brl(r.sobra)) : null,
         linhaV('= Faturamento líquido', P.brl(r.fat), 'forte'),
         linhaV('(−) Custo do que foi vendido (fichas)', P.brl(r.cmv)),
         r.fatSemCusto > 0.5 ? linhaV(P.brl(r.fatSemCusto) + ' vendidos de pratos sem ficha e sem custo estimado: o custo deles não está descontado (o lucro está maior que o real). Ponha o custo em Fichas → Cadastro ou um % em Ajustes → Fichas.', '', 'nota aviso') : null,
@@ -190,6 +193,7 @@
 
       corpo.appendChild(secao('Caixa (dinheiro que entrou e saiu)',
         ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].map(f => linhaV(P.Mesas.NOME_FORMA[f], P.brl(r.porForma[f]) + (r.recebidoFiado[f] ? ' + ' + P.brl(r.recebidoFiado[f]) + ' de fiado' : ''))),
+        r.sobra ? linhaV('Sobra do caixa (Fechar caixa)', P.brl(r.sobra)) : null,
         linhaV('= Entradas', P.brl(r.entradas), 'forte'),
         linhaV('(−) Compras pagas', P.brl(r.comprasPagas + r.merc)),
         linhaV('(−) Despesas', P.brl(r.outras - r.fixoPago)),
