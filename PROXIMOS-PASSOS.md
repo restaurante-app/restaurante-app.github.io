@@ -47,6 +47,8 @@ que continua em aberto). Nada novo no banco: usa as colunas que já existem.
 | Lançar acompanhamentos em vez de um prato para cada variação (Filé de frango 25, com batata 30…) | Mais → **Acompanhamentos**: sugeridos pelas vendas (Comida extra, Baião, Batata frita, 2 ovos, Feijão de corda, Feijão preto, Separada, todos +R$ 5, editáveis); na comanda, faixa *+ Batata frita* logo acima dos pratos |
 | Limpar os repetidos | Mais → **Pratos repetidos**: sugestões prontas (mesmo prato, prato + acompanhamento, cachaça cadastrada como prato), *Juntar* um por um com Desfazer, *Separar* depois; nada é apagado, as vendas do que sai somam no que fica |
 | Não lançar de novo um prato que já existe | criar prato na comanda com nome parecido sugere o prato + acompanhamento; nome de prato juntado entra como o que ficou |
+| Painel: o dinheiro que sobra no caixa entra como venda, deixando claro quanto sobrou | sobra do Fechar caixa (total informado − o que deveria ter) soma nas vendas e no que entrou do Painel (dia, semana, mês, calendário) e de Dia e período, sempre com a linha "Inclui R$ X de sobra do caixa" / "(+) Sobra do caixa"; refeita ao vivo (venda lançada depois tira a sobra); falta não entra |
+| "Ficou na gaveta" → "ficou no bolso", e já vira o troco do dia seguinte | Fechar caixa: "Dinheiro no bolso" / "Ficou no bolso"; o troco do início vem preenchido com o que ficou no bolso no último fechamento ("O que ficou no bolso no fechamento de ter 20/10") |
 
 Por dentro: a lista de acompanhamentos e os pratos juntados ficam na tabela `config` (`acompanhamentos`,
 `itens_juntados`); o prato que sai fica com `ativo = false`. Nada novo no banco.

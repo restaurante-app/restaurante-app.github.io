@@ -88,6 +88,10 @@
       if (p.forma !== 'FIADO' && set.has(p.dia_operacional)) r.entrou += +p.valor || 0;
       if (p.forma === 'FIADO' && p.recebido_em && set.has(p.recebido_dia)) r.entrou += +p.valor || 0;
     });
+    // sobra do caixa (Fechar caixa): entra como venda e no que entrou, mostrada à parte (r.sobra)
+    const sb = P.Fechamento ? P.Fechamento.sobraDe(dias) : { v: 0, n: 0 };
+    r.sobra = sb.v; r.nSobra = sb.n;
+    r.fat += sb.v; r.entrou += sb.v;
     // anexação de bebida: contas com bebida ÷ total de contas, por canal
     r.anexacao = {};
     CANAIS.forEach(k => {
@@ -133,6 +137,8 @@
     const pctFmt = v => P.num(v, 0) + '%';
     const centroPct = (frac, sub) => [h('b', null, Math.max(0, Math.round((frac || 0) * 100)) + '%'), h('small', null, sub)];
     const mil = v => 'R$ ' + (Math.abs(v) >= 1000 ? P.num(v / 1000, 1).replace(/,0$/, '') + ' mil' : Math.round(v).toLocaleString('pt-BR'));
+    // sobra do caixa (Fechar caixa): já está nas vendas, mas sempre aparece quanto foi
+    const txtSobra = r => (r.sobra > 0 ? h('a', { class: 'pn-txt pn-sobra', href: '#/mesas/caixa' }, 'Inclui ', h('b', null, P.brl(r.sobra)), ' de sobra do caixa' + (r.nSobra > 1 ? ' (' + r.nSobra + ' dias)' : '')) : null);
 
     // barra por canal: o espeto só aparece com o turno ligado (ou se teve venda nele)
     const pilhaCanais = r => P.UI.pilha([
@@ -246,6 +252,7 @@
             mini('Vendas', P.brl0(rd.fat)),
             mini('Custo vendido', P.brl0(rd.cmv), null, P.pct(rd.fat ? rd.cmv / rd.fat * 100 : null, 0)),
             mini('Despesas', P.brl0(res.outras))),
+          txtSobra(rd),
           h('a', { class: 'pn-caixa', href: '#/compras' }, P.UI.icone('caixa'),
             h('span', null, 'Caixa ', h('b', null, P.brl0(res.entrou)), ' entrou · ', h('b', null, P.brl0(res.saiu)), ' saiu'),
             valorCor(P.brl0(saldoCx), saldoCx >= 0 ? 'verde' : 'vermelho')),
@@ -290,6 +297,7 @@
             P.Calc.espetoLigado() ? ['espeto ', valorCor(P.pct(rs.anexacao.ESPETO, 0), corMin(rs.anexacao.ESPETO, +metas.anexacao_espeto)), ' · '] : null, 'salão ',
             valorCor(P.pct(rs.anexacao.SALAO, 0), corMin(rs.anexacao.SALAO, +metas.anexacao_salao)), ' · marmita ',
             valorCor(P.pct(rs.anexacao.MARMITA, 0), corMin(rs.anexacao.MARMITA, +metas.anexacao_marmita))),
+          txtSobra(rs),
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nenhum dia com venda nesta semana.'))));
 
       // ---------- MÊS (o mês inteiro do dia escolhido, até hoje) ----------
@@ -321,6 +329,7 @@
             mini('Margem líq.', P.pct(margem, 1), margem == null ? null : margem >= 0 ? 'verde' : 'vermelho')),
           h('div', { class: 'pn-txt' }, 'Fixos lançados ', h('b', null, P.brl0(rm.fixoPago)), ' de ', h('b', null, P.brl0(fixoM)), ' previstos (base em Ajustes)'),
           avisoSemCusto(rm),
+          txtSobra(rm),
           P.Calc.espetoLigado() ? escada(rm.espetos / nM) : null,
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nenhum dia com venda neste mês.')),
         botaoCal(),
@@ -351,6 +360,7 @@
           h('div', { class: 'pn-hero' }, heroL('Entradas − saídas do dia', rd)),
           pilhaCanais(rd),
           linhaSaidas(rd),
+          txtSobra(rd),
           Math.abs(rd.compras - rd.saiuCompras) > 0.5 ? h('div', { class: 'pn-txt', title: 'Compra a prazo ou no cartão sai do caixa no dia em que é paga' }, 'Comprado no dia ', h('b', null, P.brl0(rd.compras)), ' · pago ', h('b', null, P.brl0(rd.saiuCompras))) : null,
           rd.fat - rd.entrou > 0.5 ? h('div', { class: 'pn-txt' }, 'Fiado: ', h('b', null, P.brl0(rd.fat - rd.entrou)), ' (entra quando receber)') : null,
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado neste dia.'), h('a', { href: '#/mesas', class: 'btn mini primario' }, 'Abrir mesas'))));
@@ -377,6 +387,7 @@
             mini('Pratos/dia', P.num(rs.canal.SALAO.pratos / nS, 0)),
             mini('Marmitas/dia', P.num(rs.canal.MARMITA.pratos / nS, 0))) : null,
           pctCompras != null ? h('div', { class: 'pn-txt' }, 'Compras: ', h('b', null, P.pct(pctCompras, 0)), ' das vendas (com o estoque)') : null,
+          txtSobra(rs),
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado nesta semana.'))));
 
       // mês inteiro do dia escolhido (até hoje)
@@ -390,6 +401,7 @@
         mov(rm) ? [
           h('div', { class: 'pn-hero' }, heroL('Entradas − saídas do mês', rm)),
           linhaSaidas(rm),
+          txtSobra(rm),
           aPagar || fiado ? h('a', { class: 'pn-caixa', href: '#/caixa' }, P.UI.icone('caixa'),
             h('span', null, 'Ainda a pagar ', h('b', null, P.brl0(aPagar)), fiado ? [' · fiado a receber ', h('b', null, P.brl0(fiado))] : null), P.UI.icone('avancar')) : null,
           h('div', { class: 'pn-txt' }, 'Fixos pagos no mês ', h('b', null, P.brl0(rm.fixoPago)), ' de ', h('b', null, P.brl0(fixoMensal())), ' previstos (aluguel, salários, contas — base em Ajustes)'),

@@ -1,13 +1,15 @@
-/* FECHAR CAIXA — no fim do dia, informe o dinheiro contado na gaveta, o Pix que entrou na conta
+/* FECHAR CAIXA — no fim do dia, informe o dinheiro que ficou no bolso, o Pix que entrou na conta
    e o total da maquininha; o app confere com o que registrou no dia:
    - Dinheiro: troco do início + vendas e fiado recebidos em dinheiro − compras e despesas pagas
-     em dinheiro = o que deveria ter na gaveta.
+     em dinheiro = o que deveria ter no bolso. O que ficou no bolso vira o troco do dia seguinte.
    - Pix: vendas e fiado recebidos no Pix = o que deveria ter entrado na conta (o que saiu no Pix
      aparece à parte, não entra nesta conta).
    - Cartão: débito + crédito das vendas (e do fiado) = o total da maquininha.
    Cada fechamento fica guardado por dia (config 'caixa_fechamentos'), com quem fechou e o que
    foi informado; a conta é refeita ao vivo se algo for lançado depois. Todos fecham; o que é só
-   do dono (salário, retirada…) entra na conta sem mostrar o que é. */
+   do dono (salário, retirada…) entra na conta sem mostrar o que é.
+   Sobra (o total informado passou do que deveria ter) entra como venda no Painel e em Dia e
+   período, sempre à parte ("sobra do caixa"); falta fica só no aviso. */
 (function () {
   'use strict';
   const P = window.P;
@@ -24,11 +26,13 @@
 
   const fechamentos = () => P.cfg(CHAVE);
   const fechamento = dia => fechamentos()[dia] || null;
-  // troco do início: o do último fechamento antes deste dia (a gaveta costuma ficar com o mesmo troco)
+  // troco do início: o que ficou no bolso no último fechamento antes deste dia (sem o dinheiro
+  // informado, o troco daquele dia). Devolve { valor, dia } (dia: de qual fechamento veio)
   function trocoAnterior(dia) {
     const f = fechamentos();
     const ant = Object.keys(f).filter(d => d < dia).sort().pop();
-    return ant ? +f[ant].troco || 0 : 0;
+    if (!ant) return { valor: 0, dia: null };
+    return { valor: f[ant].dinheiro != null ? +f[ant].dinheiro || 0 : +f[ant].troco || 0, dia: ant };
   }
 
   // ---------------------------------------------------------------
@@ -80,6 +84,22 @@
     FORMAS.forEach(x => { if (f[x.v] != null) out[x.v] = P.round(f[x.v] - e[x.v], 2); });
     return out;
   }
+  // sobra do caixa de um dia: quanto o total informado (dinheiro + Pix + maquininha) passou do que
+  // deveria ter. Refeita ao vivo: se a venda que faltava for lançada depois, a sobra diminui.
+  function sobra(dia) {
+    const f = fechamento(dia);
+    if (!f) return 0;
+    const d = diferencas(f, conta(dia));
+    const tot = P.round(Object.keys(d).reduce((s, x) => s + d[x], 0), 2);
+    return tot > 0.005 ? tot : 0;
+  }
+  // soma das sobras de um conjunto de dias: { v, n } (n: dias com sobra)
+  function sobraDe(dias) {
+    const f = fechamentos();
+    let v = 0, n = 0;
+    dias.forEach(d => { if (!f[d]) return; const s = sobra(d); if (s > 0) { v += s; n++; } });
+    return { v: P.round(v, 2), n };
+  }
   function textoDif(v) {
     return quase(v) ? 'bateu' : (v > 0 ? 'sobrou ' : 'faltou ') + P.brl(Math.abs(v));
   }
@@ -106,7 +126,7 @@
     function carregar() {
       const f = fechamento(dia);
       v = f ? { troco: +f.troco || 0, dinheiro: f.dinheiro, pix: f.pix, cartao: f.cartao, obs: f.obs || '' }
-        : { troco: trocoAnterior(dia), dinheiro: null, pix: null, cartao: null, obs: '' };
+        : { troco: trocoAnterior(dia).valor, dinheiro: null, pix: null, cartao: null, obs: '' };
     }
     carregar();
     const corpo = h('div');
@@ -161,15 +181,17 @@
 
       // dinheiro: troco + entrou − saiu
       const saiuDin = k.saidas.filter(s => s.origem === 'dinheiro');
-      corpo.appendChild(cartao(FORMAS[0], 'Dinheiro na gaveta', [
-        h('button', { type: 'button', class: 'eq-l fc-troco', onClick: () => pedir('troco', 'Troco que tinha na gaveta no início do dia') },
+      const ant = trocoAnterior(dia);
+      corpo.appendChild(cartao(FORMAS[0], 'Dinheiro no bolso', [
+        h('button', { type: 'button', class: 'eq-l fc-troco', onClick: () => pedir('troco', 'Troco no início do dia (dinheiro no bolso)') },
           h('span', null, 'Troco no início ', P.UI.icone('lapis')), h('b', null, P.brl(v.troco))),
+        !f && ant.dia && quase(v.troco - ant.valor) ? h('small', { class: 'fc-nota' }, 'O que ficou no bolso no fechamento de ' + P.Dia.rotulo(ant.dia) + '.') : null,
         linha('Vendas em dinheiro', sinal('+', k.vendas.DINHEIRO)),
         k.fiado.DINHEIRO ? linha('Fiado recebido em dinheiro', sinal('+', k.fiado.DINHEIRO)) : null,
         linha('Pago em dinheiro (compras e despesas)', sinal('−', k.saiDinheiro)),
         saiuDin.length ? h('details', { class: 'fc-det' }, h('summary', null, 'O que saiu em dinheiro (' + saiuDin.length + ')'),
           saiuDin.map(s => h(s.href ? 'a' : 'div', { class: 'fc-sai', href: s.href || null }, h('span', null, s.nome, h('small', null, ' · ' + s.sub)), h('b', null, P.brl(s.valor))))) : null,
-      ], e.dinheiro, 'Contei na gaveta', 'Dinheiro contado na gaveta'));
+      ], e.dinheiro, 'Ficou no bolso', 'Quanto ficou no bolso (dinheiro contado)'));
 
       corpo.appendChild(cartao(FORMAS[1], 'Pix', [
         linha('Vendas no Pix', sinal('+', k.vendas.PIX)),
@@ -189,13 +211,16 @@
         const totInf = inf.reduce((s, x) => s + v[x.v], 0);
         const totEsp = inf.reduce((s, x) => s + e[x.v], 0);
         corpo.appendChild(h('div', { class: 'secao' }, 'Resumo'));
+        const sb = P.round(totInf - totEsp, 2);
         corpo.appendChild(h('section', { class: 'eq-card' },
           linha('Informado (' + inf.map(x => x.rotulo.toLowerCase()).join(', ') + ')', P.brl(totInf)),
           linha('Deveria ter', P.brl(totEsp)),
-          resultadoLinha(totInf, totEsp)));
+          resultadoLinha(totInf, totEsp),
+          sb > 0.005 ? h('small', { class: 'fc-nota' }, 'A sobra de ' + P.brl(sb) + ' entra como venda no Painel e em Dia e período, à parte ("sobra do caixa").') : null,
+          v.dinheiro != null ? h('small', { class: 'fc-nota' }, 'Os ' + P.brl(v.dinheiro) + ' que ficaram no bolso viram o troco do início do próximo dia.') : null));
       }
       if (k.vendas.FIADO) corpo.appendChild(h('div', { class: 'dica' }, 'Vendido no fiado hoje: ' + P.brl(k.vendas.FIADO) + ' (não entra no caixa até receber).'));
-      if (k.saiSem) corpo.appendChild(h('div', { class: 'banner aviso' }, P.UI.icone('alerta'), h('span', { class: 'banner-t' }, P.brl(k.saiSem) + ' em despesas sem a forma de pagamento: se foram pagas em dinheiro, a gaveta tem isso a menos. Corrija em Despesas.')));
+      if (k.saiSem) corpo.appendChild(h('div', { class: 'banner aviso' }, P.UI.icone('alerta'), h('span', { class: 'banner-t' }, P.brl(k.saiSem) + ' em despesas sem a forma de pagamento: se foram pagas em dinheiro, o bolso tem isso a menos. Corrija em Despesas.')));
 
       obs.value = v.obs || '';
       corpo.appendChild(obs);
@@ -231,5 +256,5 @@
   }
 
   P.UI.rota('mesas/caixa', { titulo: 'Fechar caixa', tab: 'mesas', render: telaCaixa });
-  P.Fechamento = { conta, esperado, fechamento, resultado };
+  P.Fechamento = { conta, esperado, fechamento, resultado, sobra, sobraDe };
 })();

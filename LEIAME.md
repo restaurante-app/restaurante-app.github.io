@@ -189,16 +189,21 @@ resto fica em "Outros pratos"; dia sem cardápio = todos os pratos. Botões para
 de hoje ou mandar no WhatsApp.
 
 **Fechar caixa** (Mesas → Fechar caixa, ou Mais → Fechar caixa) — no fim do dia, informe o **dinheiro
-contado na gaveta**, o **Pix que entrou na conta** e o **total da maquininha**; o app confere com o que
+que ficou no bolso**, o **Pix que entrou na conta** e o **total da maquininha**; o app confere com o que
 registrou no dia e mostra, em cada um, **bateu**, **sobrou** ou **faltou** (e quanto):
 - Dinheiro = troco do início + vendas e fiado recebidos em dinheiro − compras e despesas pagas em dinheiro
-  (a lista do que saiu fica à mão). O troco do início vem do último fechamento; toque para mudar.
+  (a lista do que saiu fica à mão). O troco do início é o que **ficou no bolso** no último fechamento
+  (já vem preenchido no dia seguinte); toque para mudar.
 - Pix = vendas e fiado recebidos no Pix (o que saiu no Pix aparece à parte e não entra nesta conta).
 - Cartão = débito + crédito das vendas (e do fiado recebido no cartão).
 Avisa se ainda há conta aberta no dia e se há despesa sem forma de pagamento. *Fechar o caixa* guarda o que
 foi informado, quem fechou e a hora (dá para salvar de novo ou desfazer); a conta é refeita ao vivo se algo
 for lançado depois. Mais → Fechar caixa e Dia e período (no dia) mostram o resultado. Todos fecham; o que é
 só do dono (salário, retirada…) entra na conta sem mostrar o que é.
+**Sobra do caixa**: quando o total informado passa do que deveria ter, a sobra entra como **venda** no Painel
+(dia, semana, mês e calendário) e em Dia e período, sempre à parte ("Inclui R$ X de sobra do caixa",
+"(+) Sobra do caixa"). É refeita ao vivo: se a venda que faltava for lançada depois, a sobra diminui e não
+conta duas vezes. Falta não entra (fica só o aviso no fechamento).
 
 **Folha da cozinha** (Mais → Folha da cozinha, ou a aba ao lado do Cardápio do dia) — a folha A4 que fica
 impressa na cozinha para as cozinheiras saberem o que fazer: os **pratos do dia** de cada dia da semana e os
