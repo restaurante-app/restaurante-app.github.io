@@ -12,6 +12,7 @@
     { v: 'DEBITO', rotulo: 'Débito' }, { v: 'CREDITO', rotulo: 'Crédito' }, { v: 'FIADO', rotulo: 'Fiado' },
   ];
   const NOME_FORMA = { DINHEIRO: 'Dinheiro', PIX: 'Pix', DEBITO: 'Débito', CREDITO: 'Crédito', FIADO: 'Fiado' };
+  const EM_FORMA = { DINHEIRO: 'em dinheiro', PIX: 'no Pix', DEBITO: 'no débito', CREDITO: 'no crédito', FIADO: 'no fiado' };
   const ICONE_FORMA = { DINHEIRO: 'dinheiro', PIX: 'pix', DEBITO: 'cartao', CREDITO: 'cartao', FIADO: 'fiado', CARTAO: 'cartao', PRAZO: 'prazo' };
   const NOME_CANAL = { ESPETO: 'Espeto', SALAO: 'Salão', MARMITA: 'Marmita' };
   // fixo: salário, aluguel, contas, impostos e pró-labore — entram no lucro e no caixa do dia em
@@ -647,6 +648,7 @@
     const elFormas = h('div', { class: 'pg-formas' });
     const elPags = h('div', { class: 'pg-pags' });
     const elFalta = h('div', { class: 'pg-falta' });
+    const elDica = h('div', { class: 'pg-dica' });
     const btnOk = h('button', { type: 'button', class: 'btn primario bloco pg-ok', onClick: confirmar }, P.UI.icone('check'), 'Confirmar pagamento');
 
     const total = () => Math.max(0, P.round(subtotal(c.id) - desconto, 2));
@@ -658,7 +660,7 @@
         h('div', { class: 'pg-rot' }, rotulo(c)),
         h('div', { class: 'pg-cap' }, 'Total a receber'),
         h('div', { class: 'pg-total' }, P.brl(total())),
-        h('div', { class: 'pg-sub' }, qtdItens(c.id) + ' itens · subtotal ' + P.brl(subtotal(c.id)),
+        h('div', { class: 'pg-sub' }, qtdItens(c.id) + (qtdItens(c.id) === 1 ? ' item' : ' itens') + ' · subtotal ' + P.brl(subtotal(c.id)),
           h('button', { type: 'button', class: 'btn mini', onClick: pedirDesconto }, desconto ? 'desconto ' + P.brl(desconto) : '+ desconto')));
       elFormas.replaceChildren(...FORMAS.map(f => h('button', { type: 'button', class: 'pg-forma f-' + f.v.toLowerCase(), onClick: () => escolher(f.v) },
         h('span', { class: 'pg-ic' }, P.UI.icone(ICONE_FORMA[f.v])), f.rotulo)));
@@ -668,8 +670,16 @@
         elPags.appendChild(h('div', { class: 'pg-lin' },
           h('span', { class: 'pg-lin-f' }, NOME_FORMA[p.forma]),
           h('button', { type: 'button', class: 'btn valor', onClick: async () => {
-            const v = await P.UI.pedirNumero({ titulo: NOME_FORMA[p.forma], valor: p.valor, decimais: 2, prefixo: 'R$ ' });
-            if (v != null) { p.valor = v; desenhar(); }
+            const v = await P.UI.pedirNumero({ titulo: NOME_FORMA[p.forma], valor: p.valor, decimais: 2, prefixo: 'R$ ', sub: pags.length === 2 ? 'O resto fica em ' + NOME_FORMA[pags[1 - i].forma] + '.' : null });
+            if (v == null) return;
+            p.valor = P.round(v, 2);
+            // com duas formas, a outra fica com o resto (até o total)
+            if (pags.length === 2) {
+              const o = pags[1 - i];
+              o.valor = Math.max(0, P.round(total() - p.valor, 2));
+              if (o.valor < 0.005) pags.splice(1 - i, 1);
+            }
+            desenhar();
           } }, P.brl(p.valor)),
           p.forma === 'DINHEIRO' ? h('button', { type: 'button', class: 'btn mini', onClick: async () => {
             const v = await P.UI.pedirNumero({ titulo: 'Quanto o cliente entregou?', valor: p.recebido || null, decimais: 2, prefixo: 'R$ ', rapidos: [10, 20, 50, 100] });
@@ -680,14 +690,27 @@
       const f = falta();
       elFalta.className = 'pg-falta' + (Math.abs(f) < 0.005 ? ' ok' : f < 0 ? ' mais' : '');
       elFalta.textContent = !pags.length ? 'Toque na forma de pagamento' : Math.abs(f) < 0.005 ? 'Tudo certo' : f > 0 ? 'Falta ' + P.brl(f) : 'Passou ' + P.brl(-f) + ' — ajuste os valores';
+      elDica.textContent = !pags.length ? 'Pagou com mais de uma forma (ex.: parte no dinheiro, parte no Pix)? Toque numa e depois na outra.'
+        : Math.abs(f) < 0.005 ? 'Mais de uma forma? Toque na outra e diga quanto foi nela; o resto fica ' + EM_FORMA[pags[0].forma] + '.' : '';
       btnOk.disabled = !pags.length || Math.abs(f) >= 0.005;
     }
-    function escolher(forma) {
+    // Toque numa forma: com valor faltando, ela fica com o que falta. Já pago tudo, outra forma =
+    // dividir: pergunta quanto foi nela e tira esse valor das que já estavam (a primeira primeiro).
+    // Pôr o total inteiro troca a forma.
+    async function escolher(forma) {
       P.vibrar(12);
       const f = falta();
-      if (f > 0.004) pags.push({ forma, valor: f });
-      else if (pags.length === 1) pags[0].forma = forma;   // troca rápida da forma
-      else pags.push({ forma, valor: 0 });
+      if (f > 0.004) { pags.push({ forma, valor: f }); desenhar(); return; }
+      if (!pags.length) return;
+      if (pags.some(p => p.forma === forma)) { P.UI.toast('Já está ' + EM_FORMA[forma] + ': toque no valor para mudar.'); return; }
+      const v = await P.UI.pedirNumero({ titulo: 'Quanto foi ' + EM_FORMA[forma] + '?', valor: null, decimais: 2, prefixo: 'R$ ',
+        sub: 'Total ' + P.brl(total()) + '. O resto fica ' + EM_FORMA[pags[0].forma] + '. (Pôr ' + P.brl(total()) + ' troca tudo para ' + NOME_FORMA[forma] + '.)' });
+      if (v == null || !(v > 0)) return;
+      const val = Math.min(P.round(v, 2), total());
+      let tirar = val;
+      pags.forEach(p => { const t = Math.min(p.valor, tirar); p.valor = P.round(p.valor - t, 2); tirar = P.round(tirar - t, 2); });
+      pags = pags.filter(p => p.valor > 0.004);
+      pags.push({ forma, valor: val });
       desenhar();
     }
     async function pedirDesconto() {
@@ -715,7 +738,7 @@
       });
     }
 
-    view.append(voltar('#/mesas/c/' + c.id, 'Comanda'), elTopo, elFormas, elPags, elFalta, btnOk);
+    view.append(voltar('#/mesas/c/' + c.id, 'Comanda'), elTopo, elFormas, elPags, elFalta, elDica, btnOk);
     desenhar();
     return {};
   }

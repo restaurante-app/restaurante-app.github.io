@@ -45,7 +45,9 @@ A sessão do dono trava sozinha depois de 10 minutos com o app em segundo plano.
 
 **Mesas** — toque na mesa, digite o nome do cliente, e vá tocando nos itens conforme
 saem. Cada item fica com o horário. O total é automático. Em *Fechar conta* escolha a
-forma (Dinheiro, Pix, Débito, Crédito, Fiado); dá para dividir e calcular troco.
+forma (Dinheiro, Pix, Débito, Crédito, Fiado); dá para dividir e calcular troco. **Mais de uma forma**: toque na
+primeira (fica com o total) e depois na outra; o app pergunta quanto foi nela e o resto fica na primeira (pôr o
+total inteiro troca a forma). Com duas formas, mudar o valor de uma ajusta a outra sozinha.
 *Venda rápida* é para o balcão (sem mesa). *Marmita* abre comanda no canal marmita.
 Abas: **Fechadas** (contas do dia), **Totais do dia** (automático: itens e valores
 somados das comandas, nada é digitado), **Despesas** (gás, carvão, embalagem, limpeza, manutenção; o dono lança também funcionários,
