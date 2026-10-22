@@ -1,10 +1,11 @@
-# Próximos passos — situação em 21/10/2026 (noite)
+# Próximos passos — situação em 22/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.18 (Acompanhamentos na comanda; Pratos repetidos para juntar; aviso de prato parecido) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.18.1 (fechar conta com mais de uma forma de pagamento: a segunda forma pergunta quanto) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.18 (Acompanhamentos; Pratos repetidos; sobra do caixa como venda; "ficou no bolso" vira o troco) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.17 (Fiado: o cliente paga uma parte e o resto continua devendo) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.16 (Painel: escolher o dia no calendário e calendário do mês) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.15 (Painel: semana do calendário e mês inteiro; espeto desligado por enquanto) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -38,6 +39,12 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.18.1 (pedido de 22/10)
+
+| Pedido | No app |
+|---|---|
+| Não consigo misturar os meios de pagamento ao fechar comanda, mesa ou marmita | Pagamento: a 1ª forma fica com o total; tocar em outra pergunta "Quanto foi no Pix?" e tira esse valor da primeira (pôr o total troca a forma); com duas formas, mudar o valor de uma ajusta a outra; dica na tela. Antes, a 2ª forma trocava a 1ª em vez de dividir |
 
 ## O que entrou na v1.18 (pedido de 21/10)
 

@@ -735,6 +735,8 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .pg-lin .btn.valor { min-width: 120px; }
 .pg-falta { text-align: center; margin: 14px 0 4px; font-weight: 700; color: var(--tx-atencao); font-size: .9rem; }
 .pg-falta.ok { color: var(--tx-bom); } .pg-falta.mais { color: var(--tx-critico); }
+.pg-dica { text-align: center; color: var(--tx3); font-size: .74rem; line-height: 1.4; margin: 0 8px 12px; }
+.pg-dica:empty { display: none; }
 .pg-ok { min-height: 66px; font-size: 1.05rem; border-radius: 20px; }
 
 /* ---------- COMPRAS ---------- */
