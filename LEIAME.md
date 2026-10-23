@@ -78,6 +78,12 @@ o total pago) e como pagou (Dinheiro, Pix, Cartão ou **A prazo**). Cada item de
 cadastra ali mesmo (kg, litro ou unidade, com o preço desta compra) e já põe na compra — como o "Criar e pôr
 na comanda" da marmita. *"…" sem ficha* lança só no gasto sem perguntar o nome de novo. No item da nota marcado
 *ligar à ficha* também dá para criar o insumo com o nome da nota (o app lembra para as próximas notas).
+O insumo novo só é cadastrado quando a compra é **salva** (marcado "insumo novo" até lá). Sem nenhum insumo com
+todas as palavras, a busca mostra **Parecidos — é algum destes?** (ex.: "arroz parboilizado" → Arroz) antes de
+criar. **Compra não salva não some**: o que foi lançado e não salvo fica guardado neste aparelho; Compras e
+Lançar compra mostram "Compra que não foi salva… *Continuar* / *Descartar*" (descartar pergunta antes).
+**Trocar o insumo**: em *Editar* compra, toque no item → *Não é …? Trocar o insumo* (mantém quantidade e preço;
+ao salvar, o preço do insumo certo é atualizado). O cartão da compra começa com a quantidade de itens.
 **Dia da compra**: a compra nasce no dia aberto em Compras (ou hoje); toque no dia no formulário
 para escolher outro no calendário (compra de ontem lançada hoje, por exemplo).
 Compra de dia passado ou editada não passa por cima do preço de uma compra mais nova.

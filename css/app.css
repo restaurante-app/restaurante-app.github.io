@@ -1502,3 +1502,7 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 /* comanda: criar extra na faixa de acompanhamentos */
 .cm-ac.cm-ac-novo { border-style: dashed; color: var(--marca-tx); gap: 4px; }
 .cm-ac.cm-ac-novo svg { width: 15px; height: 15px; }
+/* compra que não foi salva: texto em cima, botões embaixo */
+.banner.cp-rasc { flex-wrap: wrap; }
+.banner.cp-rasc .banner-t { flex: 1 1 calc(100% - 40px); }
+.banner.cp-rasc .row { width: 100%; justify-content: flex-end; }
