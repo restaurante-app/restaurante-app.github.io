@@ -98,10 +98,11 @@
   const aPagar = () => P.Store.all('compras').filter(c => partesAbertas(c).length);
   const doDia = dia => P.Store.all('compras').filter(c => c.dia_operacional === dia).sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1));
   const nomeCompra = c => c.fornecedor || 'Compra sem fornecedor';
+  // "8 itens: Farinha de trigo, Heineken, Arroz…" (a quantidade vem antes: o fim do texto fica cortado no cartão)
   function resumoItens(c) {
     const ls = itensDe(c.id);
-    const nomes = ls.slice(0, 3).map(l => l.descricao);
-    return nomes.join(', ') + (ls.length > 3 ? ' +' + (ls.length - 3) : '');
+    const nomes = ls.slice(0, 3).map(l => l.descricao).join(', ');
+    return ls.length > 2 ? ls.length + ' itens: ' + nomes + (ls.length > 3 ? '…' : '') : nomes;
   }
   function fornecedoresRecentes() {
     const vistos = new Map();
@@ -115,6 +116,18 @@
   function frequencia() {
     const m = new Map();
     P.Store.all('compra_itens').forEach(l => { if (l.insumo_id) m.set(l.insumo_id, (m.get(l.insumo_id) || 0) + 1); });
+    return m;
+  }
+  // de quem foi a última compra de cada insumo (para mostrar "hoje · Sampa Atacado" na busca)
+  function ultimoFornecedor() {
+    const m = new Map();
+    P.Store.all('compra_itens').forEach(l => {
+      const c = l.insumo_id && P.Store.get('compras', l.compra_id);
+      if (!c) return;
+      const k = c.dia_operacional + (c.criado_em || '');
+      const a = m.get(l.insumo_id);
+      if (!a || k > a.k) m.set(l.insumo_id, { k, nome: c.fornecedor || 'sem fornecedor' });
+    });
     return m;
   }
 
@@ -1135,10 +1148,11 @@
     }
     async function adicionar() {
       const freq = frequencia();
+      const forn = ultimoFornecedor();
       const ins = P.Store.all('insumos').sort((a, b) => ((freq.get(b.id) || 0) - (freq.get(a.id) || 0)) || a.nome.localeCompare(b.nome, 'pt-BR'));
       const e = await escolherInsumo({
         titulo: 'O que você comprou?', insumos: ins,
-        sub: i => 'último ' + P.Fichas.precoUnit(i) + ' · ' + P.Fichas.haDias(i) + (freq.get(i.id) ? ' · comprado ' + freq.get(i.id) + 'x' : ''),
+        sub: i => 'último ' + P.Fichas.precoUnit(i) + ' · ' + P.Fichas.haDias(i) + (forn.get(i.id) ? ' · ' + forn.get(i.id).nome : '') + (freq.get(i.id) ? ' · comprado ' + freq.get(i.id) + 'x' : ''),
         semFicha: nome => nome ? { rotulo: '"' + nome + '" sem ficha', sub: 'entra só no gasto, não mexe em preço de ficha' }
           : { rotulo: '+ Item sem ficha (gelo, sacola, carvão…)', sub: 'entra no gasto, não mexe em preço de ficha' },
       });

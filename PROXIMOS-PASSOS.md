@@ -46,6 +46,7 @@ que continua em aberto). Nada novo no banco: usa as colunas que já existem.
 | Pedido | No app |
 |---|---|
 | Lancei uma compra de arroz parboilizado e não está constando | provável: a busca não achava "Arroz" para "arroz parboilizado" e o Enter criava um insumo novo "Arroz parboilizado" (o preço do Arroz das fichas não mudava). Agora a busca mostra **Parecidos — é algum destes?** antes de criar, e o Enter não cria quando há parecido. Para corrigir a compra: Editar compra → toque no item → **Não é …? Trocar o insumo** → Arroz → Salvar alterações (o preço do Arroz atualiza) |
+| "Aparece como hoje na busca, mas não tem nada nas compras" | o arroz entrou como um item dentro de outra compra do dia (o cartão só mostrava os primeiros itens). Agora o cartão começa com a quantidade ("17 itens: …") e a busca de insumo mostra de quem foi a última compra ("hoje · Sampa Atacado"); para achar, Compras → busca no topo → "arroz" |
 | Não vejo a função de criar extras (guarnições etc.) | Mais → **Acompanhamentos e extras** (em Dia a dia); na comanda, a faixa dos pratos mostra **+ Criar extra (batata, ovo, baião…)** para o dono; criar item na hora com o tipo **Extra** já põe na faixa; a aba "Outros" virou **Extras** |
 
 ## O que entrou na v1.18.1 (pedido de 22/10)
