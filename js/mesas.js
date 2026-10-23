@@ -92,11 +92,16 @@
     return c;
   }
   const ultimoToque = new Map();
-  function adicionar(c, item, qtd) {
+  const TROCA = 'Troca: '; // acompanhamento que substitui algo do prato (ex.: batata no lugar do arroz)
+  // o: lançamento com outro nome e preço (troca: "Troca: Batata frita", sem custo ou com a diferença)
+  function adicionar(c, item, qtd, o) {
     qtd = qtd || 1;
     const u = P.Auth.usuario();
     const agora = Date.now();
-    const k = c.id + '|' + item.id;
+    const f = P.Calc.ficha(item);
+    const nome = (o && o.nome) || item.nome;
+    const preco = o && o.preco != null ? o.preco : f.preco;
+    const k = c.id + '|' + item.id + '|' + nome + '|' + P.round(preco, 2);
     const ult = ultimoToque.get(k);
     if (ult && agora - ult.t < AGRUPA_MS) {
       const l = P.Store.get('comanda_itens', ult.id);
@@ -106,25 +111,25 @@
         return;
       }
     }
-    const f = P.Calc.ficha(item);
     const id = P.uuid();
     P.Store.put('comanda_itens', {
-      id, comanda_id: c.id, item_id: item.id, nome: item.nome, quantidade: qtd,
-      preco_unit: P.round(f.preco, 2), cmv_unit: P.round(f.cmv, 4),
+      id, comanda_id: c.id, item_id: item.id, nome, quantidade: qtd,
+      preco_unit: P.round(preco, 2), cmv_unit: P.round(f.cmv, 4),
       adicionado_em: new Date(agora).toISOString(), usuario_id: u && u.id, removidos: 0,
     });
     ultimoToque.set(k, { id, t: agora });
   }
-  // tira 1 unidade do lançamento mais recente do item (fica registrado quem tirou)
-  function tirar(c, itemId) {
-    const ls = linhas(c.id).filter(l => l.item_id === itemId);
+  // tira 1 unidade do lançamento mais recente do item (fica registrado quem tirou); com o nome,
+  // só dos lançamentos com esse nome (a troca não tira o extra do mesmo acompanhamento)
+  function tirar(c, itemId, nome) {
+    const ls = linhas(c.id).filter(l => l.item_id === itemId && (nome == null || l.nome === nome));
     const l = ls[ls.length - 1];
     if (!l) return false;
     const u = P.Auth.usuario();
     const marca = { removidos: (+l.removidos || 0) + 1, removido_por: u && u.id, removido_em: P.agoraISO() };
     if ((+l.quantidade || 0) > 1) P.Store.put('comanda_itens', Object.assign({}, l, marca, { quantidade: l.quantidade - 1 }));
     else P.Store.put('comanda_itens', Object.assign({}, l, marca, { quantidade: 0, excluido: true }));
-    ultimoToque.delete(c.id + '|' + itemId);
+    [...ultimoToque.keys()].forEach(k => { if (k.startsWith(c.id + '|' + itemId + '|')) ultimoToque.delete(k); });
     return true;
   }
   // comanda de outro dia que já tinha sido fechada (reaberta para corrigir) ou lançada depois:
@@ -484,11 +489,23 @@
         } }, h('i', { class: 'cm-cat-dot' }), ROT_CAT[k], porCat[k] ? h('b', null, porCat[k]) : null)));
     }
     // acompanhamentos (Batata frita, Baião, Comida extra…): na aba Pratos, logo acima dos pratos;
-    // toca no prato e depois no acompanhamento (entra como item à parte, com o preço dele)
+    // toca no prato e depois no acompanhamento. Extra: acrescenta, com o preço dele. Troca: no lugar
+    // de algo do prato (ex.: batata no lugar do arroz), sem custo ou com a diferença; volta para Extra.
+    let modoAc = 'extra';
+    async function porTroca(it) {
+      const v = await P.UI.pedirNumero({ titulo: TROCA + it.nome, decimais: 2, prefixo: 'R$ ', ok: 'Pôr a troca',
+        sub: 'No lugar de algo do prato (ex.: ' + it.nome.toLowerCase() + ' no lugar do arroz). Quanto a mais? Deixe 0 se for sem custo.' });
+      if (v == null) return;
+      adicionar(c, it, 1, { nome: TROCA + it.nome, preco: P.round(v, 2) });
+      modoAc = 'extra';
+      P.vibrar(15);
+      atualizar();
+      P.UI.toast('⇄ ' + TROCA + it.nome + (v > 0 ? ' · + ' + P.brl(v) : ' · sem custo'));
+    }
     function desenharAcomp() {
       const acs = cat === 'PRATO' && !termo && P.Acomp ? P.Acomp.lista() : [];
       // o dono cria um extra novo daqui mesmo (entra na faixa e na comanda)
-      const criar = cat === 'PRATO' && !termo && P.Acomp && P.Auth.isDono()
+      const criar = cat === 'PRATO' && !termo && P.Acomp && P.Auth.isDono() && modoAc === 'extra'
         ? h('button', { type: 'button', class: 'cm-ac cm-ac-novo', onClick: async () => {
           const it = await P.Acomp.editar();
           if (!it) return;
@@ -497,12 +514,18 @@
       elAcomp.hidden = !acs.length && !criar;
       if (elAcomp.hidden) return;
       const q = qtdPorItem();
-      elAcomp.replaceChildren(h('span', { class: 'cm-acomp-t' }, 'Com'), ...acs.map(it => h('button', { type: 'button', class: 'cm-ac' + (q.get(it.id) ? ' tem' : ''), onClick: () => {
+      const troca = modoAc === 'troca';
+      const modo = acs.length ? h('div', { class: 'cm-ac-modo', role: 'group', 'aria-label': 'Acrescentar ou trocar' },
+        [['extra', 'Extra'], ['troca', 'Troca']].map(([v, rot]) => h('button', { type: 'button', class: modoAc === v ? 'on' : '', 'aria-pressed': modoAc === v ? 'true' : 'false',
+          onClick: () => { modoAc = v; P.vibrar(8); desenharAcomp(); } }, rot))) : h('span', { class: 'cm-acomp-t' }, 'Com');
+      elAcomp.classList.toggle('troca', troca);
+      elAcomp.replaceChildren(modo, ...acs.map(it => h('button', { type: 'button', class: 'cm-ac' + (q.get(it.id) ? ' tem' : ''), onClick: () => {
+        if (troca) { porTroca(it); return; }
         adicionar(c, it);
         P.vibrar(15);
         atualizar();
         P.UI.toast('+ ' + it.nome);
-      } }, '+ ' + it.nome, h('small', null, P.brl0(it.preco_venda)), q.get(it.id) ? h('b', null, q.get(it.id)) : null)), ...(criar ? [criar] : []));
+      } }, (troca ? '⇄ ' : '+ ') + it.nome, troca ? null : h('small', null, P.brl0(it.preco_venda)), q.get(it.id) ? h('b', null, q.get(it.id)) : null)), ...(criar ? [criar] : []));
     }
     function desenharGrade() {
       desenharAcomp();
@@ -545,8 +568,10 @@
     function desenharConsumo() {
       const grupos = new Map();
       linhas(c.id).forEach(l => {
-        if (!grupos.has(l.item_id)) grupos.set(l.item_id, { nome: l.nome, q: 0, v: 0, horas: [] });
-        const g = grupos.get(l.item_id);
+        const troca = (l.nome || '').startsWith(TROCA);
+        const k = l.item_id + (troca ? '|' + l.nome : '');
+        if (!grupos.has(k)) grupos.set(k, { itemId: l.item_id, nome: l.nome, troca, preco: +l.preco_unit || 0, q: 0, v: 0, horas: [] });
+        const g = grupos.get(k);
         g.q += +l.quantidade || 0;
         g.v += (+l.quantidade || 0) * (+l.preco_unit || 0);
         g.horas.push((l.quantidade > 1 ? l.quantidade + '× ' : '') + P.Dia.hora(l.adicionado_em));
@@ -555,11 +580,16 @@
       if (!grupos.size) { elConsumo.appendChild(P.UI.vazio('Toque nos itens acima conforme forem saindo.')); return; }
       elConsumo.appendChild(h('div', { class: 'secao' }, 'Consumo'));
       const ehAc = id => P.Acomp && P.Acomp.ehAcomp(id);
-      grupos.forEach((g, itemId) => elConsumo.appendChild(h('div', { class: 'cm-lin' + (ehAc(itemId) ? ' ac' : '') },
-        h('div', { class: 'cm-lin-n' }, h('b', null, g.q + '×'), ' ' + (ehAc(itemId) ? '+ ' : '') + g.nome, h('small', null, g.horas.join(' · '))),
+      grupos.forEach(g => elConsumo.appendChild(h('div', { class: 'cm-lin' + (ehAc(g.itemId) || g.troca ? ' ac' : '') },
+        h('div', { class: 'cm-lin-n' }, h('b', null, g.q + '×'), ' ' + (g.troca ? '⇄ ' : ehAc(g.itemId) ? '+ ' : '') + g.nome, h('small', null, g.horas.join(' · '))),
         h('div', { class: 'cm-lin-v' }, P.brl(g.v)),
-        h('button', { type: 'button', class: 'lc-b', 'aria-label': 'Tirar um', onClick: () => { tirar(c, itemId); P.vibrar([10, 40, 10]); atualizar(); } }, P.UI.icone('menos')),
-        h('button', { type: 'button', class: 'lc-b mais', 'aria-label': 'Mais um', onClick: () => { const it = P.Store.get('itens', itemId); if (it) { adicionar(c, it); P.vibrar(15); atualizar(); } } }, P.UI.icone('mais')))));
+        h('button', { type: 'button', class: 'lc-b', 'aria-label': 'Tirar um', onClick: () => { tirar(c, g.itemId, g.troca ? g.nome : null); P.vibrar([10, 40, 10]); atualizar(); } }, P.UI.icone('menos')),
+        h('button', { type: 'button', class: 'lc-b mais', 'aria-label': 'Mais um', onClick: () => {
+          const it = P.Store.get('itens', g.itemId);
+          if (!it) return;
+          if (g.troca) adicionar(c, it, 1, { nome: g.nome, preco: g.preco }); else adicionar(c, it);
+          P.vibrar(15); atualizar();
+        } }, P.UI.icone('mais')))));
       elConsumo.appendChild(h('button', { type: 'button', class: 'btn perigo bloco', onClick: cancelarComanda }, P.UI.icone('x'), 'Cancelar comanda'));
     }
     function atualizar() { desenharTotal(); desenharCats(); desenharGrade(); desenharConsumo(); }

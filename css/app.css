@@ -1506,3 +1506,8 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .banner.cp-rasc { flex-wrap: wrap; }
 .banner.cp-rasc .banner-t { flex: 1 1 calc(100% - 40px); }
 .banner.cp-rasc .row { width: 100%; justify-content: flex-end; }
+/* faixa de acompanhamentos: Extra (acrescenta) ou Troca (no lugar de algo do prato) */
+.cm-ac-modo { flex: 0 0 auto; display: inline-flex; border: 1px solid var(--borda); border-radius: 999px; padding: 2px; background: var(--s2, var(--s1)); }
+.cm-ac-modo button { min-height: 34px; padding: 0 11px; border-radius: 999px; border: 0; background: none; color: var(--tx2); font-weight: 800; font-size: .74rem; }
+.cm-ac-modo button.on { background: var(--tx); color: var(--bg); }
+.cm-acomp.troca .cm-ac { border-style: solid; border-color: var(--marca-borda); background: var(--marca-bg); }

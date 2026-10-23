@@ -232,6 +232,9 @@ entra como item à parte (dá para ver quantos saíram). Os sugeridos saíram da
 nome do prato); *Pôr todos os sugeridos* cria de uma vez, e toque no nome para mudar nome e preço.
 Na comanda, o dono também cria um extra na hora: *+ Criar extra* na faixa (ou, na busca, criar como tipo
 *Extra*), e ele já entra na faixa. A aba "Outros" da comanda virou **Extras**.
+**Extra ou Troca**: no começo da faixa, *Extra* (padrão) acrescenta com o preço do acompanhamento; *Troca* põe no
+lugar de algo do prato (ex.: batata no lugar do arroz) — pergunta quanto a mais (0 = sem custo), entra como
+"Troca: Batata frita" numa linha à parte e a faixa volta para Extra.
 
 **Pratos repetidos** (Mais → Pratos repetidos, ou a aba *Repetidos* no Cardápio; só o dono) — o mesmo prato
 cadastrado duas vezes (Costela e Costela assada) ou com o acompanhamento no nome (Filé de frango com batata
