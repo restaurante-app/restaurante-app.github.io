@@ -26,7 +26,7 @@
     }
     function grupo(titulo, itens) {
       const q = P.UI.semAcento(filtro);
-      const vis = itens.filter(it => !q || P.UI.semAcento([it.t, it.s, it.k, titulo].join(' ')).includes(q));
+      const vis = itens.filter(it => it && (!q || P.UI.semAcento([it.t, it.s, it.k, titulo].join(' ')).includes(q)));
       if (!vis.length) return null;
       return h('section', { class: 'mais-g' }, h('div', { class: 'secao' }, titulo), h('div', { class: 'mlista' }, vis.map(linha)));
     }
@@ -63,6 +63,8 @@
           k: 'fechamento conferir gaveta bolso maquininha pix dinheiro cartao bateu sobrou sobra faltou troco' },
         { href: 'mesas/despesas', ic: 'caixa', cor: 'laranja', t: 'Despesas', s: despHoje ? P.brl0(despHoje) + ' hoje' : dono ? 'salários, aluguel, contas, gás…' : 'gás, carvão, embalagem', k: 'gasto conta luz agua aluguel salario carvao embalagem' },
         { href: 'cardapio', ic: 'fichas', cor: 'laranja', t: 'Cardápio do dia', s: cardHoje.definido ? cardHoje.itens.length + ' pratos de ' + cardHoje.nome + ' · mandar no WhatsApp' : 'monte os pratos de cada dia', k: 'pratos whatsapp menu' },
+        dono && P.Acomp ? { href: 'cardapio/acompanhamentos', ic: 'mais', cor: 'laranja', t: 'Acompanhamentos e extras', s: P.Acomp.lista().length ? P.Acomp.lista().length + ' na comanda · ' + P.Acomp.lista().slice(0, 3).map(a => a.nome.toLowerCase()).join(', ') : 'batata, baião, ovo, comida extra na comanda',
+          k: 'adicional extra extras guarnicao guarnicoes batata baiao ovo acrescimo acompanhamento' } : null,
         { href: 'cardapio/cozinha', ic: 'imprimir', cor: 'vermelho', t: 'Folha da cozinha', s: coz.dia ? coz.dia + (coz.dia === 1 ? ' prato' : ' pratos') + ' de ' + cardHoje.nome + ' + ' + coz.fixos + (coz.fixos === 1 ? ' fixo' : ' fixos') + ' · imprimir' : 'pratos do dia e o que leva · imprimir', k: 'cozinha cozinheira cozinheiras imprimir impressao producao leva folha cardapio' },
         { href: 'gas', ic: 'fogo', cor: 'vermelho', t: 'Gás', s: avisoGas ? 'botijão perto de acabar' : bot ? (botInfo.corridos ? 'botijão em uso há ' + botInfo.corridos + (botInfo.corridos === 1 ? ' dia' : ' dias') : 'botijão ligado hoje') : 'quanto dura cada botijão', destaque: !!avisoGas, k: 'botijao' },
         { href: 'fluxo', ic: 'fluxo', cor: 'azul', t: 'Fluxo', s: 'contador · ' + P.num(passou) + ' passaram hoje', k: 'passou contador movimento pessoas' },
@@ -78,12 +80,9 @@
         const nPend = P.Anotacoes ? P.Anotacoes.abertas().length : 0;
         const nEq = P.Store.all('pessoas').filter(p => p.ativo !== false).length;
         const nLixo = P.Lixeira ? P.Lixeira.lista().length : 0;
-        const nAc = P.Acomp ? P.Acomp.lista().length : 0;
         const nRep = P.Acomp ? P.Acomp.contar() : 0;
         grupos.push(grupo('Gestão', [
           { href: 'fichas', ic: 'fichas', cor: 'roxo', t: 'Fichas técnicas', s: 'margem de cada prato · cadastro', k: 'ficha cmv food cost insumos itens cadastro' },
-          { href: 'cardapio/acompanhamentos', ic: 'mais', cor: 'laranja', t: 'Acompanhamentos', s: nAc ? nAc + ' na comanda · ' + P.Acomp.lista().slice(0, 3).map(a => a.nome.toLowerCase()).join(', ') : 'batata, baião, comida extra na comanda',
-            k: 'adicional extra batata baiao ovo acrescimo' },
           { href: 'cardapio/repetidos', ic: 'check', cor: 'roxo', t: 'Pratos repetidos', s: nRep ? nRep + (nRep === 1 ? ' sugestão para juntar' : ' sugestões para juntar') : 'juntar prato cadastrado duas vezes', destaque: !!nRep,
             k: 'duplicado repetido juntar variacao igual' },
           { href: 'relatorio', ic: 'relatorio', cor: 'azul', t: 'Relatório detalhado', s: 'vendas, caixa, compras, CSV', k: 'exportar planilha imprimir' },

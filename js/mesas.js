@@ -316,8 +316,8 @@
   //  TELA: COMANDA (adicionar itens ao vivo)
   // ---------------------------------------------------------------
   const ORDEM = { ESPETO: ['ESPETO', 'BEBIDA', 'PRATO', 'GUARNICAO'], SALAO: ['PRATO', 'BEBIDA', 'ESPETO', 'GUARNICAO'], MARMITA: ['PRATO', 'BEBIDA', 'ESPETO', 'GUARNICAO'] };
-  const ROT_CAT = { ESPETO: 'Espetos', PRATO: 'Pratos', BEBIDA: 'Bebidas', GUARNICAO: 'Outros' };
-  const CATS_ITEM = [{ v: 'PRATO', rotulo: 'Prato' }, { v: 'BEBIDA', rotulo: 'Bebida' }, { v: 'ESPETO', rotulo: 'Espeto' }, { v: 'GUARNICAO', rotulo: 'Outros' }];
+  const ROT_CAT = { ESPETO: 'Espetos', PRATO: 'Pratos', BEBIDA: 'Bebidas', GUARNICAO: 'Extras' };
+  const CATS_ITEM = [{ v: 'PRATO', rotulo: 'Prato' }, { v: 'BEBIDA', rotulo: 'Bebida' }, { v: 'ESPETO', rotulo: 'Espeto' }, { v: 'GUARNICAO', rotulo: 'Extra' }];
   const chaveNome = n => P.UI.semAcento(n).replace(/\s+/g, ' ').trim();
 
   // Criar item na hora (da comanda): nome, tipo e preço. Se já existe um item com o mesmo nome,
@@ -376,6 +376,8 @@
           r = ja ? P.Store.put('itens', Object.assign({}, ja, { ativo: true, preco_venda: P.round(preco, 2) }))
             : P.Store.put('itens', { id: P.uuid(), nome, categoria: cat, preco_venda: P.round(preco, 2),
               perda_pct: cat === 'PRATO' ? +P.Calc.cfgFichas().perda_padrao || 0 : 0, ativo: true, custo_estimado: null });
+          // extra criado na hora (batata, ovo, baião…) já aparece na faixa de acompanhamentos dos pratos
+          if (r.categoria === 'GUARNICAO' && P.Acomp) P.Acomp.incluir(r.id);
         }
         feito = true; resolve({ item: r, extras: [] }); sh.fechar();
       }
@@ -485,15 +487,22 @@
     // toca no prato e depois no acompanhamento (entra como item à parte, com o preço dele)
     function desenharAcomp() {
       const acs = cat === 'PRATO' && !termo && P.Acomp ? P.Acomp.lista() : [];
-      elAcomp.hidden = !acs.length;
-      if (!acs.length) return;
+      // o dono cria um extra novo daqui mesmo (entra na faixa e na comanda)
+      const criar = cat === 'PRATO' && !termo && P.Acomp && P.Auth.isDono()
+        ? h('button', { type: 'button', class: 'cm-ac cm-ac-novo', onClick: async () => {
+          const it = await P.Acomp.editar();
+          if (!it) return;
+          adicionar(c, it); P.vibrar(15); atualizar(); P.UI.toast('+ ' + it.nome);
+        } }, P.UI.icone('mais'), acs.length ? 'Extra' : 'Criar extra (batata, ovo, baião…)') : null;
+      elAcomp.hidden = !acs.length && !criar;
+      if (elAcomp.hidden) return;
       const q = qtdPorItem();
       elAcomp.replaceChildren(h('span', { class: 'cm-acomp-t' }, 'Com'), ...acs.map(it => h('button', { type: 'button', class: 'cm-ac' + (q.get(it.id) ? ' tem' : ''), onClick: () => {
         adicionar(c, it);
         P.vibrar(15);
         atualizar();
         P.UI.toast('+ ' + it.nome);
-      } }, '+ ' + it.nome, h('small', null, P.brl0(it.preco_venda)), q.get(it.id) ? h('b', null, q.get(it.id)) : null)));
+      } }, '+ ' + it.nome, h('small', null, P.brl0(it.preco_venda)), q.get(it.id) ? h('b', null, q.get(it.id)) : null)), ...(criar ? [criar] : []));
     }
     function desenharGrade() {
       desenharAcomp();

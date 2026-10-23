@@ -1493,3 +1493,12 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .jt-nota { color: var(--tx2); font-size: .72rem; line-height: 1.4; }
 .jt-card .row .btn.mini { gap: 5px; }
 .jt-esc { max-height: 52vh; overflow-y: auto; margin-top: 8px; }
+
+/* Compras: parecidos na busca de insumo e "trocar o insumo" */
+.esc-tit { font-size: .64rem; font-weight: 800; color: var(--marca-tx); text-transform: uppercase; letter-spacing: .1em; margin: 4px 2px 2px; }
+.esc-op.esc-par { border-color: var(--marca-borda); background: var(--marca-bg); }
+.qp-trocar { align-self: flex-start; gap: 5px; margin-bottom: 6px; }
+.qp-trocar svg { width: 15px; height: 15px; }
+/* comanda: criar extra na faixa de acompanhamentos */
+.cm-ac.cm-ac-novo { border-style: dashed; color: var(--marca-tx); gap: 4px; }
+.cm-ac.cm-ac-novo svg { width: 15px; height: 15px; }

@@ -854,6 +854,7 @@
       }
       const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
         o.sub ? h('div', { class: 'np-sub' }, o.sub) : null,
+        o.trocar ? h('button', { type: 'button', class: 'btn mini qp-trocar', onClick: () => { feito = true; resolve({ trocar: true }); sh.fechar(); } }, P.UI.icone('refresh'), o.trocar) : null,
         segUn, h('div', { class: 'qp-campos' }, bQtd, bPreco),
         segBox, info, np.el,
         h('div', { class: 'row gap' }, h('button', { type: 'button', class: 'btn', onClick: () => sh.fechar() }, 'Cancelar'), bOk)),
@@ -921,6 +922,10 @@
     if (s === s.toUpperCase() && /[A-Z]/.test(s)) s = s.toLowerCase();
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
+  // palavras de um nome de insumo para achar parecidos (sem acento, sem "de", medidas e números; "ovos" = "ovo")
+  const VAZIAS_INS = new Set(['de', 'da', 'do', 'das', 'dos', 'com', 'sem', 'para', 'tipo', 'kg', 'un', 'und', 'pct', 'pacote', 'fardo', 'cx', 'caixa', 'lt', 'litro', 'litros', 'ml', 'gr']);
+  const palavrasInsumo = s => P.UI.semAcento(s || '').replace(/[^a-z0-9]+/g, ' ').split(' ')
+    .filter(w => w.length >= 3 && !VAZIAS_INS.has(w) && !/^\d/.test(w)).map(w => (w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w));
   function escolherInsumo(o) {
     return new Promise(resolve => {
       let feito = false;
@@ -934,17 +939,29 @@
         const ts = P.UI.semAcento(q).split(/\s+/).filter(Boolean);
         return o.insumos.filter(i => { const n = P.UI.semAcento(i.nome); return ts.every(t => n.includes(t)); });
       }
+      // nenhum com todas as palavras: os que têm alguma (ex.: "arroz parboilizado" → Arroz), para não
+      // criar um insumo repetido sem querer; os com mais palavras em comum primeiro
+      function parecidos(q) {
+        const ws = palavrasInsumo(q);
+        if (!ws.length) return [];
+        const casa = (a, b) => a === b || (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a)));
+        return o.insumos.map(i => { const iw = palavrasInsumo(i.nome); return { i, n: ws.filter(w => iw.some(x => casa(w, x))).length }; })
+          .filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 6).map(x => x.i);
+      }
       function desenhar() {
         const q = busca.value.trim();
         const nome = nomeBonito(q);
         const igual = q ? o.insumos.find(i => chaveNome(i.nome) === chaveNome(q)) : null;
         const sf = o.semFicha(q ? nome : '');
         const itens = q ? achar(q) : o.insumos;
+        const par = q && !itens.length ? parecidos(q) : [];
         lista.replaceChildren(...[
+          par.length ? h('div', { class: 'esc-tit' }, 'Parecidos — é algum destes?') : null,
+          ...par.map(i => op(i.nome, o.sub(i), { id: i.id }, 'esc-par')),
           q && !igual ? opCriar(nome) : !q && o.nomeNovo ? opCriar(o.nomeNovo) : null,
           !q || !igual ? op(sf.rotulo, sf.sub, { avulso: q ? nome : '' }) : null,
           ...itens.map(i => op(i.nome, o.sub(i), { id: i.id })),
-          q && !itens.length ? h('div', { class: 'dica' }, 'Nenhum insumo com "' + q + '".') : null,
+          q && !itens.length && !par.length ? h('div', { class: 'dica' }, 'Nenhum insumo com "' + q + '".') : null,
         ].filter(Boolean));
       }
       busca.addEventListener('input', desenhar);
@@ -955,7 +972,7 @@
         const igual = o.insumos.find(i => chaveNome(i.nome) === chaveNome(q));
         const achados = achar(q);
         if (igual || achados.length === 1) fim({ id: (igual || achados[0]).id });
-        else if (!achados.length) fim({ novo: nomeBonito(q) });
+        else if (!achados.length && !parecidos(q).length) fim({ novo: nomeBonito(q) }); // com parecidos, escolhe na lista
       });
       const sh = P.UI.sheet(h('div', { class: 'esc' }, busca, lista), { titulo: o.titulo, cls: 'sheet-alta', onFechar: () => { if (!feito) resolve(null); } });
       desenhar();
@@ -1162,13 +1179,34 @@
       } else {
         const ins = P.Store.get('insumos', l.insumo_id);
         const r = await pedirQtdPreco({ titulo: l.descricao, unidade: l.unidade, unidadeInsumo: ins ? unidadeDe(ins) : l.unidade, unidades: !!ins, qtd: l.quantidade, preco: l.preco_unit,
-          precoAtual: ins && !ant && l.unidade === unidadeDe(ins) ? precoDe(ins) : null, editar: true });
+          precoAtual: ins && !ant && l.unidade === unidadeDe(ins) ? precoDe(ins) : null, editar: true, trocar: 'Não é ' + l.descricao + '? Trocar o insumo' });
+        if (r && r.trocar) { await trocarInsumo(l); return; }
         if (!r || (ins && !(await trocaUnidade(ins, r.unidade)))) return;
         Object.assign(l, r);
         if (l.nota && (l.nota.incerto || l.nota.un !== l.unidade) && l.nota.q > 0) l.fator = r.quantidade / l.nota.q;
       }
       l.foto = false;
       desenharLinhas();
+    }
+    // trocar o insumo de um item (ex.: entrou num insumo novo "Arroz parboilizado", mas é o "Arroz"):
+    // mantém quantidade e preço; ao salvar, o preço do insumo certo é atualizado
+    async function trocarInsumo(l) {
+      const freq = frequencia();
+      const ins = P.Store.all('insumos').filter(i => i.id !== l.insumo_id).sort((a, b) => ((freq.get(b.id) || 0) - (freq.get(a.id) || 0)) || a.nome.localeCompare(b.nome, 'pt-BR'));
+      const e = await escolherInsumo({
+        titulo: 'Qual insumo é "' + l.descricao + '"?', insumos: ins,
+        sub: i => 'último ' + P.Fichas.precoUnit(i),
+        semFicha: () => ({ rotulo: 'Nenhum — deixar sem ficha', sub: 'entra só no gasto, não mexe em preço de ficha' }),
+      });
+      if (!e) return;
+      if (e.avulso != null) { l.insumo_id = null; desenharLinhas(); return; }
+      let i;
+      if (e.novo) i = criarInsumo(e.novo, l.unidade, l.preco_unit);
+      else { i = P.Store.get('insumos', e.id); if (!(await trocaUnidade(i, l.unidade))) return; }
+      Object.assign(l, { insumo_id: i.id, descricao: i.nome });
+      P.vibrar(15);
+      desenharLinhas();
+      P.UI.toast('Agora é ' + i.nome + (ant ? '. Toque em Salvar alterações para gravar.' : ''));
     }
     // item da nota sem ficha: escolher o insumo, criar um novo ou deixar só no gasto
     async function ligarLinha(l) {

@@ -218,12 +218,14 @@ vermelha), com a data do dia escolhido ou só o dia da semana (para deixar a mes
 tempo). Com muito prato a letra encolhe sozinha para caber numa página (e avisa se não couber). O dono monta;
 todos veem e imprimem. Começa com a folha de sexta montada com o dono (16/10).
 
-**Acompanhamentos** (Mais → Acompanhamentos, ou a aba no Cardápio; só o dono monta) — Batata frita, Baião,
+**Acompanhamentos e extras** (Mais → Acompanhamentos e extras, ou a aba no Cardápio; só o dono monta) — Batata frita, Baião,
 Comida extra, 2 ovos, Feijão de corda, Feijão preto, Separada… cada um com o preço que soma no prato. Na
 comanda, na aba Pratos, aparecem numa faixa logo acima dos pratos: toque no prato e depois em *+ Batata frita*
 (Filé de frango R$ 25 + Batata frita R$ 5 = R$ 30). O prato continua contando como 1 prato e o acompanhamento
 entra como item à parte (dá para ver quantos saíram). Os sugeridos saíram das vendas (o que vinha escrito no
 nome do prato); *Pôr todos os sugeridos* cria de uma vez, e toque no nome para mudar nome e preço.
+Na comanda, o dono também cria um extra na hora: *+ Criar extra* na faixa (ou, na busca, criar como tipo
+*Extra*), e ele já entra na faixa. A aba "Outros" da comanda virou **Extras**.
 
 **Pratos repetidos** (Mais → Pratos repetidos, ou a aba *Repetidos* no Cardápio; só o dono) — o mesmo prato
 cadastrado duas vezes (Costela e Costela assada) ou com o acompanhamento no nome (Filé de frango com batata
