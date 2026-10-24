@@ -47,6 +47,12 @@ saem. Cada item fica com o horário. O total é automático. Em *Fechar conta* e
 forma (Dinheiro, Pix, Débito, Crédito, Fiado); dá para dividir e calcular troco. **Mais de uma forma**: toque na
 primeira (fica com o total) e depois na outra; o app pergunta quanto foi nela e o resto fica na primeira (pôr o
 total inteiro troca a forma). Com duas formas, mudar o valor de uma ajusta a outra sozinha.
+**Ir abatendo** (mesa aberta): *Receber uma parte* — alguém pagou a sua parte e vai embora; põe o valor e a
+forma (Dinheiro, Pix, Débito, Crédito) e a conta continua aberta, mostrando "Já pago · R$ X · falta R$ Y"
+(cada parte tem ✕ para desfazer). A mesa no salão mostra o que falta; *Fechar conta* cobra só o que falta e,
+se já está tudo pago, só fecha. Conta com parte paga não pode ser cancelada (desfaça as partes antes). Reabrir
+uma conta fechada desfaz só o pagamento do fechamento; as partes continuam pagas. O que foi pago numa conta
+ainda aberta já entra no Fechar caixa e no caixa do dia.
 *Venda rápida* é para o balcão (sem mesa). *Marmita* abre comanda no canal marmita.
 Abas: **Fechadas** (contas do dia), **Totais do dia** (automático: itens e valores
 somados das comandas, nada é digitado), **Despesas** (gás, carvão, embalagem, limpeza, manutenção; o dono lança também funcionários,
@@ -58,7 +64,9 @@ fixos do mês não forem lançados. O operador não vê essas despesas,
 **Fiado** (quem deve, com "Recebi em…"). O cliente pode pagar **só uma parte**: toque no valor e ponha
 quanto pagou; abate das contas mais antigas e o resto continua no fiado (a conta paga em parte mostra
 "já pagou R$ X de R$ Y", e o cliente mostra o que já pagou). O recebido entra no caixa do dia em que
-foi pago, na forma escolhida; o aviso tem *Desfazer*.
+foi pago, na forma escolhida; o aviso tem *Desfazer*. Ao tocar no cliente, cada conta mostra **o que ele
+consumiu** (itens, dia e hora). **Extrato para cobrar**: gera uma imagem bonita com a marca, o que consumiu,
+quando, o que já pagou e o total em aberto — *Enviar imagem (WhatsApp)*, *Imprimir / PDF* (A4) ou *Texto*.
 Item tirado de uma comanda e conta cancelada ficam registrados com quem fez.
 **Excluir venda** (dono): venda lançada errada ou repetida sai pelo botão *Excluir venda* no resumo da conta
 (Fechadas → toque na conta; a lista não tem lixeira, para não apagar sem querer). Pergunta antes; some das

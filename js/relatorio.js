@@ -117,10 +117,16 @@
 
     // sobra do caixa (Fechar caixa): entra como venda e no que entrou, sempre à parte (r.sobra)
     r.sobra = P.Fechamento ? P.Fechamento.sobraDe(dias).v : 0;
+    // parte já paga de conta ainda aberta: o dinheiro já entrou (a venda conta quando fechar)
+    r.parcialAberto = P.Store.all('pagamentos').reduce((s, p) => {
+      if (p.forma === 'FIADO' || !set.has(p.dia_operacional)) return s;
+      const c = P.Store.get('comandas', p.comanda_id);
+      return c && c.status === 'ABERTA' ? s + (+p.valor || 0) : s;
+    }, 0);
     r.fat = r.fatBruto - r.desconto + r.sobra;
     r.lucroBruto = r.fat - r.cmv;
     r.lucro = r.lucroBruto - r.outras;
-    r.entradas = ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].reduce((s, f) => s + r.porForma[f] + (r.recebidoFiado[f] || 0), 0) + r.sobra;
+    r.entradas = ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].reduce((s, f) => s + r.porForma[f] + (r.recebidoFiado[f] || 0), 0) + r.sobra + r.parcialAberto;
     r.saidas = r.comprasPagas + r.merc + r.outras + r.investimento;
     r.gastoMercadoria = r.comprasTotal + r.merc;
     r.ticket = fechadas.length ? fechadas.reduce((s, c) => s + (+c.total || 0), 0) / fechadas.length : null;
@@ -194,6 +200,7 @@
       corpo.appendChild(secao('Caixa (dinheiro que entrou e saiu)',
         ['DINHEIRO', 'PIX', 'DEBITO', 'CREDITO'].map(f => linhaV(P.Mesas.NOME_FORMA[f], P.brl(r.porForma[f]) + (r.recebidoFiado[f] ? ' + ' + P.brl(r.recebidoFiado[f]) + ' de fiado' : ''))),
         r.sobra ? linhaV('Sobra do caixa (Fechar caixa)', P.brl(r.sobra)) : null,
+        r.parcialAberto ? linhaV('Já pago em conta ainda aberta', P.brl(r.parcialAberto)) : null,
         linhaV('= Entradas', P.brl(r.entradas), 'forte'),
         linhaV('(−) Compras pagas', P.brl(r.comprasPagas + r.merc)),
         linhaV('(−) Despesas', P.brl(r.outras - r.fixoPago)),

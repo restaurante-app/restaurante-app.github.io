@@ -47,8 +47,13 @@
       nContas++;
       P.Mesas.pagamentos(c.id).forEach(p => { if (p.forma in vendas) vendas[p.forma] += +p.valor || 0; });
     });
+    // conta ainda aberta com parte já paga (ex.: um da mesa pagou e foi embora): o dinheiro já entrou
+    let parcial = 0;
     P.Store.all('pagamentos').forEach(p => {
       if (p.forma === 'FIADO' && p.recebido_em && p.recebido_dia === dia && p.recebido_forma in fiado) fiado[p.recebido_forma] += +p.valor || 0;
+      if (p.forma === 'FIADO' || p.dia_operacional !== dia || !(p.forma in vendas)) return;
+      const c = P.Store.get('comandas', p.comanda_id);
+      if (c && c.status === 'ABERTA') { vendas[p.forma] += +p.valor || 0; parcial += +p.valor || 0; }
     });
     // saídas pagas no dia: compras (inclusive a prazo e fatura pagas hoje) e despesas
     const saidas = [];
@@ -63,7 +68,7 @@
     const soma = o => saidas.filter(s => s.origem === o).reduce((t, s) => t + s.valor, 0);
     const abertas = P.Mesas.totaisDoDia(dia, 'TODOS');
     return {
-      vendas, fiado, nContas, saidas, abertas,
+      vendas, fiado, nContas, saidas, abertas, parcial,
       saiDinheiro: soma('dinheiro'), saiPix: soma('pix'), saiSem: soma('sem'),
       entDinheiro: vendas.DINHEIRO + fiado.DINHEIRO,
       entPix: vendas.PIX + fiado.PIX,
@@ -173,7 +178,8 @@
       }
       if (k.abertas.nAbertas) {
         corpo.appendChild(h('a', { class: 'banner aviso', href: '#/mesas' }, P.UI.icone('alerta'),
-          h('span', { class: 'banner-t' }, k.abertas.nAbertas + (k.abertas.nAbertas === 1 ? ' conta ainda aberta' : ' contas ainda abertas') + ' (' + P.brl(k.abertas.aberto) + '): feche antes de conferir o caixa'),
+          h('span', { class: 'banner-t' }, k.abertas.nAbertas + (k.abertas.nAbertas === 1 ? ' conta ainda aberta' : ' contas ainda abertas') + ' (' + P.brl(k.abertas.aberto) + '): feche antes de conferir o caixa' +
+            (k.parcial ? ' (o ' + P.brl(k.parcial) + ' já pago nelas já está na conta abaixo)' : '')),
           h('span', { class: 'banner-a' }, 'Ver')));
       }
       corpo.appendChild(h('div', { class: 'an-base' }, k.nContas + (k.nContas === 1 ? ' conta fechada' : ' contas fechadas') + ' em ' + P.Dia.rotulo(dia) +
