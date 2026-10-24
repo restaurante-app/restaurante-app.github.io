@@ -395,10 +395,10 @@
       { id: 'compras', rota: 'compras', rotulo: 'Compras', icone: 'compras' },
       { id: 'mais', rota: 'mais', rotulo: 'Mais', icone: 'mais_grade' },
     ],
+    // o contador de pessoas (Fluxo) saiu das telas (pedido do dono, 24/10); as contagens feitas continuam guardadas
     OPERADOR: [
       { id: 'mesas', rota: 'mesas', rotulo: 'Mesas', icone: 'mesas' },
       { id: 'compras', rota: 'compras', rotulo: 'Compras', icone: 'compras' },
-      { id: 'fluxo', rota: 'fluxo', rotulo: 'Fluxo', icone: 'fluxo' },
       { id: 'mais', rota: 'mais', rotulo: 'Mais', icone: 'mais_grade' },
     ],
   };

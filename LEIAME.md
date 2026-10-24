@@ -1,11 +1,11 @@
 # Maria Simone · Restaurante & Marmitas (Pátio do Pari)
 
 App de gestão do restaurante: **mesas e comandas ao vivo**, **compras com lucro em
-tempo real**, **contador de fluxo**, **fichas técnicas com preço vivo** e **painel do
+tempo real**, **fichas técnicas com preço vivo** e **painel do
 dono**. Programa novo, independente do ERP da Agro Bras (não usa nada dele).
 
-Navegação (barra de baixo, 4 atalhos fixos) — dono: Painel · Mesas · Compras · Mais.
-Operador: Mesas · Compras · Fluxo · Mais. Em **Mais** fica tudo o resto em listas por grupo
+Navegação (barra de baixo) — dono: Painel · Mesas · Compras · Mais.
+Operador: Mesas · Compras · Mais. Em **Mais** fica tudo o resto em listas por grupo
 (Dia a dia, Compras e contas, Gestão, Dono, Aparelho), com um número ao vivo em cada linha
 (fiado, a pagar, despesas, preços desatualizados…) e uma **busca** no topo ("fiado", "gás",
 "equipe"). **Fichas técnicas** fica em Mais → Gestão (saiu da barra de baixo).
@@ -34,9 +34,8 @@ Em **Ajustes → Pessoas e PINs** o dono cadastra os operadores.
 | Mesas, venda rápida, marmita, fechar conta, fiado, despesas, totais do dia | ✓ | ✓ |
 | Lançar compras, marcar compra a prazo como paga | ✓ | ✓ |
 | Resultado ao vivo, custos (comprado × usado), excluir compra | ✓ | — |
-| Contador de fluxo (passou) | ✓ | ✓ |
 | Atualizar preço de compra | ✓ | ✓ |
-| Painel, relatório, análise do fluxo, fichas, simulação, cadastro | ✓ | — |
+| Painel, relatório, fichas, simulação, cadastro | ✓ | — |
 | Reabrir ou excluir conta fechada (venda) | ✓ | — |
 
 A sessão do dono trava sozinha depois de 10 minutos com o app em segundo plano.
@@ -149,7 +148,8 @@ a cada compra ou venda. Três partes, para a semana, 30 dias ou 3 meses:
   vendeu e quanto deixou, se o custo subiu com as últimas compras, o preço (ou a porção) para voltar a 35%
   e se vende bem / ganha bem comparado com os outros da categoria.
 
-**Fluxo** — só a passagem é contada à mão: botão +1 gigante para **PASSOU**, faixa de
+**Fluxo** — *fora das telas desde 24/10 (pedido do dono): sem atalho em Mais nem na barra do operador; as
+contagens feitas continuam guardadas.* Como era: só a passagem é contada à mão: botão +1 gigante para **PASSOU**, faixa de
 hora automática, fecha sozinho na virada da hora, retoma se o app fechar.
 **COMPROU é automático**: cada comanda com item conta como uma compra, na hora em que
 foi aberta. A tela mostra a conversão (comprou ÷ passou) ao vivo. Análise (dono): média

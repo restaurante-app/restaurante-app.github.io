@@ -46,7 +46,6 @@
       const aPagar = P.Compras.aPagar().reduce((s, c) => s + P.Compras.valorAberto(c), 0);
       const despHoje = P.Store.all('despesas').filter(d => d.dia_operacional === hoje && P.Mesas.despVisivel(d)).reduce((s, d) => s + (+d.valor || 0), 0);
       const velhos = P.Store.all('insumos').filter(P.Calc.precoVelho).length;
-      const passou = P.Fluxo.totais('PASSOU').dia;
       const cardHoje = P.Cardapio.doDia(hoje);
       const coz = P.Cozinha.resumo(cardHoje.sem);
       const fech = P.Fechamento.resultado(hoje);
@@ -67,7 +66,6 @@
           k: 'adicional extra extras guarnicao guarnicoes batata baiao ovo acrescimo acompanhamento' } : null,
         { href: 'cardapio/cozinha', ic: 'imprimir', cor: 'vermelho', t: 'Folha da cozinha', s: coz.dia ? coz.dia + (coz.dia === 1 ? ' prato' : ' pratos') + ' de ' + cardHoje.nome + ' + ' + coz.fixos + (coz.fixos === 1 ? ' fixo' : ' fixos') + ' · imprimir' : 'pratos do dia e o que leva · imprimir', k: 'cozinha cozinheira cozinheiras imprimir impressao producao leva folha cardapio' },
         { href: 'gas', ic: 'fogo', cor: 'vermelho', t: 'Gás', s: avisoGas ? 'botijão perto de acabar' : bot ? (botInfo.corridos ? 'botijão em uso há ' + botInfo.corridos + (botInfo.corridos === 1 ? ' dia' : ' dias') : 'botijão ligado hoje') : 'quanto dura cada botijão', destaque: !!avisoGas, k: 'botijao' },
-        { href: 'fluxo', ic: 'fluxo', cor: 'azul', t: 'Fluxo', s: 'contador · ' + P.num(passou) + ' passaram hoje', k: 'passou contador movimento pessoas' },
       ]));
       grupos.push(grupo('Compras e contas', [
         { href: 'compras/pagar', ic: 'prazo', cor: 'amarelo', t: 'A pagar', s: aPagar ? P.brl0(aPagar) + ' (fornecedores e cartão)' : 'nada pendente', destaque: !!aPagar, k: 'boleto prazo cartao fatura fornecedor' },
@@ -91,7 +89,6 @@
           { href: 'rendimento', ic: 'custos', cor: 'vermelho', t: 'Rendimento', s: P.Rendimento ? P.Rendimento.textoTile() : 'pratos por lote de carne', k: 'lote carne gramas' },
           { href: 'compras/custos', ic: 'custos', cor: 'laranja', t: 'Custos', s: 'comprado × usado pelas vendas', k: 'desperdicio sobra' },
           { href: 'fichas/simular', ic: 'lapis', cor: 'roxo', t: 'Simular', s: 'porção e preço antes de mudar', k: 'simulacao porcao preco' },
-          { href: 'fluxo/analise', ic: 'fluxo', cor: 'azul', t: 'Análise do fluxo', s: 'pico e conversão por hora', k: 'conversao hora' },
         ]));
         grupos.push(grupo('Dono', [
           { href: 'anotacoes', ic: 'fiado', cor: 'amarelo', t: 'Pendências', s: nPend ? nPend + ' para confirmar' : 'anotações e lembretes', destaque: !!nPend, k: 'anotacao lembrete' },
