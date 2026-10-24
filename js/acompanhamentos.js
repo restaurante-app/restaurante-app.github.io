@@ -372,5 +372,7 @@
 
   P.UI.rota('cardapio/acompanhamentos', { titulo: 'Acompanhamentos', tab: 'mais', dono: true, render: telaAcomp });
   P.UI.rota('cardapio/repetidos', { titulo: 'Pratos repetidos', tab: 'mais', dono: true, render: telaRepetidos });
-  P.Acomp = { lista, ehAcomp, criarAcomp, parecido, juntar, separar, sugestoes, contar, palavras };
+  // põe um item que já existe (ex.: extra criado na comanda) no fim da lista de acompanhamentos
+  const incluir = id => { if (!ehAcomp(id)) salvarIds(idsAcomp().concat(id)); };
+  P.Acomp = { lista, ehAcomp, criarAcomp, editar: editarAcomp, incluir, parecido, juntar, separar, sugestoes, contar, palavras };
 })();

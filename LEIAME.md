@@ -78,6 +78,12 @@ o total pago) e como pagou (Dinheiro, Pix, Cartão ou **A prazo**). Cada item de
 cadastra ali mesmo (kg, litro ou unidade, com o preço desta compra) e já põe na compra — como o "Criar e pôr
 na comanda" da marmita. *"…" sem ficha* lança só no gasto sem perguntar o nome de novo. No item da nota marcado
 *ligar à ficha* também dá para criar o insumo com o nome da nota (o app lembra para as próximas notas).
+O insumo novo só é cadastrado quando a compra é **salva** (marcado "insumo novo" até lá). Sem nenhum insumo com
+todas as palavras, a busca mostra **Parecidos — é algum destes?** (ex.: "arroz parboilizado" → Arroz) antes de
+criar. **Compra não salva não some**: o que foi lançado e não salvo fica guardado neste aparelho; Compras e
+Lançar compra mostram "Compra que não foi salva… *Continuar* / *Descartar*" (descartar pergunta antes).
+**Trocar o insumo**: em *Editar* compra, toque no item → *Não é …? Trocar o insumo* (mantém quantidade e preço;
+ao salvar, o preço do insumo certo é atualizado). O cartão da compra começa com a quantidade de itens.
 **Dia da compra**: a compra nasce no dia aberto em Compras (ou hoje); toque no dia no formulário
 para escolher outro no calendário (compra de ontem lançada hoje, por exemplo).
 Compra de dia passado ou editada não passa por cima do preço de uma compra mais nova.
@@ -218,12 +224,17 @@ vermelha), com a data do dia escolhido ou só o dia da semana (para deixar a mes
 tempo). Com muito prato a letra encolhe sozinha para caber numa página (e avisa se não couber). O dono monta;
 todos veem e imprimem. Começa com a folha de sexta montada com o dono (16/10).
 
-**Acompanhamentos** (Mais → Acompanhamentos, ou a aba no Cardápio; só o dono monta) — Batata frita, Baião,
+**Acompanhamentos e extras** (Mais → Acompanhamentos e extras, ou a aba no Cardápio; só o dono monta) — Batata frita, Baião,
 Comida extra, 2 ovos, Feijão de corda, Feijão preto, Separada… cada um com o preço que soma no prato. Na
 comanda, na aba Pratos, aparecem numa faixa logo acima dos pratos: toque no prato e depois em *+ Batata frita*
 (Filé de frango R$ 25 + Batata frita R$ 5 = R$ 30). O prato continua contando como 1 prato e o acompanhamento
 entra como item à parte (dá para ver quantos saíram). Os sugeridos saíram das vendas (o que vinha escrito no
 nome do prato); *Pôr todos os sugeridos* cria de uma vez, e toque no nome para mudar nome e preço.
+Na comanda, o dono também cria um extra na hora: *+ Criar extra* na faixa (ou, na busca, criar como tipo
+*Extra*), e ele já entra na faixa. A aba "Outros" da comanda virou **Extras**.
+**Extra ou Troca**: no começo da faixa, *Extra* (padrão) acrescenta com o preço do acompanhamento; *Troca* põe no
+lugar de algo do prato (ex.: batata no lugar do arroz) — pergunta quanto a mais (0 = sem custo), entra como
+"Troca: Batata frita" numa linha à parte e a faixa volta para Extra.
 
 **Pratos repetidos** (Mais → Pratos repetidos, ou a aba *Repetidos* no Cardápio; só o dono) — o mesmo prato
 cadastrado duas vezes (Costela e Costela assada) ou com o acompanhamento no nome (Filé de frango com batata

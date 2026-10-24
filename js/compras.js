@@ -98,10 +98,11 @@
   const aPagar = () => P.Store.all('compras').filter(c => partesAbertas(c).length);
   const doDia = dia => P.Store.all('compras').filter(c => c.dia_operacional === dia).sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1));
   const nomeCompra = c => c.fornecedor || 'Compra sem fornecedor';
+  // "8 itens: Farinha de trigo, Heineken, Arroz…" (a quantidade vem antes: o fim do texto fica cortado no cartão)
   function resumoItens(c) {
     const ls = itensDe(c.id);
-    const nomes = ls.slice(0, 3).map(l => l.descricao);
-    return nomes.join(', ') + (ls.length > 3 ? ' +' + (ls.length - 3) : '');
+    const nomes = ls.slice(0, 3).map(l => l.descricao).join(', ');
+    return ls.length > 2 ? ls.length + ' itens: ' + nomes + (ls.length > 3 ? '…' : '') : nomes;
   }
   function fornecedoresRecentes() {
     const vistos = new Map();
@@ -117,6 +118,36 @@
     P.Store.all('compra_itens').forEach(l => { if (l.insumo_id) m.set(l.insumo_id, (m.get(l.insumo_id) || 0) + 1); });
     return m;
   }
+  // de quem foi a última compra de cada insumo (para mostrar "hoje · Sampa Atacado" na busca)
+  function ultimoFornecedor() {
+    const m = new Map();
+    P.Store.all('compra_itens').forEach(l => {
+      const c = l.insumo_id && P.Store.get('compras', l.compra_id);
+      if (!c) return;
+      const k = c.dia_operacional + (c.criado_em || '');
+      const a = m.get(l.insumo_id);
+      if (!a || k > a.k) m.set(l.insumo_id, { k, nome: c.fornecedor || 'sem fornecedor' });
+    });
+    return m;
+  }
+
+  // Rascunho da compra nova (só neste aparelho): o que foi lançado e não salvo não some ao sair da
+  // tela; ao voltar em Lançar compra (ou na lista) aparece para continuar ou descartar.
+  const rascunho = {
+    CHAVE: 'pari.compraRascunho',
+    ler() { try { const r = JSON.parse(localStorage.getItem(this.CHAVE) || 'null'); return r && Array.isArray(r.linhas) && r.linhas.length ? r : null; } catch (e) { return null; } },
+    guardar(d) {
+      try {
+        if (!d.linhas.length) { localStorage.removeItem(this.CHAVE); return; }
+        localStorage.setItem(this.CHAVE, JSON.stringify({ em: Date.now(), fornecedor: d.fornecedor, forma: d.forma, vence: d.vence, dia: d.dia, obs: d.obs, linhas: d.linhas }));
+      } catch (e) { /* sem armazenamento: segue sem rascunho */ }
+    },
+    limpar() { try { localStorage.removeItem(this.CHAVE); } catch (e) { /* idem */ } },
+    texto(r) {
+      const tot = r.linhas.reduce((s, l) => s + (+l.valor || 0), 0);
+      return r.linhas.length + (r.linhas.length === 1 ? ' item' : ' itens') + ' · ' + P.brl(tot) + ' (' + r.linhas.slice(0, 2).map(l => l.descricao).join(', ') + (r.linhas.length > 2 ? '…' : '') + ')';
+    },
+  };
 
   // Grava a compra (nova ou edição) e atualiza o preço dos insumos comprados
   function salvar(d, idExistente) {
@@ -741,6 +772,9 @@
       bLimpa.style.visibility = q ? 'visible' : 'hidden';
       if (q.length >= 2) { desenharBusca(q); return; }
       corpo.appendChild(navDia(dia, d => { dia = diaLista = d; desenhar(); }));
+      const rs = rascunho.ler();
+      if (rs) corpo.appendChild(h('a', { class: 'banner aviso', href: '#/compras/nova' }, P.UI.icone('alerta'),
+        h('span', { class: 'banner-t' }, 'Uma compra ficou sem salvar: ' + rascunho.texto(rs)), h('span', { class: 'banner-a' }, 'Continuar')));
       if (P.Auth.isDono()) corpo.appendChild(cardResultado(dia));
       const cs = doDia(dia);
       const total = cs.reduce((s, c) => s + (+c.total || 0), 0);
@@ -854,6 +888,7 @@
       }
       const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
         o.sub ? h('div', { class: 'np-sub' }, o.sub) : null,
+        o.trocar ? h('button', { type: 'button', class: 'btn mini qp-trocar', onClick: () => { feito = true; resolve({ trocar: true }); sh.fechar(); } }, P.UI.icone('refresh'), o.trocar) : null,
         segUn, h('div', { class: 'qp-campos' }, bQtd, bPreco),
         segBox, info, np.el,
         h('div', { class: 'row gap' }, h('button', { type: 'button', class: 'btn', onClick: () => sh.fechar() }, 'Cancelar'), bOk)),
@@ -921,6 +956,10 @@
     if (s === s.toUpperCase() && /[A-Z]/.test(s)) s = s.toLowerCase();
     return s.charAt(0).toUpperCase() + s.slice(1);
   }
+  // palavras de um nome de insumo para achar parecidos (sem acento, sem "de", medidas e números; "ovos" = "ovo")
+  const VAZIAS_INS = new Set(['de', 'da', 'do', 'das', 'dos', 'com', 'sem', 'para', 'tipo', 'kg', 'un', 'und', 'pct', 'pacote', 'fardo', 'cx', 'caixa', 'lt', 'litro', 'litros', 'ml', 'gr']);
+  const palavrasInsumo = s => P.UI.semAcento(s || '').replace(/[^a-z0-9]+/g, ' ').split(' ')
+    .filter(w => w.length >= 3 && !VAZIAS_INS.has(w) && !/^\d/.test(w)).map(w => (w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w));
   function escolherInsumo(o) {
     return new Promise(resolve => {
       let feito = false;
@@ -934,17 +973,29 @@
         const ts = P.UI.semAcento(q).split(/\s+/).filter(Boolean);
         return o.insumos.filter(i => { const n = P.UI.semAcento(i.nome); return ts.every(t => n.includes(t)); });
       }
+      // nenhum com todas as palavras: os que têm alguma (ex.: "arroz parboilizado" → Arroz), para não
+      // criar um insumo repetido sem querer; os com mais palavras em comum primeiro
+      function parecidos(q) {
+        const ws = palavrasInsumo(q);
+        if (!ws.length) return [];
+        const casa = (a, b) => a === b || (Math.min(a.length, b.length) >= 4 && (a.startsWith(b) || b.startsWith(a)));
+        return o.insumos.map(i => { const iw = palavrasInsumo(i.nome); return { i, n: ws.filter(w => iw.some(x => casa(w, x))).length }; })
+          .filter(x => x.n > 0).sort((a, b) => b.n - a.n).slice(0, 6).map(x => x.i);
+      }
       function desenhar() {
         const q = busca.value.trim();
         const nome = nomeBonito(q);
         const igual = q ? o.insumos.find(i => chaveNome(i.nome) === chaveNome(q)) : null;
         const sf = o.semFicha(q ? nome : '');
         const itens = q ? achar(q) : o.insumos;
+        const par = q && !itens.length ? parecidos(q) : [];
         lista.replaceChildren(...[
+          par.length ? h('div', { class: 'esc-tit' }, 'Parecidos — é algum destes?') : null,
+          ...par.map(i => op(i.nome, o.sub(i), { id: i.id }, 'esc-par')),
           q && !igual ? opCriar(nome) : !q && o.nomeNovo ? opCriar(o.nomeNovo) : null,
           !q || !igual ? op(sf.rotulo, sf.sub, { avulso: q ? nome : '' }) : null,
           ...itens.map(i => op(i.nome, o.sub(i), { id: i.id })),
-          q && !itens.length ? h('div', { class: 'dica' }, 'Nenhum insumo com "' + q + '".') : null,
+          q && !itens.length && !par.length ? h('div', { class: 'dica' }, 'Nenhum insumo com "' + q + '".') : null,
         ].filter(Boolean));
       }
       busca.addEventListener('input', desenhar);
@@ -955,7 +1006,7 @@
         const igual = o.insumos.find(i => chaveNome(i.nome) === chaveNome(q));
         const achados = achar(q);
         if (igual || achados.length === 1) fim({ id: (igual || achados[0]).id });
-        else if (!achados.length) fim({ novo: nomeBonito(q) });
+        else if (!achados.length && !parecidos(q).length) fim({ novo: nomeBonito(q) }); // com parecidos, escolhe na lista
       });
       const sh = P.UI.sheet(h('div', { class: 'esc' }, busca, lista), { titulo: o.titulo, cls: 'sheet-alta', onFechar: () => { if (!feito) resolve(null); } });
       desenhar();
@@ -989,7 +1040,7 @@
       linhas: ant ? itensDe(ant.id).map(l => ({ insumo_id: l.insumo_id, descricao: l.descricao, quantidade: +l.quantidade, unidade: l.unidade, preco_unit: +l.preco_unit, valor: +l.valor })) : [],
     };
     const inForn = h('input', { class: 'campo', type: 'text', value: d.fornecedor, placeholder: 'Fornecedor (ex.: Box 12 — Seu Zé)', autocomplete: 'off' });
-    inForn.addEventListener('input', () => { d.fornecedor = inForn.value; });
+    inForn.addEventListener('input', () => { d.fornecedor = inForn.value; if (!ant && !rascAnt) rascunho.guardar(d); });
     const chipsForn = h('div', { class: 'chips' }, fornecedoresRecentes().map(f => h('button', { type: 'button', class: 'chip', onClick: () => { inForn.value = f; d.fornecedor = f; P.vibrar(8); } }, f)));
     const trocas = {}; // insumo → { para, gUn }: unidade trocada nesta compra (vale ao salvar)
     const unidadeDe = i => (trocas[i.id] ? trocas[i.id].para : i.unidade);
@@ -1005,6 +1056,8 @@
     const elLinhas = h('div', { class: 'cp-linhas' });
     const elBarra = h('div', { class: 'barra-acao' });
     const elAviso = h('div');
+    const elRasc = h('div');
+    let rascAnt = ant ? null : rascunho.ler(); // compra nova que ficou sem salvar
     let totalNota = null;
     const elPag = h('div', { class: 'cp-pag' });
     const totalLinhas = () => P.round(d.linhas.reduce((s, l) => s + (+l.valor || 0), 0), 2);
@@ -1096,7 +1149,7 @@
         elLinhas.appendChild(h('div', { class: 'cp-lin' },
           h('button', { type: 'button', class: 'cp-lin-main', onClick: () => editarLinha(i) },
             h('span', { class: 'cp-lin-n' }, l.descricao,
-              l.ligar ? h('small', { class: 'tag aviso' }, 'ligar à ficha') : !l.insumo_id ? h('small', { class: 'tag neutra' }, 'sem ficha') : null,
+              l.ligar ? h('small', { class: 'tag aviso' }, 'ligar à ficha') : l.novo ? h('small', { class: 'tag ok' }, 'insumo novo') : !l.insumo_id ? h('small', { class: 'tag neutra' }, 'sem ficha') : null,
               l.foto ? h('small', { class: 'tag aviso' }, 'confira') : null),
             lido,
             h('span', { class: 'cp-lin-q' }, !l.insumo_id && l.nota && l.nota.incerto ? l.nota.txt + ' · quantas unidades vêm? toque'
@@ -1115,22 +1168,23 @@
         h('div', { class: 'barra-tot' }, h('small', null, d.linhas.length + (d.linhas.length === 1 ? ' item' : ' itens')), h('b', null, P.brl(total))),
         h('button', { type: 'button', class: 'btn primario barra-btn', disabled: !d.linhas.length, onClick: salvarCompra }, P.UI.icone('check'), ant ? 'Salvar alterações' : 'Salvar compra'));
       if (d.partes) desenharPag(); // dividido: a última parte acompanha o total
+      if (!ant && !rascAnt) rascunho.guardar(d); // rascunho antigo esperando resposta: fica como está
     }
     async function adicionar() {
       const freq = frequencia();
+      const forn = ultimoFornecedor();
       const ins = P.Store.all('insumos').sort((a, b) => ((freq.get(b.id) || 0) - (freq.get(a.id) || 0)) || a.nome.localeCompare(b.nome, 'pt-BR'));
       const e = await escolherInsumo({
         titulo: 'O que você comprou?', insumos: ins,
-        sub: i => 'último ' + P.Fichas.precoUnit(i) + ' · ' + P.Fichas.haDias(i) + (freq.get(i.id) ? ' · comprado ' + freq.get(i.id) + 'x' : ''),
+        sub: i => 'último ' + P.Fichas.precoUnit(i) + ' · ' + P.Fichas.haDias(i) + (forn.get(i.id) ? ' · ' + forn.get(i.id).nome : '') + (freq.get(i.id) ? ' · comprado ' + freq.get(i.id) + 'x' : ''),
         semFicha: nome => nome ? { rotulo: '"' + nome + '" sem ficha', sub: 'entra só no gasto, não mexe em preço de ficha' }
           : { rotulo: '+ Item sem ficha (gelo, sacola, carvão…)', sub: 'entra no gasto, não mexe em preço de ficha' },
       });
       if (!e) return;
       if (e.novo) {
-        const r = await pedirQtdPreco({ titulo: e.novo, unidade: 'kg', unidades: true, novo: true, sub: 'Insumo novo: entra nas fichas com o preço desta compra.' });
+        const r = await pedirQtdPreco({ titulo: e.novo, unidade: 'kg', unidades: true, novo: true, sub: 'Insumo novo: entra nas fichas com o preço desta compra (é criado quando a compra for salva).' });
         if (!r) return;
-        const i = criarInsumo(e.novo, r.unidade, r.preco_unit);
-        d.linhas.push({ insumo_id: i.id, descricao: i.nome, unidade: r.unidade, quantidade: r.quantidade, preco_unit: r.preco_unit, valor: r.valor });
+        d.linhas.push({ insumo_id: null, novo: true, descricao: e.novo, unidade: r.unidade, quantidade: r.quantidade, preco_unit: r.preco_unit, valor: r.valor });
         P.vibrar(15);
         desenharLinhas();
         return;
@@ -1153,22 +1207,43 @@
     }
     async function editarLinha(idx) {
       const l = d.linhas[idx];
-      if (l.nota && l.nota.incerto && !l.insumo_id && l.item) { await perguntarEmbalagem(l); return; }
-      if (!l.insumo_id && l.lido) { await ligarLinha(l); return; }
-      if (!l.insumo_id) {
+      if (l.nota && l.nota.incerto && !l.insumo_id && !l.novo && l.item) { await perguntarEmbalagem(l); return; }
+      if (!l.insumo_id && !l.novo && l.lido) { await ligarLinha(l); return; }
+      if (!l.insumo_id && !l.novo) {
         const val = await P.UI.pedirNumero({ titulo: l.descricao + ' — valor pago', valor: l.valor, decimais: 2, prefixo: 'R$ ' });
         if (val == null) return;
         Object.assign(l, { preco_unit: val / (+l.quantidade || 1), valor: P.round(val, 2) });
       } else {
         const ins = P.Store.get('insumos', l.insumo_id);
-        const r = await pedirQtdPreco({ titulo: l.descricao, unidade: l.unidade, unidadeInsumo: ins ? unidadeDe(ins) : l.unidade, unidades: !!ins, qtd: l.quantidade, preco: l.preco_unit,
-          precoAtual: ins && !ant && l.unidade === unidadeDe(ins) ? precoDe(ins) : null, editar: true });
+        const r = await pedirQtdPreco({ titulo: l.descricao, unidade: l.unidade, unidadeInsumo: ins ? unidadeDe(ins) : l.unidade, unidades: !!ins || !!l.novo, qtd: l.quantidade, preco: l.preco_unit,
+          precoAtual: ins && !ant && l.unidade === unidadeDe(ins) ? precoDe(ins) : null, editar: true, trocar: 'Não é ' + l.descricao + '? Trocar o insumo' });
+        if (r && r.trocar) { await trocarInsumo(l); return; }
         if (!r || (ins && !(await trocaUnidade(ins, r.unidade)))) return;
         Object.assign(l, r);
         if (l.nota && (l.nota.incerto || l.nota.un !== l.unidade) && l.nota.q > 0) l.fator = r.quantidade / l.nota.q;
       }
       l.foto = false;
       desenharLinhas();
+    }
+    // trocar o insumo de um item (ex.: entrou num insumo novo "Arroz parboilizado", mas é o "Arroz"):
+    // mantém quantidade e preço; ao salvar, o preço do insumo certo é atualizado
+    async function trocarInsumo(l) {
+      const freq = frequencia();
+      const ins = P.Store.all('insumos').filter(i => i.id !== l.insumo_id).sort((a, b) => ((freq.get(b.id) || 0) - (freq.get(a.id) || 0)) || a.nome.localeCompare(b.nome, 'pt-BR'));
+      const e = await escolherInsumo({
+        titulo: 'Qual insumo é "' + l.descricao + '"?', insumos: ins,
+        sub: i => 'último ' + P.Fichas.precoUnit(i),
+        semFicha: () => ({ rotulo: 'Nenhum — deixar sem ficha', sub: 'entra só no gasto, não mexe em preço de ficha' }),
+      });
+      if (!e) return;
+      if (e.avulso != null) { Object.assign(l, { insumo_id: null, novo: false }); desenharLinhas(); return; }
+      if (e.novo) { Object.assign(l, { insumo_id: null, novo: true, descricao: e.novo }); P.vibrar(15); desenharLinhas(); return; }
+      const i = P.Store.get('insumos', e.id);
+      if (!(await trocaUnidade(i, l.unidade))) return;
+      Object.assign(l, { insumo_id: i.id, descricao: i.nome, novo: false });
+      P.vibrar(15);
+      desenharLinhas();
+      P.UI.toast('Agora é ' + i.nome + (ant ? '. Toque em Salvar alterações para gravar.' : ''));
     }
     // item da nota sem ficha: escolher o insumo, criar um novo ou deixar só no gasto
     async function ligarLinha(l) {
@@ -1188,10 +1263,10 @@
       const r = await pedirQtdPreco({ titulo: i.nome, unidade: un, unidadeInsumo: un, unidades: true, novo: !!e.novo, qtd: q, preco: q ? l.valor / q : e.novo ? null : precoDe(i), total: q ? null : l.valor, precoAtual: e.novo ? null : precoDe(i),
         sub: (e.novo ? 'Insumo novo. ' : '') + 'Na nota: ' + l.lido + ' · ' + (l.nota ? l.nota.txt + ' · ' : '') + P.brl(l.valor) + (l.nota && l.nota.incerto ? ' — quantas ' + (UN[un] || un) + ' vieram ao todo?' : '') });
       if (!r) return;
-      if (e.novo) i = criarInsumo(e.novo, r.unidade, r.preco_unit);
-      else if (!(await trocaUnidade(i, r.unidade))) return;
+      if (!e.novo && !(await trocaUnidade(i, r.unidade))) return;
       const fator = l.nota && (l.nota.incerto || l.nota.un !== r.unidade) && l.nota.q > 0 ? r.quantidade / l.nota.q : null;
-      Object.assign(l, { insumo_id: i.id, descricao: i.nome, ligar: false, esquecer: false, foto: false, fator }, r);
+      // insumo novo: é criado quando a compra for salva
+      Object.assign(l, { insumo_id: e.novo ? null : i.id, novo: !!e.novo, descricao: i.nome, ligar: false, esquecer: false, foto: false, fator }, r);
       P.vibrar(15);
       desenharLinhas();
     }
@@ -1254,10 +1329,20 @@
     function salvarCompra() {
       if (!d.linhas.length) return;
       if (!pagOk()) { P.UI.toast('Pagamento dividido: ponha o valor de cada parte (a última fica com o resto, que precisa ser maior que zero).', { tipo: 'perigo', ms: 5000 }); return; }
+      // insumo novo só nasce agora, com a compra (antes ficava criado mesmo se a compra não fosse salva);
+      // se já existe um com o mesmo nome e a mesma unidade, usa ele
+      const criados = new Map();
+      d.linhas.filter(l => l.novo).forEach(l => {
+        const k = chaveNome(l.descricao) + '|' + l.unidade;
+        const i = criados.get(k) || P.Store.all('insumos').find(x => chaveNome(x.nome) === chaveNome(l.descricao) && x.unidade === l.unidade) || criarInsumo(l.descricao, l.unidade, l.preco_unit);
+        criados.set(k, i);
+        Object.assign(l, { insumo_id: i.id, descricao: i.nome, novo: false });
+      });
       lembrarProdutos();
       // unidade trocada (ex.: alface por unidade): o insumo, as fichas e o histórico de preço mudam antes do preço novo entrar
       Object.keys(trocas).forEach(id => { if (d.linhas.some(l => l.insumo_id === id && l.unidade === trocas[id].para)) aplicarTrocaUnidade(id, trocas[id]); });
       const r = salvar(d, ant && ant.id);
+      if (!ant && !rascAnt) rascunho.limpar();
       diaLista = r.compra.dia_operacional;
       P.vibrar([20, 40, 20]);
       // mostra o resultado depois que a lista de compras abrir (trocar de tela fecha as folhas)
@@ -1274,6 +1359,7 @@
       voltar(ant ? '#/compras/c/' + ant.id : '#/compras', ant ? 'Compra' : 'Compras'),
       h('div', { class: 'form' },
         h('div', { class: 'form-tit' }, ant ? 'Editar compra' : 'Lançar compra', tDia),
+        elRasc,
         ant ? null : h('div', { class: 'row gap cp-novas' },
           h('button', { type: 'button', class: 'btn grow', onClick: usarColar }, P.UI.icone('lapis'), 'Colar itens'),
           h('button', { type: 'button', class: 'btn grow', onClick: usarLeitor }, P.UI.icone('camera'), 'Ler QR')),
@@ -1286,8 +1372,25 @@
       elBarra);
     desenharPag();
     desenharLinhas();
+    // compra que ficou sem salvar: continuar ou descartar (não abre a busca por cima do aviso)
+    if (rascAnt) {
+      elRasc.replaceChildren(h('div', { class: 'banner aviso cp-rasc' }, P.UI.icone('alerta'),
+        h('span', { class: 'banner-t' }, 'Compra que não foi salva (' + P.Dia.rotuloCurto(P.Dia.diaOperacional(new Date(rascAnt.em).toISOString())) + ' ' + P.Dia.hora(new Date(rascAnt.em).toISOString()) + '): ' + rascunho.texto(rascAnt)),
+        h('div', { class: 'row gap' },
+          h('button', { type: 'button', class: 'btn mini primario', onClick: () => {
+            Object.assign(d, { fornecedor: rascAnt.fornecedor || '', forma: rascAnt.forma || 'DINHEIRO', vence: rascAnt.vence || null, dia: rascAnt.dia || d.dia, obs: rascAnt.obs || null, linhas: rascAnt.linhas, partes: null });
+            inForn.value = d.fornecedor;
+            rascAnt = null; elRasc.replaceChildren();
+            mudaDia(d.dia); desenharPag(); desenharLinhas();
+            P.UI.toast('Compra de volta: confira e toque em Salvar compra');
+          } }, 'Continuar'),
+          h('button', { type: 'button', class: 'btn mini', onClick: async () => {
+            if (!(await P.UI.confirmar('Descartar a compra que não foi salva (' + rascunho.texto(rascAnt) + ')?', { ok: 'Descartar', perigo: true }))) return;
+            rascunho.limpar(); rascAnt = null; elRasc.replaceChildren();
+          } }, 'Descartar'))));
+    }
     if (!ant && fotoPendente) { const f = fotoPendente; fotoPendente = null; if (f === 'leitor') usarLeitor(); else if (f === 'colar') usarColar(); else usarNota({ foto: f }); }
-    else if (!ant) setTimeout(() => { if (!d.linhas.length && location.hash === '#/compras/nova') adicionar(); }, 250);
+    else if (!ant && !rascAnt) setTimeout(() => { if (!d.linhas.length && location.hash === '#/compras/nova') adicionar(); }, 250);
     return {};
   }
 

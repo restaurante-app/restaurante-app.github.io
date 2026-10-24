@@ -1,10 +1,11 @@
-# Próximos passos — situação em 22/10/2026
+# Próximos passos — situação em 23/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.18.1 (fechar conta com mais de uma forma de pagamento: a segunda forma pergunta quanto) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.18.2 (busca de insumo mostra parecidos; trocar o insumo de um item da compra; criar extra na comanda) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.18.1 (fechar conta com mais de uma forma de pagamento: a segunda forma pergunta quanto) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.18 (Acompanhamentos; Pratos repetidos; sobra do caixa como venda; "ficou no bolso" vira o troco) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.17 (Fiado: o cliente paga uma parte e o resto continua devendo) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.16 (Painel: escolher o dia no calendário e calendário do mês) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -39,6 +40,15 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.18.2 (pedido de 23/10)
+
+| Pedido | No app |
+|---|---|
+| Lancei uma compra de arroz parboilizado e não está constando | provável: a busca não achava "Arroz" para "arroz parboilizado" e o Enter criava um insumo novo "Arroz parboilizado" (o preço do Arroz das fichas não mudava). Agora a busca mostra **Parecidos — é algum destes?** antes de criar, e o Enter não cria quando há parecido. Para corrigir a compra: Editar compra → toque no item → **Não é …? Trocar o insumo** → Arroz → Salvar alterações (o preço do Arroz atualiza) |
+| "Aparece como hoje na busca, mas não tem nada nas compras" (foto da Sampa Atacado sem o arroz de R$ 110) | causa: o insumo novo era criado na hora de pôr o item, antes de salvar a compra; a compra do arroz não chegou a ser salva, mas o insumo "Arroz Parboilizado" ficou com o preço de hoje. Agora o insumo novo só é criado ao **salvar** a compra, e a compra começada e não salva fica como **rascunho** neste aparelho ("Compra que não foi salva… Continuar / Descartar" em Compras e em Lançar compra). Também: o cartão da compra mostra quantos itens tem e a busca de insumo mostra o último fornecedor |
+| Em vez de só "trocar", poder escolher extra ou troca (nem sempre troca, às vezes acrescenta) | comanda: a faixa de acompanhamentos começa com **Extra / Troca**; Extra acrescenta com o preço; Troca pergunta quanto a mais (0 = sem custo) e entra como "⇄ Troca: Batata frita" à parte; tirar/mais um na troca não mexe no extra |
+| Não vejo a função de criar extras (guarnições etc.) | Mais → **Acompanhamentos e extras** (em Dia a dia); na comanda, a faixa dos pratos mostra **+ Criar extra (batata, ovo, baião…)** para o dono; criar item na hora com o tipo **Extra** já põe na faixa; a aba "Outros" virou **Extras** |
 
 ## O que entrou na v1.18.1 (pedido de 22/10)
 
