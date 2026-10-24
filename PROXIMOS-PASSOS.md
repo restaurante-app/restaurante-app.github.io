@@ -1,10 +1,11 @@
-# Próximos passos — situação em 23/10/2026
+# Próximos passos — situação em 24/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.18.2 (busca de insumo mostra parecidos; trocar o insumo de um item da compra; criar extra na comanda) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.18.3 (contador de pessoas — Fluxo — fora das telas) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.18.2 (compras: parecidos, trocar insumo, insumo novo ao salvar, rascunho; comanda: Extra ou Troca, criar extra) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.18.1 (fechar conta com mais de uma forma de pagamento: a segunda forma pergunta quanto) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.18 (Acompanhamentos; Pratos repetidos; sobra do caixa como venda; "ficou no bolso" vira o troco) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.17 (Fiado: o cliente paga uma parte e o resto continua devendo) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -40,6 +41,12 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.18.3 (pedido de 24/10)
+
+| Pedido | No app |
+|---|---|
+| Retirar o contador de quantas pessoas passaram | "Fluxo" e "Análise do fluxo" saíram de Mais e o "Fluxo" saiu da barra de baixo do operador (fica Mesas · Compras · Mais). Nada apagado: as contagens continuam guardadas e o módulo segue carregado só para salvar uma contagem que estivesse em andamento |
 
 ## O que entrou na v1.18.2 (pedido de 23/10)
 

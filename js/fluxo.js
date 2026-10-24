@@ -404,7 +404,9 @@
     return { onDados(t) { if (t.has('contagens') || t.has('comandas') || t.has('comanda_itens')) desenhar(); } };
   }
 
-  P.UI.rota('fluxo', { titulo: 'Fluxo', tab: () => (P.Auth.isDono() ? 'mais' : 'fluxo'), render: telaContar });
+  // Fora das telas desde 24/10 (pedido do dono): sem atalho em Mais nem na barra de baixo. O módulo continua
+  // carregado só para guardar uma contagem que estivesse em andamento; nada do que foi contado é apagado.
+  P.UI.rota('fluxo', { titulo: 'Fluxo', tab: 'mais', render: telaContar });
   P.UI.rota('fluxo/analise', { titulo: 'Análise do fluxo', tab: 'mais', dono: true, render: telaAnalise });
 
   P.Fluxo = { reconciliar, calcular, totais, compras, _blocos: () => blocos };
