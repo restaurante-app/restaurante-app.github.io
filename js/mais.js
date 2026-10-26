@@ -84,7 +84,7 @@
           { href: 'cardapio/repetidos', ic: 'check', cor: 'roxo', t: 'Pratos repetidos', s: nRep ? nRep + (nRep === 1 ? ' sugestão para juntar' : ' sugestões para juntar') : 'juntar prato cadastrado duas vezes', destaque: !!nRep,
             k: 'duplicado repetido juntar variacao igual' },
           { href: 'relatorio', ic: 'relatorio', cor: 'azul', t: 'Relatório detalhado', s: 'vendas, caixa, compras, CSV', k: 'exportar planilha imprimir' },
-          { href: 'dia', ic: 'calendario', cor: 'azul', t: 'Dia e período', s: 'tudo de um dia · comparar períodos', k: 'comparar semana mes' },
+          { href: 'periodo', ic: 'calendario', cor: 'azul', t: 'Dia e período', s: 'totais de um período (vendas, compras, despesas) · tudo de um dia', k: 'consultar periodo totais compras da semana comparar semana mes' },
           { href: 'compras/analise', ic: 'alerta', cor: 'amarelo', t: 'Análise de compras', s: nAl ? nAl + (nAl === 1 ? ' alerta nas compras' : ' alertas nas compras') : 'compras × vendas e pratos', destaque: !!nAl, k: 'alertas preco acima' },
           { href: 'rendimento', ic: 'custos', cor: 'vermelho', t: 'Rendimento', s: P.Rendimento ? P.Rendimento.textoTile() : 'pratos por lote de carne', k: 'lote carne gramas' },
           { href: 'compras/custos', ic: 'custos', cor: 'laranja', t: 'Custos', s: 'comprado × usado pelas vendas', k: 'desperdicio sobra' },

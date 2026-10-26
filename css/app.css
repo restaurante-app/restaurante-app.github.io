@@ -486,6 +486,12 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .pn-caixa span { flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pn-caixa span b { color: var(--tx); }
 .pn-caixa > b { font-size: .8rem; }
+.pn-compras { font-size: .78rem; color: var(--tx); }
+.pn-compras span { white-space: normal; line-height: 1.35; }
+.pn-compras span b { font-size: .86rem; }
+.pn-per { justify-content: flex-start; text-align: left; gap: 10px; margin-bottom: 10px; }
+.pn-per > span { flex: 1 1 auto; display: flex; flex-direction: column; line-height: 1.2; }
+.pn-per small { font-size: .68rem; font-weight: 600; color: var(--tx2); margin-top: 2px; }
 .pn-vazio { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--tx3); font-size: .8rem; padding: 8px 0 2px; }
 .pn-escada { margin-top: 9px; }
 .pn-esc-t { font-size: .68rem; color: var(--tx2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
@@ -1050,7 +1056,8 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .rl-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px; }
 
 /* ---------- RELATÓRIO ---------- */
-.rl-datas { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 8px; align-items: center; margin-bottom: 10px; font-size: .78rem; color: var(--tx2); }
+.rl-datas { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; margin-bottom: 10px; font-size: .78rem; color: var(--tx2); }
+.rl-datas .campo { min-width: 0; width: 100%; padding-left: 10px; padding-right: 8px; }
 .rl-sec { margin-bottom: 4px; }
 .rl-l { display: flex; justify-content: space-between; gap: 10px; padding: 11px 15px; font-size: .82rem; color: var(--tx2);
   background: var(--s1); border-left: 1px solid var(--borda); border-right: 1px solid var(--borda); border-top: 1px solid var(--borda); }
@@ -1065,6 +1072,9 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .rl-tab { border-radius: 18px; overflow: hidden; margin-bottom: 8px; }
 .rl-tr { display: grid; grid-template-columns: minmax(0, 2.2fr) .7fr 1.3fr 1.2fr .8fr; gap: 6px; padding: 10px 13px; border-bottom: 1px solid var(--borda); font-size: .76rem; align-items: center; }
 .rl-tr.rl-tr3 { grid-template-columns: minmax(0, 2fr) 1fr 1fr; }
+.rl-tr.rl-tr-dias { grid-template-columns: minmax(0, 1.2fr) 1fr 1fr 1fr; }
+a.rl-tr { color: inherit; text-decoration: none; }
+.rl-tr.rl-tot { font-weight: 800; background: var(--s2); }
 .rl-tr:last-child { border-bottom: 0; }
 .rl-tr span:not(:first-child) { text-align: right; white-space: nowrap; }
 .rl-tr span:first-child { overflow: hidden; text-overflow: ellipsis; font-weight: 600; }

@@ -174,7 +174,10 @@ só muda o card do dia, a semana e o mês só mudam quando o dia escolhido cai e
 card do mês, **Calendário do mês** mostra cada dia com o resultado (entrou − saiu, ou o lucro pelas fichas;
 verde ou vermelho); as setas trocam o mês e **tocar num dia** abre tudo daquele dia (vendas, pratos e bebidas,
 compras com os itens, despesas, equipe, caixa e fechamento, fiado e gás), com as setas para o dia anterior e
-o seguinte, "Ver no painel" e "Abrir em Dia e período". Nos cards:
+o seguinte, "Ver no painel" e "Abrir em Dia e período". **Compras da semana** e **Compras do mês**: quanto
+foi comprado (lançado em Compras), quantas compras e quanto isso é das vendas; tocar abre o período com a lista e
+o dia a dia. Nos cards de entradas e saídas, "Compras pagas" é o que saiu do caixa para compras (a prazo e cartão
+saem quando são pagos). No topo, **Consultar período** leva aos totais de um dia até outro. Nos cards:
 lucro ou prejuízo do dia com semáforo e caixa (entrou × saiu), prime cost, food cost
 ficha × real (compras ÷ vendas), bebida junto por canal, projeção do mês e a escada de
 espetos/dia. **Relatório detalhado**: resultado, caixa por forma de pagamento, compras
@@ -294,7 +297,9 @@ kg, litro ou unidade (ex.: alface por unidade). Trocando a unidade de um insumo,
 quanto pesa 1 unidade (se ele estiver numa ficha) e, ao salvar a compra, converte o insumo, as
 quantidades das fichas que o usam e o histórico de preço. As próximas compras já vêm na unidade nova.
 
-**Dia e período** (só o dono; Mais → Dia e período) — calendário do mês com o vendido em cada
+**Dia e período** (só o dono; Painel → Consultar período, ou Mais → Dia e período) — no topo, os totais:
+**vendas, compras, despesas e equipe, saldo de caixa, pratos e bebidas**; no período, a tabela **Dia a dia**
+(vendas, compras e despesas de cada dia, com o total). Calendário do mês com o vendido em cada
 dia; tocar num dia mostra tudo dele: vendas (por canal e forma de pagamento), quantidade e valor de
 cada prato e de cada bebida, compras com os itens, despesas, equipe (vales, salários, pró-labore),
 caixa (entrou, saiu e saldo), fiado vendido e recebido e o gás. **Período**: de um dia até outro

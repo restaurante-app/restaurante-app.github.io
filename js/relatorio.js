@@ -56,6 +56,9 @@
         hh.fat += q * preco; hh.q += q;
       }
     }
+    // dia a dia do período (Dia e período): vendas, compras e despesas de cada dia
+    r.porDia = new Map();
+    const doDia = d => { if (!r.porDia.has(d)) r.porDia.set(d, { fat: 0, compras: 0, nCompras: 0, desp: 0 }); return r.porDia.get(d); };
     fechadas.forEach(c => {
       const pags = M.pagamentos(c.id);
       const formas = M.formasDe(c);
@@ -77,6 +80,7 @@
       });
       const d = +c.desconto || 0;
       r.desconto += d;
+      doDia(c.dia_operacional).fat += M.linhas(c.id).reduce((s, l) => s + (+l.quantidade || 0) * (+l.preco_unit || 0), 0) - d;
       const pc = r.porCanal[c.canal] || r.porCanal.SALAO;
       pc.fat -= d; pc.contas++; pc.totContas += +c.total || 0;
       r.diasMov.add(c.dia_operacional);
@@ -85,6 +89,7 @@
       if (p.forma === 'FIADO' && p.recebido_em && set.has(p.recebido_dia)) r.recebidoFiado[p.recebido_forma] = (r.recebidoFiado[p.recebido_forma] || 0) + (+p.valor || 0);
     });
     despesas.forEach(d => {
+      doDia(d.dia_operacional).desp += +d.valor || 0;
       if (d.categoria === 'MERCADORIA') r.merc += +d.valor || 0;
       else if (P.Mesas.DESP_FORA.has(d.categoria)) r.investimento += +d.valor || 0; // investimento: só caixa
       else {
@@ -99,6 +104,7 @@
     r.comprasPagas = 0;
     P.Store.all('compras').forEach(c => P.Compras.saidas(c).forEach(s => { if (set.has(s.dia)) r.comprasPagas += s.valor; }));
     r.comprasAPrazo = r.compras.reduce((s, c) => s + P.Compras.valorAberto(c), 0);
+    r.compras.forEach(c => { const g = doDia(c.dia_operacional); g.compras += +c.total || 0; g.nCompras++; });
     r.porInsumo = new Map();
     r.compras.forEach(c => P.Compras.itensDe(c.id).forEach(l => {
       const k = l.insumo_id || 'avulso:' + P.UI.semAcento(l.descricao);
@@ -117,6 +123,7 @@
 
     // sobra do caixa (Fechar caixa): entra como venda e no que entrou, sempre à parte (r.sobra)
     r.sobra = P.Fechamento ? P.Fechamento.sobraDe(dias).v : 0;
+    if (r.sobra) dias.forEach(d => { const v = P.Fechamento.sobra(d); if (v > 0) doDia(d).fat += v; });
     // parte já paga de conta ainda aberta: o dinheiro já entrou (a venda conta quando fechar)
     r.parcialAberto = P.Store.all('pagamentos').reduce((s, p) => {
       if (p.forma === 'FIADO' || !set.has(p.dia_operacional)) return s;
