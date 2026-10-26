@@ -1,10 +1,12 @@
-# Próximos passos — situação em 24/10/2026
+# Próximos passos — situação em 26/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.18.3 (contador de pessoas — Fluxo — fora das telas) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.20 (Painel: compras da semana e do mês em R$; Consultar período com os totais e o dia a dia) | `main` | **publicado** (não muda o `schema.sql`) |
+| App v1.19 (mesa: ir abatendo o que pagam; fiado mostra o que consumiu; extrato para cobrar em imagem, PDF ou texto) | `main` | **publicado** (não muda o `schema.sql`) |
+| App v1.18.3 (contador de pessoas — Fluxo — fora das telas) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.18.2 (compras: parecidos, trocar insumo, insumo novo ao salvar, rascunho; comanda: Extra ou Troca, criar extra) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.18.1 (fechar conta com mais de uma forma de pagamento: a segunda forma pergunta quanto) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.18 (Acompanhamentos; Pratos repetidos; sobra do caixa como venda; "ficou no bolso" vira o troco) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -41,6 +43,28 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.20 (pedido de 26/10)
+
+| Pedido | No app |
+|---|---|
+| Em nenhum lugar mostra com clareza as compras da semana | Painel → card da semana: **Compras da semana R$ X · N compras · % das vendas** (tocar abre a lista no período); o card do mês tem **Compras do mês**. A linha de entradas e saídas agora tem a semana também (Vendas · Compras pagas · Despesas) e "Compras" virou **Compras pagas** (o que saiu do caixa; a prazo e cartão saem quando pagos) |
+| Uma opção de consultar período com os totais do período escolhido | Painel → **Consultar período** (no topo) ou Mais → Dia e período: atalhos (esta semana, semana passada, este mês, mês passado) ou de/até; no topo os totais (vendas, compras, despesas e equipe, saldo de caixa, pratos, bebidas) e a tabela **Dia a dia** com o total. No período, cada compra mostra só o total e quantos itens (tocar abre a compra) |
+
+Só mostra o que já está lançado: nada é gravado nem apagado. Conferido no backup: semana 12 a 17/10 com
+R$ 10.579,67 em 35 compras igual no Painel e no Período, e a soma do dia a dia igual aos totais.
+
+## O que entrou na v1.19 (pedido de 24/10)
+
+| Pedido | No app |
+|---|---|
+| Gerar um arquivo para cobrar as pessoas, com o que consumiu, quando e o valor, bonitinho | Mesas → **Fiado** → toque no cliente → **Extrato para cobrar (imagem, PDF ou texto)**: imagem com a marca, cada conta com dia, hora, itens e valores, o que já pagou e o total em aberto. **Enviar imagem** (abre o compartilhar do celular — WhatsApp; no computador baixa o arquivo), **Imprimir / PDF** (folha A4; no celular, "Salvar como PDF") ou **Texto** (para colar no WhatsApp) |
+| Na tela de fiados, mostrar o que consumiram ao clicar | cada conta do cliente mostra os itens (ex.: "2× Filé de frango, 1× Coca-Cola lata") e a hora |
+| Na mesa, ir abatendo o que forem pagando | comanda aberta → **Receber uma parte (alguém pagou e vai embora)** → valor → forma. A conta continua aberta com "Já pago · falta"; a mesa no salão, a lista e a barra mostram o que falta; *Fechar conta* cobra só o resto ("Já está tudo pago" só fecha). Desfazer em cada parte; cancelar fica bloqueado enquanto houver parte paga; reabrir mantém as partes |
+
+Como funciona por dentro: cada parte é um pagamento normal da conta, gravado na hora em que foi pago (antes do
+fechamento). O Fechar caixa e o caixa do dia já contam essas partes mesmo com a conta aberta. Nada novo no banco
+e nada é apagado: as contas antigas (pagas no fechamento) continuam iguais — conferido no backup (80 pagamentos de contas fechadas).
 
 ## O que entrou na v1.18.3 (pedido de 24/10)
 

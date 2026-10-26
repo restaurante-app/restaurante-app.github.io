@@ -86,11 +86,25 @@
     const varios = dias.length > 1;
     const quando = d => (varios ? P.Dia.rotuloCurto(d) + ' · ' : '');
     const out = [];
+    const nC = r.compras.length;
     out.push(h('div', { class: 'rl-kpis' },
       kpi('Vendas', P.brl(r.fat), r.fechadas.length + (r.fechadas.length === 1 ? ' conta' : ' contas') + (r.ticket != null ? ' · ticket ' + P.brl(r.ticket) : '')),
+      kpi('Compras', P.brl(r.comprasTotal), nC ? nC + (nC === 1 ? ' compra' : ' compras') + (r.fat > 0 ? ' · ' + P.pct(r.comprasTotal / r.fat * 100, 0) + ' das vendas' : '') : 'nenhuma compra'),
+      kpi('Despesas e equipe', P.brl(r.despTotal), 'despesas ' + P.brl0(r.despTotal - r.equipeTotal) + ' · equipe ' + P.brl0(r.equipeTotal)),
       kpi('Saldo de caixa', P.brl(r.saldo), 'entrou ' + P.brl0(r.entradas) + ' · saiu ' + P.brl0(r.saidas), r.saldo >= 0 ? 'verde' : 'vermelho'),
       kpi('Pratos', P.num(r.qComida), P.brl0(r.fatComida)),
       kpi('Bebidas', P.num(r.qBebidas), P.brl0(r.fatBebidas))));
+
+    // período: os totais de cada dia (vendas, compras, despesas e equipe)
+    const comMov = dias.filter(d => r.porDia.has(d));
+    if (varios && comMov.length) {
+      out.push(secao('Dia a dia',
+        h('div', { class: 'rl-tab' },
+          h('div', { class: 'rl-tr th rl-tr-dias' }, h('span', null, 'Dia'), h('span', null, 'Vendas'), h('span', null, 'Compras'), h('span', null, 'Despesas')),
+          comMov.map(d => { const g = r.porDia.get(d); return h('a', { class: 'rl-tr rl-tr-dias', href: '#/dia/' + d },
+            h('span', null, P.Dia.rotulo(d)), h('span', null, P.brl0(g.fat)), h('span', null, g.compras ? P.brl0(g.compras) : '—'), h('span', null, g.desp ? P.brl0(g.desp) : '—')); }),
+          h('div', { class: 'rl-tr rl-tr-dias rl-tot' }, h('span', null, 'Total'), h('span', null, P.brl0(r.fat)), h('span', null, P.brl0(r.comprasTotal)), h('span', null, P.brl0(r.despTotal))))));
+    }
 
     out.push(secao('Vendas',
       linhaV('Vendido (itens)', P.brl(r.fatBruto)),
@@ -108,8 +122,9 @@
     out.push(secao('Compras (' + r.compras.length + ') · ' + P.brl(r.comprasTotal),
       r.compras.length ? h('div', { class: 'dp-compras' }, r.compras.map(c => h('a', { class: 'dp-compra', href: '#/compras/c/' + c.id },
         h('div', { class: 'dp-compra-t' }, h('b', null, c.fornecedor || 'Compra'), h('b', null, P.brl(c.total))),
-        h('small', null, quando(c.dia_operacional) + (P.Compras.textoPartes ? P.Compras.textoPartes(c) : P.Compras.NOME_FORMA[c.forma] || c.forma) + (P.Compras.valorAberto(c) > 0 ? ' · a pagar ' + P.brl(P.Compras.valorAberto(c)) : '')),
-        h('div', { class: 'dp-itens' }, P.Compras.itensDe(c.id).map(l => h('div', { class: 'dp-item' },
+        h('small', null, quando(c.dia_operacional) + (P.Compras.textoPartes ? P.Compras.textoPartes(c) : P.Compras.NOME_FORMA[c.forma] || c.forma) + (P.Compras.valorAberto(c) > 0 ? ' · a pagar ' + P.brl(P.Compras.valorAberto(c)) : '') +
+          (varios ? ((n => ' · ' + n + (n === 1 ? ' item' : ' itens'))(P.Compras.itensDe(c.id).length)) : '')),
+        varios ? null : h('div', { class: 'dp-itens' }, P.Compras.itensDe(c.id).map(l => h('div', { class: 'dp-item' },
           h('span', null, l.descricao), h('span', null, P.numAuto(l.quantidade, 3) + ' ' + l.unidade + ' × ' + P.Fichas.precoFmt(l.preco_unit)), h('b', null, P.brl(l.valor)))))))) : h('div', { class: 'dica' }, 'Nenhuma compra.'),
       varios && r.porInsumo.size ? h('details', { class: 'dp-det' }, h('summary', null, 'Somado por item'),
         h('div', { class: 'rl-tab' },
@@ -301,12 +316,18 @@
   }
 
   let estadoPer = null; // lembra o período enquanto o app está aberto
-  function telaPeriodo(view) {
+  function telaPeriodo(view, params) {
     view.className = 'v-relatorio v-dia';
     const at = atalhos();
     if (!estadoPer) {
       const p1 = { de: at[0].de, ate: at[0].ate };
       estadoPer = { p1, p2: { de: at[1].de, ate: at[1].ate }, comparar: false };
+    }
+    // #/periodo/2026-10-19/2026-10-24 (Painel → semana ou mês): já abre nesse período
+    const ok = d => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+    if (params && ok(params.de) && ok(params.ate) && params.de <= params.ate) {
+      estadoPer.p1 = { de: params.de, ate: params.ate };
+      history.replaceState(null, '', '#/periodo');
     }
     const st = estadoPer;
     const corpo = h('div');
@@ -398,5 +419,6 @@
   P.UI.rota('dia', { titulo: 'Dia', tab: 'mais', dono: true, render: telaDia });
   P.UI.rota('dia/:dia', { titulo: 'Dia', tab: 'mais', dono: true, render: telaDia });
   P.UI.rota('periodo', { titulo: 'Período', tab: 'mais', dono: true, render: telaPeriodo });
+  P.UI.rota('periodo/:de/:ate', { titulo: 'Período', tab: 'mais', dono: true, render: telaPeriodo });
   P.DiaPeriodo = { resumo, blocos, abrirDia };
 })();

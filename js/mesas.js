@@ -68,6 +68,19 @@
   const subtotal = cid => linhas(cid).reduce((s, l) => s + (+l.quantidade || 0) * (+l.preco_unit || 0), 0);
   const totalDe = c => Math.max(0, P.round(subtotal(c.id) - (+c.desconto || 0), 2));
   const qtdItens = cid => linhas(cid).reduce((s, l) => s + (+l.quantidade || 0), 0);
+  // Conta aberta paga por partes (ex.: um da mesa paga a parte dele e vai embora): cada parte vira um
+  // pagamento na hora, abate do total e entra no caixa do dia em que foi paga; no Fechar conta só
+  // falta o resto. Reabrir para corrigir desfaz só o que foi pago ao fechar (as partes ficam).
+  const jaPago = c => P.round(pagamentos(c.id).reduce((s, p) => s + (+p.valor || 0), 0), 2);
+  const faltaDe = c => Math.max(0, P.round(totalDe(c) - jaPago(c), 2));
+  function pagarParte(c, valor, forma) {
+    const u = P.Auth.usuario();
+    const agora = P.agoraISO();
+    return P.Store.put('pagamentos', {
+      id: P.uuid(), comanda_id: c.id, dia_operacional: P.Dia.diaOperacional(agora), forma, valor: P.round(valor, 2),
+      pago_em: agora, usuario_id: u && u.id, recebido_em: null, recebido_dia: null, recebido_forma: null,
+    });
+  }
   const abertas = () => P.Store.all('comandas').filter(c => c.status === 'ABERTA').sort((a, b) => (a.aberta_em < b.aberta_em ? -1 : 1));
   function nomeLocal(c) { return c.mesa ? (/^\d+$/.test(c.mesa) ? 'Mesa ' + c.mesa : c.mesa) : 'Comanda'; }
   function rotulo(c) { return nomeLocal(c) + (c.cliente ? ' · ' + c.cliente : ''); }
@@ -154,8 +167,15 @@
   }
   // formas de pagamento de uma conta, sem repetir (fiado pago em parte fica em dois pagamentos)
   const formasDe = c => [...new Set(pagamentos(c.id).map(p => NOME_FORMA[p.forma]))].join(' + ');
+  // partes pagas com a conta ainda aberta (antes de fechar): ficam quando ela é reaberta
+  function partesAntes(c) {
+    const fechou = Date.parse(c.fechada_em) || 0;
+    if (semHora(c) || !fechou) return [];
+    return pagamentos(c.id).filter(p => (Date.parse(p.pago_em) || 0) < fechou);
+  }
   function reabrir(c) {
-    pagamentos(c.id).forEach(p => P.Store.remove('pagamentos', p.id));
+    const ficam = new Set(partesAntes(c).map(p => p.id));
+    pagamentos(c.id).forEach(p => { if (!ficam.has(p.id)) P.Store.remove('pagamentos', p.id); });
     P.Store.put('comandas', Object.assign({}, c, { status: 'ABERTA', fechada_em: null, fechada_por: null }));
   }
   function cancelar(c) {
@@ -278,7 +298,7 @@
       for (let i = 1; i <= n; i++) {
         const cs = ab.filter(c => c.mesa === String(i));
         if (!cs.length) livres.push(i);
-        const tot = cs.reduce((s, c) => s + totalDe(c), 0);
+        const tot = cs.reduce((s, c) => s + faltaDe(c), 0); // o que falta (já pago por partes sai)
         const min = cs.length ? (Date.now() - Date.parse(cs[0].aberta_em)) / 60000 : 0;
         grade.appendChild(h('button', { type: 'button', class: 'ms-mesa' + (cs.length ? ' ocupada' : '') + (min > 60 ? ' demorada' : ''), onClick: () => abrirMesa(i),
           'aria-label': 'Mesa ' + i + (cs.length ? ', ' + cs.map(c => c.cliente || 'sem nome').join(', ') + ', ' + P.brl(tot) + ', aberta há ' + tempo(cs[0].aberta_em) : ', livre') },
@@ -298,8 +318,8 @@
       if (outras.length) {
         corpo.appendChild(h('div', { class: 'secao' }, 'Balcão e marmitas abertas'));
         corpo.appendChild(h('div', { class: 'ms-lista' }, outras.map(c => h('a', { class: 'ms-card', href: '#/mesas/c/' + c.id },
-          h('div', { class: 'ms-card-n' }, rotulo(c), h('small', null, NOME_CANAL[c.canal] + ' · ' + tempo(c.aberta_em) + ' · ' + qtdItens(c.id) + ' itens')),
-          h('b', null, P.brl(totalDe(c)))))));
+          h('div', { class: 'ms-card-n' }, rotulo(c), h('small', null, NOME_CANAL[c.canal] + ' · ' + tempo(c.aberta_em) + ' · ' + qtdItens(c.id) + ' itens' + (jaPago(c) ? ' · pago ' + P.brl0(jaPago(c)) : ''))),
+          h('b', null, P.brl(jaPago(c) ? faltaDe(c) : totalDe(c)))))));
       }
       const hoje = P.Dia.hoje();
       const fechadasHoje = P.Store.all('comandas').filter(c => c.status === 'FECHADA' && c.dia_operacional === hoje);
@@ -472,8 +492,9 @@
     }
     function desenharTotal() {
       const n = qtdItens(c.id);
+      const pg = jaPago(c);
       elTotal.replaceChildren(
-        h('div', { class: 'barra-tot' }, h('small', null, n + (n === 1 ? ' item' : ' itens')), h('b', null, P.brl(totalDe(c)))),
+        h('div', { class: 'barra-tot' }, h('small', null, pg ? 'falta · já pago ' + P.brl0(pg) : n + (n === 1 ? ' item' : ' itens')), h('b', null, P.brl(pg ? faltaDe(c) : totalDe(c)))),
         h('button', { type: 'button', class: 'btn primario barra-btn', disabled: !n, onClick: () => { location.hash = '#/mesas/pagar/' + c.id; } }, 'Fechar conta', P.UI.icone('avancar')));
     }
     function desenharCats() {
@@ -590,7 +611,38 @@
           if (g.troca) adicionar(c, it, 1, { nome: g.nome, preco: g.preco }); else adicionar(c, it);
           P.vibrar(15); atualizar();
         } }, P.UI.icone('mais')))));
+      // pago por partes (a conta continua aberta)
+      const partes = pagamentos(c.id);
+      if (partes.length) {
+        elConsumo.appendChild(h('div', { class: 'secao' }, 'Já pago · ' + P.brl(jaPago(c)) + ' · falta ' + P.brl(faltaDe(c))));
+        partes.forEach(p => elConsumo.appendChild(h('div', { class: 'cm-lin ac' },
+          h('div', { class: 'cm-lin-n' }, NOME_FORMA[p.forma], h('small', null, 'pago às ' + P.Dia.hora(p.pago_em))),
+          h('div', { class: 'cm-lin-v' }, P.brl(p.valor)),
+          h('button', { type: 'button', class: 'lc-b', 'aria-label': 'Desfazer este pagamento', onClick: () => desfazerParte(p) }, P.UI.icone('x')))));
+      }
+      if (qtdItens(c.id)) elConsumo.appendChild(h('button', { type: 'button', class: 'btn bloco', onClick: receberParte }, P.UI.icone('dinheiro'), 'Receber uma parte (alguém pagou e vai embora)'));
       elConsumo.appendChild(h('button', { type: 'button', class: 'btn perigo bloco', onClick: cancelarComanda }, P.UI.icone('x'), 'Cancelar comanda'));
+    }
+    async function receberParte() {
+      const f = faltaDe(c);
+      if (f < 0.005) { P.UI.toast('Já está tudo pago: toque em Fechar conta.'); return; }
+      const v = await P.UI.pedirNumero({ titulo: 'Quanto pagou agora?', decimais: 2, prefixo: 'R$ ', sub: 'Falta ' + P.brl(f) + ' nesta conta. O resto continua na mesa.' });
+      if (v == null || !(v > 0)) return;
+      if (v > f + 0.004) { P.UI.toast('Maior que o que falta (' + P.brl(f) + ').', { tipo: 'perigo' }); return; }
+      const forma = await P.UI.escolher({ titulo: 'Como pagou ' + P.brl(v) + '?', opcoes: FORMAS.filter(x => x.v !== 'FIADO').map(x => ({ v: x.v, rotulo: x.rotulo })) });
+      if (!forma) return;
+      const p = pagarParte(P.Store.get('comandas', c.id) || c, v, forma);
+      P.vibrar([20, 40, 20]);
+      atualizar();
+      P.UI.toast(P.brl(v) + ' recebido (' + NOME_FORMA[forma] + ') · falta ' + P.brl(faltaDe(c)), {
+        acao: { rotulo: 'Desfazer', fn: () => { P.Store.remove('pagamentos', p.id); atualizar(); } },
+      });
+    }
+    async function desfazerParte(p) {
+      if (!(await P.UI.confirmar('Desfazer o pagamento de ' + P.brl(p.valor) + ' (' + NOME_FORMA[p.forma] + ', ' + P.Dia.hora(p.pago_em) + ')? Ele sai do caixa e volta a faltar na conta.', { ok: 'Desfazer', perigo: true }))) return;
+      P.Store.remove('pagamentos', p.id);
+      atualizar();
+      P.UI.toast('Pagamento desfeito', { acao: { rotulo: 'Voltar', fn: () => { P.Store.put('pagamentos', Object.assign({}, p, { excluido: false })); atualizar(); } } });
     }
     function atualizar() { desenharTotal(); desenharCats(); desenharGrade(); desenharConsumo(); }
     async function renomear() {
@@ -608,6 +660,7 @@
     }
     async function cancelarComanda() {
       const n = qtdItens(c.id);
+      if (jaPago(c)) { P.UI.toast('Esta conta já tem ' + P.brl(jaPago(c)) + ' pago. Feche a conta, ou desfaça os pagamentos antes de cancelar.', { tipo: 'perigo', ms: 5000 }); return; }
       if (n && !(await P.UI.confirmar('Cancelar a comanda de ' + rotulo(c) + ' (' + P.brl(totalDe(c)) + ')? Fica registrado no relatório.', { ok: 'Cancelar comanda', perigo: true }))) return;
       cancelar(P.Store.get('comandas', c.id));
       location.hash = '#/mesas';
@@ -662,7 +715,9 @@
       h('div', { class: 'rs-quem' }, 'Aberta por ' + nomeUsu(c.usuario_id) + (c.fechada_por ? ' · fechada por ' + nomeUsu(c.fechada_por) : '') + (c.cancelada_por ? ' · cancelada por ' + nomeUsu(c.cancelada_por) : '')),
       P.Auth.isDono() && c.status !== 'ABERTA' ? h('button', { type: 'button', class: 'btn bloco', onClick: async () => {
         const recFiado = pags.filter(p => p.forma === 'FIADO' && p.recebido_em).reduce((s, p) => s + (+p.valor || 0), 0);
-        if (!(await P.UI.confirmar('Reabrir a comanda de ' + rotulo(c) + '? Os pagamentos registrados serão desfeitos.' +
+        const partes = partesAntes(c).reduce((s, p) => s + (+p.valor || 0), 0);
+        if (!(await P.UI.confirmar('Reabrir a comanda de ' + rotulo(c) + '? Os pagamentos do fechamento serão desfeitos.' +
+          (partes ? ' O que já tinha sido pago em partes (' + P.brl(partes) + ') continua pago.' : '') +
           (recFiado ? ' Isso inclui ' + P.brl(recFiado) + ' do fiado que o cliente já pagou: sai do caixa e volta a ficar devendo ao fechar de novo no fiado.' : ''), { ok: 'Reabrir' }))) return;
         reabrir(c);
         location.hash = '#/mesas/c/' + c.id;
@@ -690,17 +745,20 @@
     const elDica = h('div', { class: 'pg-dica' });
     const btnOk = h('button', { type: 'button', class: 'btn primario bloco pg-ok', onClick: confirmar }, P.UI.icone('check'), 'Confirmar pagamento');
 
-    const total = () => Math.max(0, P.round(subtotal(c.id) - desconto, 2));
+    const partes = pagamentos(c.id); // pago por partes com a conta aberta
+    const pagoAntes = P.round(partes.reduce((s, p) => s + (+p.valor || 0), 0), 2);
+    const total = () => Math.max(0, P.round(subtotal(c.id) - desconto - pagoAntes, 2)); // o que falta receber
     const pago = () => P.round(pags.reduce((s, p) => s + p.valor, 0), 2);
     const falta = () => P.round(total() - pago(), 2);
 
     function desenhar() {
       elTopo.replaceChildren(
         h('div', { class: 'pg-rot' }, rotulo(c)),
-        h('div', { class: 'pg-cap' }, 'Total a receber'),
+        h('div', { class: 'pg-cap' }, pagoAntes ? 'Falta receber' : 'Total a receber'),
         h('div', { class: 'pg-total' }, P.brl(total())),
         h('div', { class: 'pg-sub' }, qtdItens(c.id) + (qtdItens(c.id) === 1 ? ' item' : ' itens') + ' · subtotal ' + P.brl(subtotal(c.id)),
-          h('button', { type: 'button', class: 'btn mini', onClick: pedirDesconto }, desconto ? 'desconto ' + P.brl(desconto) : '+ desconto')));
+          h('button', { type: 'button', class: 'btn mini', onClick: pedirDesconto }, desconto ? 'desconto ' + P.brl(desconto) : '+ desconto')),
+        pagoAntes ? h('div', { class: 'pg-partes' }, 'Já pago: ' + partes.map(p => NOME_FORMA[p.forma] + ' ' + P.brl(p.valor) + ' (' + P.Dia.hora(p.pago_em) + ')').join(' · ')) : null);
       elFormas.replaceChildren(...FORMAS.map(f => h('button', { type: 'button', class: 'pg-forma f-' + f.v.toLowerCase(), onClick: () => escolher(f.v) },
         h('span', { class: 'pg-ic' }, P.UI.icone(ICONE_FORMA[f.v])), f.rotulo)));
       elPags.innerHTML = '';
@@ -728,10 +786,10 @@
       });
       const f = falta();
       elFalta.className = 'pg-falta' + (Math.abs(f) < 0.005 ? ' ok' : f < 0 ? ' mais' : '');
-      elFalta.textContent = !pags.length ? 'Toque na forma de pagamento' : Math.abs(f) < 0.005 ? 'Tudo certo' : f > 0 ? 'Falta ' + P.brl(f) : 'Passou ' + P.brl(-f) + ' — ajuste os valores';
+      elFalta.textContent = !pags.length && pagoAntes && total() < 0.005 ? 'Já está tudo pago' : !pags.length ? 'Toque na forma de pagamento' : Math.abs(f) < 0.005 ? 'Tudo certo' : f > 0 ? 'Falta ' + P.brl(f) : 'Passou ' + P.brl(-f) + ' — ajuste os valores';
       elDica.textContent = !pags.length ? 'Pagou com mais de uma forma (ex.: parte no dinheiro, parte no Pix)? Toque numa e depois na outra.'
         : Math.abs(f) < 0.005 ? 'Mais de uma forma? Toque na outra e diga quanto foi nela; o resto fica ' + EM_FORMA[pags[0].forma] + '.' : '';
-      btnOk.disabled = !pags.length || Math.abs(f) >= 0.005;
+      btnOk.disabled = (!pags.length && !(pagoAntes && total() < 0.005)) || Math.abs(f) >= 0.005;
     }
     // Toque numa forma: com valor faltando, ela fica com o que falta. Já pago tudo, outra forma =
     // dividir: pergunta quanto foi nela e tira esse valor das que já estavam (a primeira primeiro).
@@ -1078,6 +1136,29 @@
     });
     return () => { antes.forEach(p => P.Store.put('pagamentos', p)); novos.forEach(id => P.Store.remove('pagamentos', id)); };
   }
+  // itens de uma conta em poucas palavras ("2× Filé de frango, 1× Coca-Cola…")
+  const resumoConta = (cid, max) => {
+    const ls = linhas(cid).filter(l => +l.quantidade > 0);
+    return ls.slice(0, max || 4).map(l => P.numAuto(+l.quantidade) + '× ' + l.nome).join(', ') + (ls.length > (max || 4) ? '…' : '');
+  };
+  // tudo o que o cliente deve, conta por conta, para o extrato de cobrança (js/extrato.js)
+  function extratoFiado(g) {
+    const porConta = new Map();
+    g.pags.slice().sort(ordemFiado).forEach(p => porConta.set(p.comanda_id, (porConta.get(p.comanda_id) || 0) + (+p.valor || 0)));
+    const contas = [...porConta.entries()].map(([cid, deve]) => {
+      const c = P.Store.get('comandas', cid) || {};
+      const ps = pagamentos(cid);
+      return {
+        dia: c.dia_operacional || '', hora: c.aberta_em && !semHora(c) ? P.Dia.hora(c.aberta_em) : '', local: c.id ? nomeLocal(c) : '',
+        itens: linhas(cid).filter(l => +l.quantidade > 0).map(l => ({ q: +l.quantidade, nome: l.nome, v: P.round(+l.quantidade * (+l.preco_unit || 0), 2) })),
+        desconto: +c.desconto || 0, consumo: +c.total || 0,
+        pagoNaHora: P.round(ps.filter(p => p.forma !== 'FIADO').reduce((s, p) => s + (+p.valor || 0), 0), 2),
+        fiadoPago: P.round(ps.filter(p => p.forma === 'FIADO' && p.recebido_em).reduce((s, p) => s + (+p.valor || 0), 0), 2),
+        deve: P.round(deve, 2),
+      };
+    });
+    return { nome: g.nome, contas, baixas: baixasDe(g.k).slice(0, 8), total: P.round(g.total, 2) };
+  }
   // o que o cliente já pagou do fiado (cada baixa, da mais recente para a mais antiga)
   function baixasDe(k) {
     const m = new Map();
@@ -1138,11 +1219,15 @@
       const baixas = baixasDe(g.k).slice(0, 5);
       const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
         h('div', { class: 'fia-deve' }, h('small', null, 'Deve'), h('b', null, P.brl(g.total))),
+        P.Extrato ? h('button', { type: 'button', class: 'btn bloco fia-extrato', onClick: () => P.Extrato.abrir(extratoFiado(g)) }, P.UI.icone('upload'), 'Extrato para cobrar (imagem, PDF ou texto)') : null,
         h('div', { class: 'rs-itens' }, g.pags.slice().sort(ordemFiado).map(p => {
           const pago = pagoDa(p.comanda_id);
+          const cm = P.Store.get('comandas', p.comanda_id) || {};
           return h('div', { class: 'rs-l' },
             h('span', { class: 'rs-h' }, P.Dia.rotuloCurto(p.dia_operacional)),
-            h('span', { class: 'rs-n' }, rotulo(P.Store.get('comandas', p.comanda_id) || {}), pago ? h('small', null, 'já pagou ' + P.brl(pago) + ' de ' + P.brl(pago + (+p.valor || 0))) : null),
+            h('span', { class: 'rs-n' }, rotulo(cm) + (cm.aberta_em && !semHora(cm) ? ' · ' + P.Dia.hora(cm.aberta_em) : ''),
+              h('small', { class: 'fia-itens' }, resumoConta(p.comanda_id, 6) || 'sem itens anotados'),
+              pago ? h('small', null, 'já pagou ' + P.brl(pago) + ' de ' + P.brl(pago + (+p.valor || 0))) : null),
             h('span', { class: 'rs-v' }, P.brl(p.valor)));
         })),
         baixas.length ? [h('div', { class: 'secao' }, 'Já pagou'), h('div', { class: 'rs-itens' }, baixas.map(b => h('div', { class: 'rs-l' },
@@ -1176,7 +1261,7 @@
   P.UI.rota('mesas/fiado', { titulo: 'Fiado', tab: 'mesas', render: telaFiado });
 
   P.Mesas = {
-    linhas, pagamentos, subtotal, totalDe, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, navDia, fiadoAberto, receberFiado, baixasDe, formasDe, totaisDoDia,
+    linhas, pagamentos, subtotal, totalDe, jaPago, faltaDe, pagarParte, extratoFiado, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, navDia, fiadoAberto, receberFiado, baixasDe, formasDe, totaisDoDia,
     FORMAS, NOME_FORMA, ICONE_FORMA, NOME_CANAL, CAT_DESPESA, NOME_DESP, DESP_FIXA, DESP_DONO, DESP_FORA, FORMAS_DESP, NOME_FORMA_DESP, despVisivel, subDesp,
     SUBTIPOS, NOME_SUBTIPO, competenciaDe, rotuloCompetencia, inicioSemana, novaDespesa, semHora, jaFechada, criarItem, excluirVenda,
     _abrir: abrir, _adicionar: adicionar, _fechar: fechar, _tirar: tirar,

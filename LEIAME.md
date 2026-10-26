@@ -47,6 +47,12 @@ saem. Cada item fica com o horário. O total é automático. Em *Fechar conta* e
 forma (Dinheiro, Pix, Débito, Crédito, Fiado); dá para dividir e calcular troco. **Mais de uma forma**: toque na
 primeira (fica com o total) e depois na outra; o app pergunta quanto foi nela e o resto fica na primeira (pôr o
 total inteiro troca a forma). Com duas formas, mudar o valor de uma ajusta a outra sozinha.
+**Ir abatendo** (mesa aberta): *Receber uma parte* — alguém pagou a sua parte e vai embora; põe o valor e a
+forma (Dinheiro, Pix, Débito, Crédito) e a conta continua aberta, mostrando "Já pago · R$ X · falta R$ Y"
+(cada parte tem ✕ para desfazer). A mesa no salão mostra o que falta; *Fechar conta* cobra só o que falta e,
+se já está tudo pago, só fecha. Conta com parte paga não pode ser cancelada (desfaça as partes antes). Reabrir
+uma conta fechada desfaz só o pagamento do fechamento; as partes continuam pagas. O que foi pago numa conta
+ainda aberta já entra no Fechar caixa e no caixa do dia.
 *Venda rápida* é para o balcão (sem mesa). *Marmita* abre comanda no canal marmita.
 Abas: **Fechadas** (contas do dia), **Totais do dia** (automático: itens e valores
 somados das comandas, nada é digitado), **Despesas** (gás, carvão, embalagem, limpeza, manutenção; o dono lança também funcionários,
@@ -58,7 +64,9 @@ fixos do mês não forem lançados. O operador não vê essas despesas,
 **Fiado** (quem deve, com "Recebi em…"). O cliente pode pagar **só uma parte**: toque no valor e ponha
 quanto pagou; abate das contas mais antigas e o resto continua no fiado (a conta paga em parte mostra
 "já pagou R$ X de R$ Y", e o cliente mostra o que já pagou). O recebido entra no caixa do dia em que
-foi pago, na forma escolhida; o aviso tem *Desfazer*.
+foi pago, na forma escolhida; o aviso tem *Desfazer*. Ao tocar no cliente, cada conta mostra **o que ele
+consumiu** (itens, dia e hora). **Extrato para cobrar**: gera uma imagem bonita com a marca, o que consumiu,
+quando, o que já pagou e o total em aberto — *Enviar imagem (WhatsApp)*, *Imprimir / PDF* (A4) ou *Texto*.
 Item tirado de uma comanda e conta cancelada ficam registrados com quem fez.
 **Excluir venda** (dono): venda lançada errada ou repetida sai pelo botão *Excluir venda* no resumo da conta
 (Fechadas → toque na conta; a lista não tem lixeira, para não apagar sem querer). Pergunta antes; some das
@@ -166,7 +174,10 @@ só muda o card do dia, a semana e o mês só mudam quando o dia escolhido cai e
 card do mês, **Calendário do mês** mostra cada dia com o resultado (entrou − saiu, ou o lucro pelas fichas;
 verde ou vermelho); as setas trocam o mês e **tocar num dia** abre tudo daquele dia (vendas, pratos e bebidas,
 compras com os itens, despesas, equipe, caixa e fechamento, fiado e gás), com as setas para o dia anterior e
-o seguinte, "Ver no painel" e "Abrir em Dia e período". Nos cards:
+o seguinte, "Ver no painel" e "Abrir em Dia e período". **Compras da semana** e **Compras do mês**: quanto
+foi comprado (lançado em Compras), quantas compras e quanto isso é das vendas; tocar abre o período com a lista e
+o dia a dia. Nos cards de entradas e saídas, "Compras pagas" é o que saiu do caixa para compras (a prazo e cartão
+saem quando são pagos). No topo, **Consultar período** leva aos totais de um dia até outro. Nos cards:
 lucro ou prejuízo do dia com semáforo e caixa (entrou × saiu), prime cost, food cost
 ficha × real (compras ÷ vendas), bebida junto por canal, projeção do mês e a escada de
 espetos/dia. **Relatório detalhado**: resultado, caixa por forma de pagamento, compras
@@ -286,7 +297,9 @@ kg, litro ou unidade (ex.: alface por unidade). Trocando a unidade de um insumo,
 quanto pesa 1 unidade (se ele estiver numa ficha) e, ao salvar a compra, converte o insumo, as
 quantidades das fichas que o usam e o histórico de preço. As próximas compras já vêm na unidade nova.
 
-**Dia e período** (só o dono; Mais → Dia e período) — calendário do mês com o vendido em cada
+**Dia e período** (só o dono; Painel → Consultar período, ou Mais → Dia e período) — no topo, os totais:
+**vendas, compras, despesas e equipe, saldo de caixa, pratos e bebidas**; no período, a tabela **Dia a dia**
+(vendas, compras e despesas de cada dia, com o total). Calendário do mês com o vendido em cada
 dia; tocar num dia mostra tudo dele: vendas (por canal e forma de pagamento), quantidade e valor de
 cada prato e de cada bebida, compras com os itens, despesas, equipe (vales, salários, pró-labore),
 caixa (entrou, saiu e saldo), fiado vendido e recebido e o gás. **Período**: de um dia até outro
