@@ -61,12 +61,15 @@ toque numa despesa para editar; **Do mês** mostra o total por tipo e por forma 
 O **lucro** usa as despesas lançadas (salários, aluguel, contas e impostos entram no dia em que foram
 pagos). Os custos fixos de Ajustes ficam só como **base**: a projeção do mês usa a base enquanto os
 fixos do mês não forem lançados. O operador não vê essas despesas,
-**Fiado** (quem deve, com "Recebi em…"). O cliente pode pagar **só uma parte**: toque no valor e ponha
-quanto pagou; abate das contas mais antigas e o resto continua no fiado (a conta paga em parte mostra
-"já pagou R$ X de R$ Y", e o cliente mostra o que já pagou). O recebido entra no caixa do dia em que
-foi pago, na forma escolhida; o aviso tem *Desfazer*. Ao tocar no cliente, cada conta mostra **o que ele
-consumiu** (itens, dia e hora). **Extrato para cobrar**: gera uma imagem bonita com a marca, o que consumiu,
-quando, o que já pagou e o total em aberto — *Enviar imagem (WhatsApp)*, *Imprimir / PDF* (A4) ou *Texto*.
+**Fiado** — cada cliente devendo aparece com o total, **o que consumiu** (resumo de cada conta) e três botões:
+*Consumo* (tela do cliente: cada conta com dia, hora, local e item por item — itens iguais somados —, total,
+pago na hora, já pagou depois e quanto falta; os pagamentos destas contas e, à parte, os que quitaram contas
+antigas), *Cobrar* e *Receber*. **Cobrar** gera o extrato com a marca: o que consumiu, quando, quanto, os
+pagamentos já feitos nas contas cobradas e o total em aberto, com a **chave Pix** (Ajustes → Cobrança do fiado)
+— *Enviar imagem (WhatsApp)*, *Imprimir / PDF* (A4) ou *Texto* (a chave fica sozinha numa linha para copiar).
+**Receber**: o cliente pode pagar **só uma parte** — toque no valor e ponha quanto pagou; abate das contas
+mais antigas e o resto continua no fiado. O recebido entra no caixa do dia em que foi pago, na forma
+escolhida; o aviso tem *Desfazer*.
 Item tirado de uma comanda e conta cancelada ficam registrados com quem fez.
 **Excluir venda** (dono): venda lançada errada ou repetida sai pelo botão *Excluir venda* no resumo da conta
 (Fechadas → toque na conta; a lista não tem lixeira, para não apagar sem querer). Pergunta antes; some das

@@ -161,6 +161,8 @@
     itens_juntados: { de: {} },
     // resultado do dia: 'caixa' = entradas e saídas (padrão enquanto as fichas não estão montadas); 'fichas' = lucro pelo custo dos pratos
     painel: { modo: 'caixa' },
+    // cobrança do fiado (js/extrato.js): chave Pix que vai no extrato (imagem, PDF e texto) — Ajustes → Cobrança
+    cobranca: { pix: '11977570523' },
   };
   // valor de configuração (o salvo no banco por cima do padrão)
   P.cfg = chave => {

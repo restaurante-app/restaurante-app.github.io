@@ -575,6 +575,14 @@
           ca.nome = nome || null; P.salvarCfg('cartao', ca); desenhar();
         }),
         linha('Fatura vence todo dia', String(ca.vencimento_dia || 1), editar('cartao', 'vencimento_dia', { titulo: 'Dia do vencimento da fatura', decimais: 0, maxInteiros: 2 }))));
+      const cb = cfg('cobranca');
+      corpo.appendChild(secao('Cobrança do fiado',
+        h('small', { class: 'campo-d' }, 'A chave Pix vai no extrato que você manda para quem está devendo (imagem, PDF e texto). Em branco, o extrato sai sem Pix.'),
+        linha('Chave Pix', cb.pix || '—', async () => {
+          const v = await pedirTexto('Chave Pix da cobrança', cb.pix || '', 'Ex.: 11977570523');
+          if (v == null) return;
+          cb.pix = v.trim(); P.salvarCfg('cobranca', cb); desenhar();
+        })));
 
       const m = cfg('metas');
       const esp = P.Calc.espetoLigado();

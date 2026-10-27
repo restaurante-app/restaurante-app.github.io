@@ -3,7 +3,7 @@
    PDF, ou como texto. Só lê o que está lançado; não grava nada.
    Os dados vêm de P.Mesas.extratoFiado(cliente):
    { nome, contas: [{ dia, hora, local, itens: [{ q, nome, v }], desconto, consumo, pagoNaHora, fiadoPago, deve }],
-     baixas: [{ dia, forma, v }], total } */
+     baixas: [{ dia, forma, v }] (todos os pagamentos do fiado, do mais novo ao mais antigo), pago, total } */
 (function () {
   'use strict';
   const P = window.P;
@@ -12,6 +12,9 @@
   const FONTE = "'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif";
   const FONTE_T = "'Barlow Condensed', 'Roboto Condensed', 'Arial Narrow', " + FONTE;
   const quando = () => { const a = P.agoraISO(); return P.Dia.rotulo(P.Dia.diaOperacional(a)) + '/' + a.slice(0, 4) + ' às ' + P.Dia.hora(a); };
+  const pixCobranca = () => String((P.cfg('cobranca') || {}).pix || '').trim(); // Ajustes → Cobrança do fiado
+  const pagoDe = d => (d.pago != null ? d.pago : d.baixas.reduce((s, b) => s + b.v, 0));
+  const MAX_PAGS = 10; // na imagem: os mais recentes; os anteriores somados numa linha
   const nomeArq = d => 'extrato-' + P.UI.semAcento(d.nome).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') + '.png';
 
   // ---------------------------------------------------------------
@@ -26,8 +29,14 @@
       const extras = [c.pagoNaHora ? 'pago na hora ' + P.brl(c.pagoNaHora) : null, c.fiadoPago ? 'já pagou ' + P.brl(c.fiadoPago) : null].filter(Boolean);
       L.push('  Total ' + P.brl(c.consumo) + (extras.length ? ' · ' + extras.join(' · ') : '') + ' → *falta ' + P.brl(c.deve) + '*', '');
     });
-    if (d.baixas.length) L.push('Pagamentos já feitos: ' + d.baixas.map(b => P.Dia.rotuloCurto(b.dia) + ' ' + (P.Mesas.NOME_FORMA[b.forma] || b.forma) + ' ' + P.brl(b.v)).join(' · '), '');
+    if (d.baixas.length) {
+      L.push('*Pagamentos já feitos* (total ' + P.brl(pagoDe(d)) + ')');
+      d.baixas.forEach(b => L.push('  ' + P.Dia.rotulo(b.dia) + ' · ' + (P.Mesas.NOME_FORMA[b.forma] || b.forma) + ' — ' + P.brl(b.v)));
+      L.push('');
+    }
     L.push('*Total em aberto: ' + P.brl(d.total) + '*');
+    // a chave sozinha numa linha, para copiar fácil no WhatsApp
+    if (pixCobranca()) L.push('', 'Para pagar no Pix, a chave é:', pixCobranca());
     return L.join('\n');
   }
 
@@ -65,7 +74,8 @@
     txt('Atualizado em ' + quando(), M, y, '500 28px ' + FONTE, COR.tx2);
     y += 46;
     d.contas.forEach(c => {
-      const altura = 86 + c.itens.length * 46 + (c.desconto ? 42 : 0) + (c.pagoNaHora ? 42 : 0) + (c.fiadoPago ? 42 : 0) + 104;
+      const abatido = c.pagoNaHora || c.fiadoPago; // com pagamento: mostra o total da conta antes de descontar
+      const altura = 86 + c.itens.length * 46 + (c.desconto ? 42 : 0) + (abatido ? 44 : 0) + (c.pagoNaHora ? 42 : 0) + (c.fiadoPago ? 42 : 0) + 104;
       if (desenhar) { ctx.fillStyle = COR.cartao; retRed(ctx, M, y, W - 2 * M, altura, 28); ctx.fill(); ctx.strokeStyle = COR.borda; ctx.lineWidth = 2; ctx.stroke(); }
       let yy = y + 58;
       const x0 = M + 34, x1 = W - M - 34;
@@ -79,6 +89,7 @@
       });
       const linhaMenor = (rot, val) => { yy += 42; txt(rot, x0, yy, '500 27px ' + FONTE, COR.tx2); txt(val, x1, yy, '600 27px ' + FONTE, COR.tx2, 'right'); };
       if (c.desconto) linhaMenor('Desconto', '− ' + P.brl(c.desconto));
+      if (abatido) { yy += 44; txt('Total da conta', x0, yy, '700 28px ' + FONTE, COR.tx); txt(P.brl(c.consumo), x1, yy, '700 28px ' + FONTE, COR.tx, 'right'); }
       if (c.pagoNaHora) linhaMenor('Pago na hora', '− ' + P.brl(c.pagoNaHora));
       if (c.fiadoPago) linhaMenor('Já pagou depois', '− ' + P.brl(c.fiadoPago));
       yy += 20;
@@ -91,16 +102,31 @@
     if (d.baixas.length) {
       y += 30;
       txt('PAGAMENTOS JÁ FEITOS', M, y, '800 24px ' + FONTE, COR.tx3);
-      d.baixas.forEach(b => {
+      txt('total ' + P.brl(pagoDe(d)), W - M, y, '800 26px ' + FONTE, COR.verde, 'right');
+      const mostra = d.baixas.slice(0, MAX_PAGS), resto = d.baixas.slice(MAX_PAGS);
+      mostra.forEach(b => {
         y += 44;
         txt(P.Dia.rotulo(b.dia) + ' · ' + (P.Mesas.NOME_FORMA[b.forma] || b.forma), M, y, '500 28px ' + FONTE, COR.tx2);
         txt(P.brl(b.v), W - M, y, '600 28px ' + FONTE, COR.verde, 'right');
       });
+      if (resto.length) {
+        y += 44;
+        txt('+ ' + resto.length + (resto.length === 1 ? ' pagamento anterior' : ' pagamentos anteriores'), M, y, '500 28px ' + FONTE, COR.tx2);
+        txt(P.brl(resto.reduce((s, b) => s + b.v, 0)), W - M, y, '600 28px ' + FONTE, COR.verde, 'right');
+      }
       y += 30;
     }
     y += 24;
     // total
     if (desenharTotal(ctx, y, d, desenhar, txt)) y += 170;
+    // Pix para pagar
+    const chave = pixCobranca();
+    if (chave) {
+      if (desenhar) { ctx.fillStyle = '#FFFFFF'; retRed(ctx, M, y, W - 2 * M, 150, 30); ctx.fill(); ctx.strokeStyle = COR.marca; ctx.lineWidth = 3; ctx.stroke(); }
+      txt('PAGUE PELO PIX · CHAVE', W / 2, y + 56, '800 26px ' + FONTE, COR.marca, 'center');
+      txt(chave, W / 2, y + 116, '800 54px ' + FONTE, COR.tx, 'center');
+      y += 170;
+    }
     y += 40;
     txt('Obrigado pela preferência!', W / 2, y, '600 28px ' + FONTE, COR.tx3, 'center');
     return y + 56;
