@@ -1,9 +1,10 @@
-# Próximos passos — situação em 26/10/2026
+# Próximos passos — situação em 27/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
+| App v1.21 (Fiado: o que cada cliente consumiu na lista e na tela do cliente; Cobrar com a chave Pix) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.20 (Painel: compras da semana e do mês em R$; Consultar período com os totais e o dia a dia) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.19 (mesa: ir abatendo o que pagam; fiado mostra o que consumiu; extrato para cobrar em imagem, PDF ou texto) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.18.3 (contador de pessoas — Fluxo — fora das telas) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -43,6 +44,17 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.21 (pedido de 27/10)
+
+| Pedido | No app |
+|---|---|
+| Ver o que foi consumido na parte dos fiados (só tinha os totais e os abatimentos) | Mesas → **Fiado**: cada cliente mostra o resumo do que consumiu em cada conta e os botões **Consumo · Cobrar · Receber**. *Consumo* abre a tela do cliente: cada conta com dia, hora, local e item por item (itens iguais somados: "3× Heineken long neck"), total, pago na hora, já pagou depois e quanto falta; embaixo os pagamentos destas contas e, à parte, "Antes: contas já pagas" |
+| Opção de cobrança: um arquivo para mandar a quem está devendo, com o que, quanto e quando, e os pagamentos feitos | **Cobrar** (na lista ou na tela do cliente): extrato em imagem (WhatsApp), PDF ou texto com cada conta, os itens, o total, o que já foi pago (na hora e depois, com dia e forma) e o total em aberto. Os pagamentos que quitaram contas antigas não entram na cobrança, para não confundir |
+| Pôr a chave Pix na cobrança: 11977570523 | o extrato termina com **Pague pelo Pix · chave 11977570523** (no texto, a chave fica sozinha numa linha para copiar). Muda em Ajustes → **Cobrança do fiado** (em branco, sai sem Pix) |
+
+Só leitura, menos a chave Pix (fica na tabela `config`, como os outros ajustes). Nada apagado: testes com o backup
+(35 telas, nenhuma diferença; fiado com Adriano, Denis, Bolívia e Devid).
 
 ## O que entrou na v1.20 (pedido de 26/10)
 

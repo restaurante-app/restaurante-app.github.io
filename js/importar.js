@@ -72,7 +72,7 @@
   const PODE_EXCLUIR = ['historico_precos', 'componentes', 'despesas']; // registro errado que um pacote pode apagar (volta no Desfazer)
   // 'compra:carne' do pacote ('@c06:carne_seca') → id da compra no app + carne
   const refIgnorar = (pk, r) => { const [cp, cr] = String(r).split(':'); return refId(pk, cp) + ':' + cr; };
-  const NOME_CFG = { cardapio_semana: 'Cardápio de cada dia da semana', cozinha: 'Folha da cozinha', caixa_fechamentos: 'Fechamentos do caixa', acompanhamentos: 'Acompanhamentos', itens_juntados: 'Pratos repetidos juntados', operacao: 'Operação (abertura, dias por mês)', cartao: 'Cartão de crédito' };
+  const NOME_CFG = { cardapio_semana: 'Cardápio de cada dia da semana', cozinha: 'Folha da cozinha', caixa_fechamentos: 'Fechamentos do caixa', acompanhamentos: 'Acompanhamentos', itens_juntados: 'Pratos repetidos juntados', operacao: 'Operação (abertura, dias por mês)', cartao: 'Cartão de crédito', cobranca: 'Cobrança (chave Pix)' };
   function conferir(pk) {
     const c = { problemas: [], cadastro: [], compras: [], vendas: [], despesas: [], anotacoes: [], limpeza: [], desativar: [], botijoes: [], resolver: [], pagar: [], corrigir: [], mover: [], excluir: [], receber: [], lotes: [], ignorar: [], porDia: new Map() };
     const mapaIns = mapear('insumos', pk.insumos);

@@ -1136,11 +1136,17 @@
     });
     return () => { antes.forEach(p => P.Store.put('pagamentos', p)); novos.forEach(id => P.Store.remove('pagamentos', id)); };
   }
-  // itens de uma conta em poucas palavras ("2× Filé de frango, 1× Coca-Cola…")
-  const resumoConta = (cid, max) => {
-    const ls = linhas(cid).filter(l => +l.quantidade > 0);
-    return ls.slice(0, max || 4).map(l => P.numAuto(+l.quantidade) + '× ' + l.nome).join(', ') + (ls.length > (max || 4) ? '…' : '');
-  };
+  // itens da conta com o mesmo nome e preço somados ("3× Heineken long neck"), na ordem em que entraram
+  function itensSomados(cid) {
+    const m = new Map();
+    linhas(cid).filter(l => +l.quantidade > 0).forEach(l => {
+      const k = l.nome + '|' + (+l.preco_unit || 0);
+      const x = m.get(k) || { q: 0, nome: l.nome, v: 0 };
+      x.q += +l.quantidade; x.v = P.round(x.v + (+l.quantidade) * (+l.preco_unit || 0), 2);
+      m.set(k, x);
+    });
+    return [...m.values()];
+  }
   // tudo o que o cliente deve, conta por conta, para o extrato de cobrança (js/extrato.js)
   function extratoFiado(g) {
     const porConta = new Map();
@@ -1149,106 +1155,168 @@
       const c = P.Store.get('comandas', cid) || {};
       const ps = pagamentos(cid);
       return {
-        dia: c.dia_operacional || '', hora: c.aberta_em && !semHora(c) ? P.Dia.hora(c.aberta_em) : '', local: c.id ? nomeLocal(c) : '',
-        itens: linhas(cid).filter(l => +l.quantidade > 0).map(l => ({ q: +l.quantidade, nome: l.nome, v: P.round(+l.quantidade * (+l.preco_unit || 0), 2) })),
+        id: cid, dia: c.dia_operacional || '', hora: c.aberta_em && !semHora(c) ? P.Dia.hora(c.aberta_em) : '', local: c.id ? nomeLocal(c) : '',
+        itens: itensSomados(cid),
         desconto: +c.desconto || 0, consumo: +c.total || 0,
         pagoNaHora: P.round(ps.filter(p => p.forma !== 'FIADO').reduce((s, p) => s + (+p.valor || 0), 0), 2),
         fiadoPago: P.round(ps.filter(p => p.forma === 'FIADO' && p.recebido_em).reduce((s, p) => s + (+p.valor || 0), 0), 2),
         deve: P.round(deve, 2),
       };
     });
-    return { nome: g.nome, contas, baixas: baixasDe(g.k).slice(0, 8), total: P.round(g.total, 2) };
+    // pagamentos destas contas (o que quitou contas antigas fica fora da cobrança)
+    const baixas = baixasDe(g.k, new Set(porConta.keys()));
+    return { nome: g.nome, contas, baixas, pago: P.round(baixas.reduce((t, b) => t + b.v, 0), 2), total: P.round(g.total, 2) };
   }
   // o que o cliente já pagou do fiado (cada baixa, da mais recente para a mais antiga)
-  function baixasDe(k) {
+  // contas (opcional): Set de comanda_id; só conta o que foi pago nelas (ex.: as contas ainda em aberto)
+  function baixasDe(k, contas) {
     const m = new Map();
     P.Store.all('pagamentos').forEach(p => {
       if (p.forma !== 'FIADO' || !p.recebido_em || P.UI.semAcento(clienteDe(p)) !== k) return;
+      if (contas && !contas.has(p.comanda_id)) return;
       const x = m.get(p.recebido_em) || { em: p.recebido_em, dia: p.recebido_dia, forma: p.recebido_forma, v: 0 };
       x.v = P.round(x.v + (+p.valor || 0), 2);
       m.set(p.recebido_em, x);
     });
     return [...m.values()].sort((a, b) => (a.em < b.em ? 1 : -1));
   }
+  // clientes devendo: o fiado em aberto agrupado pelo nome do cliente → [{ k, nome, total, pags }]
+  function devedores() {
+    const grupos = new Map();
+    fiadoAberto().forEach(p => {
+      const nome = clienteDe(p);
+      const k = P.UI.semAcento(nome);
+      if (!grupos.has(k)) grupos.set(k, { k, nome, total: 0, pags: [] });
+      const g = grupos.get(k);
+      g.total = P.round(g.total + (+p.valor || 0), 2);
+      g.pags.push(p);
+    });
+    return [...grupos.values()].sort((a, b) => b.total - a.total);
+  }
+  const contasDe = g => [...new Set(g.pags.slice().sort(ordemFiado).map(p => p.comanda_id))];
+  // o que consumiu nas contas em aberto, em poucas palavras ("22/10: 2× Filé de frango… · 23/10: 1× Feijoada")
+  const consumoCurto = g => contasDe(g).map(id => {
+    const its = itensSomados(id);
+    return P.Dia.rotuloCurto((P.Store.get('comandas', id) || {}).dia_operacional || '') + ': ' +
+      (its.length ? its.slice(0, 3).map(i => P.numAuto(i.q) + '× ' + i.nome).join(', ') + (its.length > 3 ? '…' : '') : 'sem itens anotados');
+  }).join(' · ');
+  const hrefCliente = k => '#/mesas/fiado/' + encodeURIComponent(k);
+  const cobrar = g => { if (P.Extrato) P.Extrato.abrir(extratoFiado(g)); };
+
   function telaFiado(view) {
     view.className = 'v-mesas';
     const corpo = h('div');
     function desenhar() {
       corpo.innerHTML = '';
-      const grupos = new Map();
-      fiadoAberto().forEach(p => {
-        const nome = clienteDe(p);
-        const k = P.UI.semAcento(nome);
-        if (!grupos.has(k)) grupos.set(k, { k, nome, total: 0, pags: [] });
-        const g = grupos.get(k);
-        g.total = P.round(g.total + (+p.valor || 0), 2);
-        g.pags.push(p);
-      });
-      const lista = [...grupos.values()].sort((a, b) => b.total - a.total);
+      const lista = devedores();
       const tot = lista.reduce((s, g) => s + g.total, 0);
       corpo.appendChild(h('div', { class: 'fx-resumo' }, h('div', { class: 'fx-tot' }, h('small', null, lista.length + (lista.length === 1 ? ' cliente' : ' clientes') + ' devendo'), h('b', null, P.brl(tot)))));
       if (!lista.length) { corpo.appendChild(P.UI.vazio('Ninguém devendo. Fiado aparece aqui quando a conta é fechada como "Fiado".')); return; }
       corpo.appendChild(h('div', { class: 'ms-lista' }, lista.map(g => {
         const desde = g.pags.map(p => p.dia_operacional).sort()[0];
         const ult = baixasDe(g.k)[0];
-        return h('button', { type: 'button', class: 'ms-card', onClick: () => receber(g) },
-          h('div', { class: 'ms-card-n' }, g.nome, h('small', null, g.pags.length + (g.pags.length === 1 ? ' conta' : ' contas') + ' · desde ' + P.Dia.rotuloCurto(desde) +
-            (ult ? ' · pagou ' + P.brl(ult.v) + ' em ' + P.Dia.rotuloCurto(ult.dia) : ''))),
-          h('b', null, P.brl(g.total)));
+        const n = contasDe(g).length;
+        return h('div', { class: 'fia-card' },
+          h('a', { class: 'fia-card-top', href: hrefCliente(g.k) },
+            h('div', { class: 'ms-card-n' }, g.nome,
+              h('small', null, n + (n === 1 ? ' conta' : ' contas') + ' · desde ' + P.Dia.rotuloCurto(desde) + (ult ? ' · pagou ' + P.brl(ult.v) + ' em ' + P.Dia.rotuloCurto(ult.dia) : '')),
+              h('small', { class: 'fia-consumo' }, consumoCurto(g))),
+            h('b', null, P.brl(g.total))),
+          h('div', { class: 'fia-acoes' },
+            h('a', { class: 'btn mini', href: hrefCliente(g.k) }, P.UI.icone('relatorio'), 'Consumo'),
+            h('button', { type: 'button', class: 'btn mini', onClick: () => cobrar(g) }, P.UI.icone('upload'), 'Cobrar'),
+            h('button', { type: 'button', class: 'btn mini primario', onClick: () => receber(g) }, P.UI.icone('dinheiro'), 'Receber')));
       })));
-      corpo.appendChild(h('div', { class: 'dica' }, 'Toque no cliente para dar baixa. Se pagou só uma parte, troque o valor: abate das contas mais antigas e o resto continua no fiado.'));
-    }
-    function receber(g) {
-      let valor = g.total;
-      const bValor = h('button', { type: 'button', class: 'btn valor bloco fia-valor' });
-      const tit = h('div', { class: 'secao' });
-      function mostrar() {
-        const tudo = valor >= g.total - 0.004;
-        bValor.replaceChildren(h('b', null, P.brl(valor)), h('small', null, tudo ? 'a dívida toda · pagou só uma parte? toque aqui' : 'continua devendo ' + P.brl(g.total - valor) + ' · trocar'));
-        tit.textContent = (tudo ? 'Recebi tudo (' : 'Recebi ') + P.brl(valor) + (tudo ? ') em:' : ' em:');
-      }
-      bValor.addEventListener('click', async () => {
-        const v = await P.UI.pedirNumero({ titulo: 'Quanto pagou agora?', valor: null, decimais: 2, prefixo: 'R$ ', sub: g.nome + ' deve ' + P.brl(g.total) + '. O resto continua no fiado.' });
-        if (v == null || !(v > 0)) return;
-        if (v > g.total + 0.004) { P.UI.toast('Maior que a dívida (' + P.brl(g.total) + ').', { tipo: 'perigo' }); return; }
-        valor = P.round(v, 2);
-        mostrar();
-      });
-      // quanto já foi pago de cada conta (a conta paga em parte mostra o que resta)
-      const pagoDa = id => P.Store.all('pagamentos').filter(p => p.comanda_id === id && p.forma === 'FIADO' && p.recebido_em).reduce((s, p) => s + (+p.valor || 0), 0);
-      const baixas = baixasDe(g.k).slice(0, 5);
-      const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
-        h('div', { class: 'fia-deve' }, h('small', null, 'Deve'), h('b', null, P.brl(g.total))),
-        P.Extrato ? h('button', { type: 'button', class: 'btn bloco fia-extrato', onClick: () => P.Extrato.abrir(extratoFiado(g)) }, P.UI.icone('upload'), 'Extrato para cobrar (imagem, PDF ou texto)') : null,
-        h('div', { class: 'rs-itens' }, g.pags.slice().sort(ordemFiado).map(p => {
-          const pago = pagoDa(p.comanda_id);
-          const cm = P.Store.get('comandas', p.comanda_id) || {};
-          return h('div', { class: 'rs-l' },
-            h('span', { class: 'rs-h' }, P.Dia.rotuloCurto(p.dia_operacional)),
-            h('span', { class: 'rs-n' }, rotulo(cm) + (cm.aberta_em && !semHora(cm) ? ' · ' + P.Dia.hora(cm.aberta_em) : ''),
-              h('small', { class: 'fia-itens' }, resumoConta(p.comanda_id, 6) || 'sem itens anotados'),
-              pago ? h('small', null, 'já pagou ' + P.brl(pago) + ' de ' + P.brl(pago + (+p.valor || 0))) : null),
-            h('span', { class: 'rs-v' }, P.brl(p.valor)));
-        })),
-        baixas.length ? [h('div', { class: 'secao' }, 'Já pagou'), h('div', { class: 'rs-itens' }, baixas.map(b => h('div', { class: 'rs-l' },
-          h('span', { class: 'rs-h' }, P.Dia.rotuloCurto(b.dia)), h('span', { class: 'rs-n' }, NOME_FORMA[b.forma] || b.forma), h('span', { class: 'rs-v' }, P.brl(b.v)))))] : null,
-        h('div', { class: 'secao' }, 'Quanto pagou agora'),
-        bValor, tit,
-        h('div', { class: 'pg-formas' }, FORMAS.filter(f => f.v !== 'FIADO').map(f => h('button', { type: 'button', class: 'pg-forma f-' + f.v.toLowerCase(), onClick: () => {
-          const v = valor, resta = P.round(g.total - v, 2);
-          const desfazer = receberFiado(g.pags, v, f.v);
-          P.vibrar([20, 40, 20]);
-          sh.fechar();
-          P.UI.toast(g.nome + ': ' + P.brl(v) + ' recebido (' + f.rotulo + ')' + (resta > 0.004 ? ' · continua devendo ' + P.brl(resta) : ' · quitou'), {
-            acao: { rotulo: 'Desfazer', fn: desfazer },
-          });
-        } }, h('span', { class: 'pg-ic' }, P.UI.icone(ICONE_FORMA[f.v])), f.rotulo)))),
-      { titulo: 'Fiado de ' + g.nome });
-      mostrar();
+      corpo.appendChild(h('div', { class: 'dica' }, 'Consumo: tudo o que o cliente consumiu, conta por conta, e o que já pagou. Cobrar: extrato para mandar no WhatsApp (imagem, PDF ou texto). ' +
+        'Receber: dar baixa — se pagou só uma parte, troque o valor; abate das contas mais antigas e o resto continua no fiado.'));
     }
     view.append(subnavMesas('fiado'), corpo);
     desenhar();
     return { onDados(t) { if (t.has('pagamentos') || t.has('comandas')) desenhar(); } };
+  }
+
+  // FIADO DE UM CLIENTE: o que consumiu (conta por conta, item por item), o que já pagou e quanto falta
+  function telaFiadoCliente(view, params) {
+    view.className = 'v-mesas';
+    const k = params.k || '';
+    const corpo = h('div', { class: 'fia-cli' });
+    const nomeDe = () => { const p = P.Store.all('pagamentos').find(x => x.forma === 'FIADO' && P.UI.semAcento(clienteDe(x)) === k); return p ? clienteDe(p) : k; };
+    const linha = (rot, val, cls) => h('div', { class: 'fia-it' + (cls ? ' ' + cls : '') }, h('span', null, rot), h('span', null, val));
+    function desenhar() {
+      const g = devedores().find(x => x.k === k);
+      const d = g ? extratoFiado(g) : null;
+      const abertas = new Set(g ? contasDe(g) : []);
+      const baixas = g ? d.baixas : [];
+      const antigas = baixasDe(k, new Set(P.Store.all('pagamentos').filter(p => p.forma === 'FIADO' && !abertas.has(p.comanda_id)).map(p => p.comanda_id)));
+      const soma = l => P.round(l.reduce((s, b) => s + b.v, 0), 2);
+      const pagoTot = soma(baixas);
+      const listaPags = l => h('div', { class: 'rs-itens' }, l.map(b => h('div', { class: 'rs-l' },
+        h('span', { class: 'rs-h' }, P.Dia.rotuloCurto(b.dia)),
+        h('span', { class: 'rs-n' }, (NOME_FORMA[b.forma] || b.forma) + (b.em ? ' · ' + P.Dia.hora(b.em) : '')),
+        h('span', { class: 'rs-v' }, P.brl(b.v)))));
+      corpo.replaceChildren(...[
+        h('div', { class: 'fia-topo' },
+          h('div', { class: 'fia-nome' }, g ? g.nome : nomeDe()),
+          h('div', { class: 'fia-deve' }, h('small', null, g ? 'Deve' : 'Não deve nada'), h('b', null, P.brl(g ? g.total : 0))),
+          h('small', { class: 'fia-sub' }, g ? d.contas.length + (d.contas.length === 1 ? ' conta em aberto' : ' contas em aberto') + (pagoTot ? ' · já pagou ' + P.brl(pagoTot) + ' delas' : '') : 'tudo pago')),
+        g ? h('div', { class: 'fia-botoes' },
+          h('button', { type: 'button', class: 'btn primario', onClick: () => cobrar(g) }, P.UI.icone('upload'), 'Enviar cobrança'),
+          h('button', { type: 'button', class: 'btn', onClick: () => receber(g) }, P.UI.icone('dinheiro'), 'Recebi pagamento')) : null,
+        g ? h('div', { class: 'secao' }, 'O que consumiu') : null,
+        g ? d.contas.map(c => h('div', { class: 'fia-conta' },
+          h('div', { class: 'fia-conta-t' }, P.Dia.rotulo(c.dia) + (c.hora ? ' · ' + c.hora : '') + (c.local ? ' · ' + c.local : '')),
+          c.itens.length ? c.itens.map(i => linha(P.numAuto(i.q) + '× ' + i.nome, P.brl(i.v))) : linha('sem itens anotados', '', 'fia-menos'),
+          c.desconto ? linha('Desconto', '− ' + P.brl(c.desconto), 'fia-menos') : null,
+          linha('Total da conta', P.brl(c.consumo), 'fia-sum'),
+          c.pagoNaHora ? linha('Pago na hora', '− ' + P.brl(c.pagoNaHora), 'fia-menos') : null,
+          c.fiadoPago ? linha('Já pagou depois', '− ' + P.brl(c.fiadoPago), 'fia-menos') : null,
+          linha('Falta desta conta', P.brl(c.deve), 'fia-falta'))) : null,
+        g ? [h('div', { class: 'secao' }, 'Pagamentos destas contas' + (pagoTot ? ' · ' + P.brl(pagoTot) : '')),
+          baixas.length ? listaPags(baixas) : h('div', { class: 'dica' }, 'Ainda não pagou nada destas contas.')] : null,
+        antigas.length ? [h('div', { class: 'secao' }, (g ? 'Antes: contas já pagas · ' : 'Pagamentos já feitos · ') + P.brl(soma(antigas))), listaPags(antigas)] : null,
+        g ? null : h('a', { class: 'btn bloco', href: '#/mesas/fiado' }, P.UI.icone('voltar'), 'Voltar ao fiado'),
+      ].flat(Infinity).filter(x => x != null && x !== false));
+    }
+    view.append(corpo);
+    desenhar();
+    return { onDados(t) { if (t.has('pagamentos') || t.has('comandas') || t.has('comanda_itens')) desenhar(); } };
+  }
+
+  // dar baixa no fiado: quanto pagou agora e em que forma (se for só uma parte, o resto continua devendo)
+  function receber(g) {
+    let valor = g.total;
+    const bValor = h('button', { type: 'button', class: 'btn valor bloco fia-valor' });
+    const tit = h('div', { class: 'secao' });
+    function mostrar() {
+      const tudo = valor >= g.total - 0.004;
+      bValor.replaceChildren(h('b', null, P.brl(valor)), h('small', null, tudo ? 'a dívida toda · pagou só uma parte? toque aqui' : 'continua devendo ' + P.brl(g.total - valor) + ' · trocar'));
+      tit.textContent = (tudo ? 'Recebi tudo (' : 'Recebi ') + P.brl(valor) + (tudo ? ') em:' : ' em:');
+    }
+    bValor.addEventListener('click', async () => {
+      const v = await P.UI.pedirNumero({ titulo: 'Quanto pagou agora?', valor: null, decimais: 2, prefixo: 'R$ ', sub: g.nome + ' deve ' + P.brl(g.total) + '. O resto continua no fiado.' });
+      if (v == null || !(v > 0)) return;
+      if (v > g.total + 0.004) { P.UI.toast('Maior que a dívida (' + P.brl(g.total) + ').', { tipo: 'perigo' }); return; }
+      valor = P.round(v, 2);
+      mostrar();
+    });
+    const n = contasDe(g).length;
+    const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
+      h('div', { class: 'fia-deve' }, h('small', null, 'Deve'), h('b', null, P.brl(g.total))),
+      location.hash.startsWith(hrefCliente(g.k)) ? null : h('a', { class: 'fia-ver', href: hrefCliente(g.k), onClick: () => sh.fechar() },
+        n + (n === 1 ? ' conta' : ' contas') + ': ' + consumoCurto(g), h('b', null, ' Ver tudo ›')),
+      h('div', { class: 'secao' }, 'Quanto pagou agora'),
+      bValor, tit,
+      h('div', { class: 'pg-formas' }, FORMAS.filter(f => f.v !== 'FIADO').map(f => h('button', { type: 'button', class: 'pg-forma f-' + f.v.toLowerCase(), onClick: () => {
+        const v = valor, resta = P.round(g.total - v, 2);
+        const desfazer = receberFiado(g.pags, v, f.v);
+        P.vibrar([20, 40, 20]);
+        sh.fechar();
+        P.UI.toast(g.nome + ': ' + P.brl(v) + ' recebido (' + f.rotulo + ')' + (resta > 0.004 ? ' · continua devendo ' + P.brl(resta) : ' · quitou'), {
+          acao: { rotulo: 'Desfazer', fn: desfazer },
+        });
+      } }, h('span', { class: 'pg-ic' }, P.UI.icone(ICONE_FORMA[f.v])), f.rotulo)))),
+    { titulo: 'Receber de ' + g.nome });
+    mostrar();
   }
 
   P.UI.rota('mesas', { titulo: 'Mesas', tab: 'mesas', render: telaMesas });
@@ -1259,6 +1327,7 @@
   P.UI.rota('mesas/totais', { titulo: 'Totais do dia', tab: 'mesas', render: telaTotais });
   P.UI.rota('mesas/despesas', { titulo: 'Despesas', tab: 'mesas', render: telaDespesas });
   P.UI.rota('mesas/fiado', { titulo: 'Fiado', tab: 'mesas', render: telaFiado });
+  P.UI.rota('mesas/fiado/:k', { titulo: 'Fiado do cliente', tab: 'mesas', render: telaFiadoCliente });
 
   P.Mesas = {
     linhas, pagamentos, subtotal, totalDe, jaPago, faltaDe, pagarParte, extratoFiado, abertas, rotulo, nomeLocal, canalPeloRelogio, subnavMesas, navDia, fiadoAberto, receberFiado, baixasDe, formasDe, totaisDoDia,

@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   const P = window.P;
-  P.VERSAO = '1.20.0';
+  P.VERSAO = '1.21.0';
 
   function comTempo(promessa, ms) {
     return Promise.race([promessa, new Promise(res => setTimeout(() => res(false), ms))]);

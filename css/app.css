@@ -265,7 +265,7 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 /* cartão base */
 .ms-card, .fx-resumo, .kpi, .aj-sec, .mg-lin, .cad-lin, .fd-topo, .fd-comps, .fd-tot, .rs-cab, .rs-itens, .rl-tab,
 .pn-card, .res-card, .viva, .tile, .cm-lin, .cp-lin, .ct-l, .pr-card, .pr-res, .sim-topo, .sim-c, .ed-previa, .an-graf,
-.form-info, .pg-lin, .esc-op, .semaf-c {
+.form-info, .pg-lin, .esc-op, .semaf-c, .fia-card, .fia-conta, .fia-topo {
   background: linear-gradient(180deg, var(--brilho), transparent 42%), var(--s1);
   border: 1px solid var(--borda);
 }
@@ -1468,6 +1468,30 @@ a.rl-tr { color: inherit; text-decoration: none; }
 .btn.fia-valor { flex-direction: column; align-items: flex-start; gap: 2px; padding-top: 10px; padding-bottom: 10px; height: auto; }
 .btn.fia-valor b { font-size: 1.35rem; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
 .btn.fia-valor small { color: var(--tx2); font-size: .74rem; font-weight: 600; }
+/* Fiado: lista com o consumo e os botões; tela do cliente com cada conta item por item */
+.fia-card { border-radius: 18px; padding: 12px 14px 10px; }
+.fia-card-top { display: flex; align-items: flex-start; gap: 12px; color: inherit; text-decoration: none; }
+.fia-card-top > b { white-space: nowrap; font-size: 1.02rem; letter-spacing: -.02em; }
+.fia-card .ms-card-n small.fia-consumo { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; color: var(--tx); font-weight: 500; margin-top: 5px; }
+.fia-acoes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+.fia-acoes .btn.mini { padding: 0 8px; gap: 5px; justify-content: center; text-decoration: none; }
+.fia-acoes .btn.mini svg { width: 15px; height: 15px; }
+.fia-ver { display: block; font-size: .76rem; color: var(--tx2); line-height: 1.35; margin: -4px 0 6px; text-decoration: none; }
+.fia-ver b { color: var(--marca-tx); white-space: nowrap; }
+.fia-topo { border-radius: 20px; padding: 14px 16px 12px; margin-bottom: 10px; }
+.fia-nome { font-size: 1.15rem; font-weight: 800; letter-spacing: -.02em; }
+.fia-topo .fia-deve { margin: 4px 0 2px; }
+.fia-sub { display: block; color: var(--tx2); font-size: .76rem; }
+.fia-botoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 4px; }
+.fia-botoes .btn { padding: 0 10px; font-size: .8rem; gap: 6px; }
+.fia-conta { border-radius: 18px; padding: 12px 14px; margin-bottom: 8px; }
+.fia-conta-t { font-weight: 800; font-size: .86rem; margin-bottom: 6px; }
+.fia-it { display: flex; justify-content: space-between; gap: 10px; font-size: .82rem; padding: 3px 0; font-variant-numeric: tabular-nums; }
+.fia-it span:last-child { white-space: nowrap; }
+.fia-it.fia-menos { color: var(--tx2); font-size: .76rem; }
+.fia-it.fia-sum { border-top: 1px solid var(--borda); margin-top: 4px; padding-top: 6px; font-weight: 700; }
+.fia-it.fia-falta { border-top: 1px solid var(--borda); margin-top: 4px; padding-top: 6px; font-weight: 800; font-size: .9rem; }
+.fia-it.fia-falta span:last-child { color: var(--marca-tx); }
 
 /* Acompanhamentos na comanda (faixa acima dos pratos) e telas de Acompanhamentos / Pratos repetidos */
 .cm-acomp { display: flex; align-items: center; gap: 7px; overflow-x: auto; margin: -2px -14px 10px; padding: 2px 14px; scrollbar-width: none; }
