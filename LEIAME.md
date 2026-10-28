@@ -257,7 +257,11 @@ cadastrado duas vezes (Costela e Costela assada) ou com o acompanhamento no nome
 frita). *Juntar*: o de cima sai da comanda e do cardápio do dia (não é apagado) e as vendas dele passam a
 somar no que fica (relatório, análise, cardápio); as vendas antigas não mudam. Quando o que sai tem ficha
 técnica e o que fica não tem, a ficha passa junto. *Trocar qual fica* inverte; *Já juntados* → *Separar*
-desfaz. *Juntar outros dois pratos* escolhe quaisquer dois. Na comanda, criar um prato com nome parecido com
+desfaz. *Juntar outros dois pratos* escolhe quaisquer dois. Cada sugestão mostra o preço: **igual** (prato +
+extra dá o mesmo valor) ou **"o preço muda: antes R$ 35, depois R$ 30"**. *Juntar os N que não mudam o preço*
+junta todos esses de uma vez (com Desfazer); *Criar os extras* cria de uma vez os que faltam (Baião, 2 ovos…,
+R$ 5 cada, o preço muda depois em Acompanhamentos); *Deixar separado* tira a sugestão da lista e o prato
+continua à venda como está (*Deixados separados* → *Voltar a sugerir*). Na comanda, criar um prato com nome parecido com
 um que já existe avisa: "Já existe: Pôr Filé de frango + Batata frita · R$ 30"; nome de prato juntado entra
 como o prato que ficou.
 

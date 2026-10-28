@@ -189,6 +189,14 @@
   const SUG_CATEGORIA = [{ id: '9613da7a-3461-4e2d-b882-12a0696a64bb', categoria: 'BEBIDA', porque: 'está como Prato e conta como prato vendido no Painel' }];
 
   const juntados = () => P.cfg('itens_juntados').de || {};
+  // sugestões que o dono preferiu deixar separadas (continuam à venda como estão): { deId: quando }
+  const mantidos = () => P.cfg('itens_juntados').manter || {};
+  function deixarSeparado(deId, sim) {
+    const c = P.cfg('itens_juntados');
+    const m = Object.assign({}, c.manter);
+    if (sim) m[deId] = P.agoraISO(); else delete m[deId];
+    P.salvarCfg('itens_juntados', Object.assign({}, c, { manter: m }));
+  }
   const temFicha = id => P.Calc.componentesDe(id).length > 0;
   const passaFicha = (deId, paraId) => temFicha(deId) && !temFicha(paraId);
 
@@ -247,9 +255,10 @@
   function sugestoes() {
     const J = juntados();
     const out = [];
+    const M = mantidos();
     SUG_JUNTAR.forEach(s => {
       const para = P.Calc.principal(s.para);
-      if (J[s.de] || para === s.de || !P.Store.get('itens', s.de) || !P.Store.get('itens', para)) return;
+      if (J[s.de] || M[s.de] || para === s.de || !P.Store.get('itens', s.de) || !P.Store.get('itens', para)) return;
       out.push(Object.assign({}, s, { para }));
     });
     return out;
@@ -289,7 +298,8 @@
       const V = vendidos();
       const nV = id => { const n = V.get(id) || 0; return n + (n === 1 ? ' vendido' : ' vendidos'); };
       const info = it => P.brl(it.preco_venda) + ' · ' + nV(it.id) + (it.ativo === false ? ' · fora de venda' : '') + (temFicha(it.id) ? ' · com ficha' : '');
-      corpo.appendChild(h('div', { class: 'an-base' }, 'Juntar: o prato de cima sai da comanda e do cardápio (não é apagado) e as vendas dele passam a somar no prato que fica. As vendas antigas não mudam. Dá para separar de novo em "Já juntados".'));
+      corpo.appendChild(h('div', { class: 'an-base' }, 'Juntar: o prato de cima sai da comanda e do cardápio (não é apagado) e as vendas dele passam a somar no prato que fica. As vendas antigas não mudam. Dá para separar de novo em "Já juntados". ' +
+        'Deixar separado: some desta lista e o prato continua à venda como está.'));
       const fazer = (deId, paraId, ficha) => {
         const de = P.Store.get('itens', deId);
         const reg = juntar(deId, paraId, { ficha });
@@ -297,26 +307,61 @@
         P.vibrar(15); desenhar();
         P.UI.toast(de.nome + ' juntado em ' + P.Store.get('itens', reg.para).nome + (reg.comps.length ? ' (com a ficha)' : ''), { acao: { rotulo: 'Desfazer', fn: () => { separar(deId); desenhar(); } } });
       };
-      const cartao = (s, podeTrocar) => {
+      // o par como vai ser juntado (com "Trocar qual fica") e o preço antes e depois
+      const montar = s => {
         const k = s.de + '>' + s.para;
-        const tr = podeTrocar && trocados.has(k);
+        const tr = !s.com && trocados.has(k);
         const deId = tr ? s.para : s.de, paraId = tr ? s.de : s.para;
         const de = P.Store.get('itens', deId), para = P.Store.get('itens', paraId);
         const ac = s.com ? lista().find(a => chave(a.nome) === chave(s.com)) : null;
-        const ficha = passaFicha(deId, paraId);
+        const antes = +de.preco_venda || 0, depois = (+para.preco_venda || 0) + (ac ? +ac.preco_venda || 0 : 0);
+        // prato fora de venda: juntar não muda o preço de nada
+        const igual = (!s.com || ac) && (de.ativo === false || Math.abs(antes - depois) < 0.005);
+        return { s, k, tr, deId, paraId, de, para, ac, antes, depois, igual, ficha: passaFicha(deId, paraId) };
+      };
+      const cartao = (s, podeTrocar) => {
+        const x = montar(s);
+        const { de, para, ac } = x;
+        const dif = x.depois - x.antes;
         return h('div', { class: 'ms-card jt-card' },
           h('div', { class: 'jt-par' },
             h('div', { class: 'jt-de' }, h('small', null, 'sai'), h('b', null, de.nome), h('small', null, info(de))),
             h('div', { class: 'jt-seta' }, P.UI.icone('avancar')),
             h('div', { class: 'jt-para' }, h('small', null, 'fica'), h('b', null, para.nome + (s.com ? ' + ' + s.com : '')), h('small', null, info(para)))),
-          s.com ? h('small', { class: 'jt-nota' }, ac ? 'Daqui para a frente: ' + para.nome + ' ' + P.brl(para.preco_venda) + ' + ' + ac.nome + ' ' + P.brl(ac.preco_venda) + ' = ' + P.brl(+para.preco_venda + +ac.preco_venda) + ' (antes ' + P.brl(de.preco_venda) + ').'
-            : 'Crie o acompanhamento "' + s.com + '" em Acompanhamentos para lançar ' + para.nome + ' + ' + s.com + '.') : null,
-          ficha ? h('small', { class: 'jt-nota' }, 'A ficha técnica de ' + de.nome + ' passa para ' + para.nome + ' (que não tem). O custo das vendas de ' + para.nome + ' sem custo gravado passa a usar essa ficha.') : null,
-          h('div', { class: 'row gap' },
-            podeTrocar ? h('button', { type: 'button', class: 'btn mini', onClick: () => { if (tr) trocados.delete(k); else trocados.add(k); desenhar(); } }, P.UI.icone('refresh'), 'Trocar qual fica') : null,
-            h('button', { type: 'button', class: 'btn mini primario grow', onClick: () => fazer(deId, paraId, ficha) }, P.UI.icone('check'), 'Juntar')));
+          s.com && !ac ? h('small', { class: 'jt-nota' }, 'Falta criar o extra "' + s.com + '" (botão lá em cima ou em Acompanhamentos).')
+            : x.igual ? h('small', { class: 'jt-nota' }, de.ativo === false ? 'Está fora de venda: juntar só soma as vendas antigas dele no ' + para.nome + '.'
+              : 'Preço igual: ' + (s.com ? para.nome + ' ' + P.brl(para.preco_venda) + ' + ' + ac.nome + ' ' + P.brl(ac.preco_venda) + ' = ' : '') + P.brl(x.depois) + '.')
+            : h('small', { class: 'jt-nota jt-preco' }, P.UI.icone('alerta'), 'O preço muda: antes ' + P.brl(x.antes) + ', depois ' + P.brl(x.depois) +
+              (s.com ? ' (' + para.nome + ' ' + P.brl(para.preco_venda) + ' + ' + ac.nome + ' ' + P.brl(ac.preco_venda) + ')' : '') + ' — ' + (dif > 0 ? 'R$ ' + P.num(dif, 2) + ' a mais' : 'R$ ' + P.num(-dif, 2) + ' a menos') + '. Se não quiser, deixe separado.'),
+          x.ficha ? h('small', { class: 'jt-nota' }, 'A ficha técnica de ' + de.nome + ' passa para ' + para.nome + ' (que não tem). O custo das vendas de ' + para.nome + ' sem custo gravado passa a usar essa ficha.') : null,
+          h('div', { class: 'row gap jt-botoes' },
+            podeTrocar ? h('button', { type: 'button', class: 'btn mini', onClick: () => { if (x.tr) trocados.delete(x.k); else trocados.add(x.k); desenhar(); } }, P.UI.icone('refresh'), 'Trocar qual fica') : null,
+            h('button', { type: 'button', class: 'btn mini', onClick: () => {
+              deixarSeparado(s.de, true); P.vibrar(10); desenhar();
+              P.UI.toast(P.Store.get('itens', s.de).nome + ' fica separado', { acao: { rotulo: 'Desfazer', fn: () => { deixarSeparado(s.de, false); desenhar(); } } });
+            } }, 'Deixar separado'),
+            h('button', { type: 'button', class: 'btn mini primario grow', onClick: () => fazer(x.deId, x.paraId, x.ficha) }, P.UI.icone('check'), 'Juntar')));
       };
       const sug = sugestoes();
+      // extras que as sugestões usam e ainda não existem (Baião, 2 ovos…): cria todos de uma vez
+      const faltam = [...new Set(sug.filter(s => s.com && !lista().some(a => chave(a.nome) === chave(s.com))).map(s => s.com))]
+        .map(nome => SUGERIDOS.find(x => chave(x.nome) === chave(nome)) || { nome, preco: 5 });
+      if (faltam.length) corpo.appendChild(h('div', { class: 'banner aviso jt-faltam' }, P.UI.icone('alerta'),
+        h('span', { class: 'banner-t' }, 'Para juntar prato + extra, falta criar: ' + faltam.map(f => f.nome + ' (' + P.brl(f.preco) + ')').join(', ') + '. O preço dá para mudar depois em Acompanhamentos.'),
+        h('button', { type: 'button', class: 'btn mini primario', onClick: () => {
+          const feitos = faltam.map(f => criarAcomp(f.nome, f.preco, f.usar)).filter(Boolean);
+          P.vibrar(15); desenhar();
+          P.UI.toast(feitos.length + (feitos.length === 1 ? ' extra criado: ' : ' extras criados: ') + feitos.map(i => i.nome).join(', '));
+        } }, 'Criar ' + (faltam.length === 1 ? 'o extra' : 'os ' + faltam.length + ' extras'))));
+      // juntar de uma vez os que não mudam o preço de nada
+      const seguros = sug.map(montar).filter(x => x.igual);
+      if (seguros.length > 1) corpo.appendChild(h('button', { type: 'button', class: 'btn primario bloco jt-todos', onClick: async () => {
+        if (!(await P.UI.confirmar('Juntar estes ' + seguros.length + ' (o preço não muda):\n' + seguros.map(x => '• ' + x.de.nome + ' → ' + x.para.nome + (x.s.com ? ' + ' + x.s.com : '')).join('\n') +
+          '\n\nDá para separar cada um depois em "Já juntados".', { ok: 'Juntar ' + seguros.length }))) return;
+        const feitos = seguros.filter(x => juntar(x.deId, x.paraId, { ficha: x.ficha })).map(x => x.deId);
+        P.vibrar(15); desenhar();
+        P.UI.toast(feitos.length + ' pratos juntados', { acao: { rotulo: 'Desfazer', fn: () => { feitos.forEach(id => separar(id)); desenhar(); } } });
+      } }, P.UI.icone('check'), 'Juntar os ' + seguros.length + ' que não mudam o preço'));
       const mesmo = sug.filter(s => !s.com), comAc = sug.filter(s => s.com);
       if (mesmo.length) {
         corpo.appendChild(h('div', { class: 'secao' }, 'Mesmo prato'));
@@ -350,6 +395,17 @@
         if (!para) return;
         fazer(de.id, para.id, passaFicha(de.id, para.id));
       } }, P.UI.icone('mais'), 'Juntar outros dois pratos'));
+      const Mt = mantidos();
+      const sep = Object.keys(Mt).filter(id => P.Store.get('itens', id) && !juntados()[id]);
+      if (sep.length) {
+        corpo.appendChild(h('div', { class: 'secao' }, 'Deixados separados (' + sep.length + ')'));
+        corpo.appendChild(h('div', { class: 'ms-lista' }, sep.map(id => {
+          const it = P.Store.get('itens', id);
+          return h('div', { class: 'ms-card jt-card' },
+            h('div', { class: 'ms-card-n' }, it.nome, h('small', null, info(it))),
+            h('button', { type: 'button', class: 'btn mini', onClick: () => { deixarSeparado(id, false); P.vibrar(10); desenhar(); } }, 'Voltar a sugerir'));
+        })));
+      }
       const J = juntados();
       const ids = Object.keys(J).filter(id => P.Store.get('itens', id)).sort((a, b) => (J[a].em < J[b].em ? 1 : -1));
       if (ids.length) {

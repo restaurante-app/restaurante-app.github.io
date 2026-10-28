@@ -1527,6 +1527,14 @@ a.rl-tr { color: inherit; text-decoration: none; }
 .jt-seta svg { width: 18px; height: 18px; color: var(--tx3); }
 .jt-nota { color: var(--tx2); font-size: .72rem; line-height: 1.4; }
 .jt-card .row .btn.mini { gap: 5px; }
+.jt-botoes { flex-wrap: wrap; }
+.jt-nota.jt-preco { display: flex; gap: 6px; align-items: flex-start; color: var(--tx-atencao, #8a5a00); font-weight: 700; }
+.jt-nota.jt-preco svg { width: 15px; height: 15px; flex: 0 0 auto; margin-top: 1px; }
+.jt-faltam { flex-wrap: wrap; }
+.jt-faltam .banner-t { flex: 1 1 0; min-width: 0; }
+.jt-faltam .btn { margin-left: auto; }
+.btn.jt-todos { margin: 0 0 12px; }
+.confirma p { white-space: pre-line; }
 .jt-esc { max-height: 52vh; overflow-y: auto; margin-top: 8px; }
 
 /* Compras: parecidos na busca de insumo e "trocar o insumo" */

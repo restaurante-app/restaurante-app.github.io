@@ -4,6 +4,7 @@
 
 | O quê | Onde | Estado |
 |---|---|---|
+| App v1.22 (Pratos repetidos: preço antes e depois, juntar de uma vez os que não mudam o preço, criar os extras, deixar separado) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
 | App v1.21.1 (avisos com Desfazer no topo da tela, um por vez — não cobrem mais os botões de baixo) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
 | App v1.21 (Fiado: o que cada cliente consumiu na lista e na tela do cliente; Cobrar com a chave Pix) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.20 (Painel: compras da semana e do mês em R$; Consultar período com os totais e o dia a dia) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -45,6 +46,20 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.22 (pedido de 28/10)
+
+| Pedido | No app |
+|---|---|
+| Arrumar os pratos duplicados agora | Mais → **Pratos repetidos**: cada sugestão mostra se o preço fica **igual** ou **muda** ("antes R$ 35, depois R$ 30"); **Criar os 6 extras** (Baião, 2 ovos, Batata frita, Feijão de corda, Separada, Comida extra — R$ 5 cada) de uma vez; **Juntar os 10 que não mudam o preço** de uma vez (com Desfazer); **Deixar separado** para o que não quiser juntar (sai da lista e continua à venda; dá para voltar) |
+
+Com o backup de 20/10: 17 sugestões. Juntam sem mudar preço: Costela assada → Costela, Contra filé acebolado →
+Contra filé grelhado, Filé de frango grelhado e Milanesa (fora de venda, levam a ficha), Filé com batata frita,
+Filé com feijão de corda, Frango assado com baião, Dobradinha separada, Feijoada com extra e Galinha com baião
+grande. Mudam o preço (o dono decide): Adicional R$ 7 (→ R$ 5), Filé acebolado com baião (R$ 35 → 30),
+Parmegiana com baião (R$ 38 → 40), Calabresa com ovo (R$ 25 → 30), Calabresa com baião (R$ 35 → 30), Costela com
+baião (R$ 35 → 40) e Contra filé com ovo (R$ 40 → 45). Nada é apagado: juntar só tira o prato da venda e soma as
+vendas no que fica; "Deixar separado" fica em `config` (itens_juntados.manter).
 
 ## O que entrou na v1.21.1 (pedido de 28/10)
 
