@@ -61,6 +61,8 @@ toque numa despesa para editar; **Do mês** mostra o total por tipo e por forma 
 O **lucro** usa as despesas lançadas (salários, aluguel, contas e impostos entram no dia em que foram
 pagos). Os custos fixos de Ajustes ficam só como **base**: a projeção do mês usa a base enquanto os
 fixos do mês não forem lançados. O operador não vê essas despesas,
+**Avisos** (ex.: "R$ 650,00 pago (Pix) · Desfazer") aparecem no topo da tela, por cima da barra do título, um por
+vez; tocar no texto fecha. Assim os botões de baixo ficam livres para lançar em seguida.
 **Fiado** — cada cliente devendo aparece com o total, **o que consumiu** (resumo de cada conta) e três botões:
 *Consumo* (tela do cliente: cada conta com dia, hora, local e item por item — itens iguais somados —, total,
 pago na hora, já pagou depois e quanto falta; os pagamentos destas contas e, à parte, os que quitaram contas

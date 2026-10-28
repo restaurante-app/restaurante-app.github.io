@@ -1,9 +1,10 @@
-# Próximos passos — situação em 27/10/2026
+# Próximos passos — situação em 28/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
+| App v1.21.1 (avisos com Desfazer no topo da tela, um por vez — não cobrem mais os botões de baixo) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
 | App v1.21 (Fiado: o que cada cliente consumiu na lista e na tela do cliente; Cobrar com a chave Pix) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.20 (Painel: compras da semana e do mês em R$; Consultar período com os totais e o dia a dia) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.19 (mesa: ir abatendo o que pagam; fiado mostra o que consumiu; extrato para cobrar em imagem, PDF ou texto) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -44,6 +45,14 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.21.1 (pedido de 28/10)
+
+| Pedido | No app |
+|---|---|
+| O aviso da compra paga (com o Desfazer) atrapalha lançar as coisas em seguida: pôr em outro lugar | os avisos ("R$ 650,00 pago (Pix) · Desfazer", "Mesa 3 fechada", "recebido"…) saem de cima dos botões de baixo e aparecem **no topo da tela, por cima da barra do título**. Um por vez (o novo substitui o anterior, não empilham) e tocar no texto fecha na hora. O Desfazer continua lá pelos mesmos 6 segundos |
+
+Só muda onde o aviso aparece; nada é gravado nem apagado.
 
 ## O que entrou na v1.21 (pedido de 27/10)
 

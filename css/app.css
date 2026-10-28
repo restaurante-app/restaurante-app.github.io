@@ -306,18 +306,19 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .badge-in { background: var(--marca); color: var(--no-marca); border-radius: 9px; padding: 0 6px; font-size: .6rem; font-weight: 800; line-height: 17px; }
 
 /* ---------- Aviso (toast) ---------- */
-#toast-root { position: fixed; left: 0; right: 0; bottom: calc(100px + env(safe-area-inset-bottom)); z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; padding: 0 14px; }
+/* no topo, por cima da barra do título: os botões de baixo ficam livres para lançar em seguida */
+#toast-root { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top) + 6px); z-index: 60; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; padding: 0 10px; }
 .toast {
   pointer-events: auto; max-width: 560px; width: 100%; display: flex; align-items: center; gap: 10px; position: relative; overflow: hidden;
-  background: #2B1618; color: #F6EFDF; border: 1px solid rgba(246, 239, 223, .12); border-radius: 18px; padding: 13px 14px 13px 18px;
-  box-shadow: var(--sombra); font-size: .84rem; font-weight: 600; opacity: 0; transform: translateY(12px) scale(.97);
+  background: #2B1618; color: #F6EFDF; border: 1px solid rgba(246, 239, 223, .12); border-radius: 18px; padding: 8px 8px 8px 18px; min-height: 54px;
+  box-shadow: var(--sombra); font-size: .82rem; font-weight: 600; opacity: 0; transform: translateY(-14px) scale(.97);
   transition: opacity .25s var(--ease), transform .3s var(--ease);
 }
 .toast::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--grad-marca); }
 .toast.on { opacity: 1; transform: none; }
 .toast.perigo::before { background: var(--st-critico); }
 .toast-msg { flex: 1 1 auto; white-space: pre-line; }
-.toast-acao { border: 0; background: var(--marca); color: var(--no-marca); font-weight: 800; border-radius: 12px; min-height: 42px; padding: 0 14px; }
+.toast-acao { border: 0; background: var(--marca); color: var(--no-marca); font-weight: 800; border-radius: 12px; min-height: 40px; padding: 0 14px; flex: 0 0 auto; }
 
 /* ---------- Folha inferior ---------- */
 .sheet-back { position: fixed; inset: 0; z-index: 50; background: rgba(30, 10, 12, .55); display: flex; align-items: flex-end; justify-content: center; opacity: 0; transition: opacity .2s; }
