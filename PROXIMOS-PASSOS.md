@@ -1,11 +1,12 @@
-# Próximos passos — situação em 28/10/2026
+# Próximos passos — situação em 29/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.22 (Pratos repetidos: preço antes e depois, juntar de uma vez os que não mudam o preço, criar os extras, deixar separado) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
-| App v1.21.1 (avisos com Desfazer no topo da tela, um por vez — não cobrem mais os botões de baixo) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.23 (extra escrito na hora no prato; Pratos repetidos sem extras prontos; aviso de lançado depois do fechamento) | `main` | **publicado** (não muda o `schema.sql`) |
+| App v1.22 (Pratos repetidos: preço antes e depois, juntar de uma vez, deixar separado) | `main` | **publicado** (não muda o `schema.sql`) |
+| App v1.21.1 (avisos com Desfazer no topo da tela, um por vez — não cobrem mais os botões de baixo) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.21 (Fiado: o que cada cliente consumiu na lista e na tela do cliente; Cobrar com a chave Pix) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.20 (Painel: compras da semana e do mês em R$; Consultar período com os totais e o dia a dia) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.19 (mesa: ir abatendo o que pagam; fiado mostra o que consumiu; extrato para cobrar em imagem, PDF ou texto) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -46,6 +47,17 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.23 (pedido de 29/10)
+
+| Pedido | No app |
+|---|---|
+| Pôr o extra na hora de lançar, não os extras já estipulados (ficou confuso): "filé de frango + batata, aí sim 30" | comanda: a faixa de extras prontos saiu; cada prato do Consumo tem **+ extra** → escreve o que vai junto e quanto a mais → vira "Filé de frango + batata — R$ 30" numa linha à parte (os últimos extras viram atalho). Na busca, "filé de frango com batata" sugere o prato + o extra. Mais → "Acompanhamentos e extras" saiu |
+| Pratos repetidos | "Filé de frango com batata frita" junta no Filé de frango (o extra é escrito na hora); o cartão diz o valor para ficar como antes (ex.: Calabresa acebolada + baião, + R$ 10 = R$ 35). Com o backup: 16 juntam sem mudar o preço; só o Adicional R$ 7 → R$ 5 muda |
+| "Lancei o peixeiro depois de fechar o caixa; a sobra mudou, mas o resultado do dia não" — conferido: está certo | o dinheiro foi contado depois de pagar o peixeiro, então o pagamento já estava "dentro" da contagem: ao lançar, a saída sobe e a sobra sobe junto (o resultado não muda; se mudasse, o peixeiro contaria duas vezes). Agora o Painel e o Fechar caixa mostram "Lançado depois do fechamento: Peixeiro R$ X · no fechamento sobravam R$ A, agora sobram R$ B" |
+
+Nada apagado: o extra só muda o nome e o preço de um lançamento do prato (não conta como item tirado);
+o aviso do fechamento só lê.
 
 ## O que entrou na v1.22 (pedido de 28/10)
 

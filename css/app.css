@@ -488,6 +488,7 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .pn-caixa span b { color: var(--tx); }
 .pn-caixa > b { font-size: .8rem; }
 .pn-compras { font-size: .78rem; color: var(--tx); }
+.pn-txt.pn-depois { display: block; color: var(--tx2); font-size: .72rem; line-height: 1.4; text-decoration: none; margin-top: 4px; white-space: normal; overflow: visible; text-overflow: clip; }
 .pn-compras span { white-space: normal; line-height: 1.35; }
 .pn-compras span b { font-size: .86rem; }
 .pn-per { justify-content: flex-start; text-align: left; gap: 10px; margin-bottom: 10px; }
@@ -695,6 +696,14 @@ body.com-voltar #view .voltar, body.com-voltar #view .cm-voltar { display: none;
 .cm-consumo { margin-top: 4px; }
 .cm-lin { display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 14px; border-radius: 18px; margin-bottom: 7px; }
 .cm-lin-n { flex: 1 1 auto; min-width: 0; font-size: .86rem; font-weight: 600; }
+.cm-extra { display: inline-flex; align-items: center; gap: 3px; margin-top: 5px; padding: 3px 10px 3px 7px; border-radius: 999px; border: 1px dashed var(--marca-borda); background: var(--marca-bg2); color: var(--marca-tx); font-size: .7rem; font-weight: 800; }
+.cm-extra svg { width: 13px; height: 13px; }
+.cm-ex .chips { margin: 8px 0 2px; }
+.cm-ex .btn.valor { flex-direction: column; align-items: flex-start; gap: 2px; height: auto; padding-top: 9px; padding-bottom: 9px; margin-top: 8px; }
+.cm-ex .btn.valor b { font-size: 1.15rem; letter-spacing: -.02em; }
+.cm-ex .btn.valor small { color: var(--tx2); font-size: .72rem; font-weight: 600; }
+.cm-ex-previa { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; margin: 12px 2px 4px; font-weight: 700; font-size: .9rem; }
+.cm-ex-previa b { font-size: 1.1rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cm-lin-n small { display: block; color: var(--tx3); font-size: .64rem; font-weight: 600; margin-top: 1px; }
 .cm-lin-v { font-weight: 800; font-size: .88rem; white-space: nowrap; letter-spacing: -.02em; }
 .rs-cab { border-radius: var(--r-xl); padding: 16px; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--sombra); }
