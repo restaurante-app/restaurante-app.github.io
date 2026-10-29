@@ -61,6 +61,8 @@ toque numa despesa para editar; **Do mês** mostra o total por tipo e por forma 
 O **lucro** usa as despesas lançadas (salários, aluguel, contas e impostos entram no dia em que foram
 pagos). Os custos fixos de Ajustes ficam só como **base**: a projeção do mês usa a base enquanto os
 fixos do mês não forem lançados. O operador não vê essas despesas,
+**Avisos** (ex.: "R$ 650,00 pago (Pix) · Desfazer") aparecem no topo da tela, por cima da barra do título, um por
+vez; tocar no texto fecha. Assim os botões de baixo ficam livres para lançar em seguida.
 **Fiado** — cada cliente devendo aparece com o total, **o que consumiu** (resumo de cada conta) e três botões:
 *Consumo* (tela do cliente: cada conta com dia, hora, local e item por item — itens iguais somados —, total,
 pago na hora, já pagou depois e quanto falta; os pagamentos destas contas e, à parte, os que quitaram contas
@@ -226,6 +228,10 @@ só do dono (salário, retirada…) entra na conta sem mostrar o que é.
 (dia, semana, mês e calendário), em Dia e período, no Relatório e em Capital e caixa, sempre à parte ("Inclui R$ X de sobra do caixa",
 "(+) Sobra do caixa"). É refeita ao vivo: se a venda que faltava for lançada depois, a sobra diminui e não
 conta duas vezes. Falta não entra (fica só o aviso no fechamento).
+**Lançado depois do fechamento** (ex.: o peixeiro pago antes de contar o dinheiro, mas lançado depois): a conta
+é refeita e o Painel e o Fechar caixa mostram "no fechamento sobravam R$ 80, agora sobram R$ 200". Se o dinheiro
+foi contado depois de pagar, o **resultado do dia não muda**: a saída sobe e a sobra sobe junto (o dinheiro
+contado já estava sem o pagamento; se baixasse, o peixeiro contaria duas vezes).
 
 **Folha da cozinha** (Mais → Folha da cozinha, ou a aba ao lado do Cardápio do dia) — a folha A4 que fica
 impressa na cozinha para as cozinheiras saberem o que fazer: os **pratos do dia** de cada dia da semana e os
@@ -238,24 +244,24 @@ vermelha), com a data do dia escolhido ou só o dia da semana (para deixar a mes
 tempo). Com muito prato a letra encolhe sozinha para caber numa página (e avisa se não couber). O dono monta;
 todos veem e imprimem. Começa com a folha de sexta montada com o dono (16/10).
 
-**Acompanhamentos e extras** (Mais → Acompanhamentos e extras, ou a aba no Cardápio; só o dono monta) — Batata frita, Baião,
-Comida extra, 2 ovos, Feijão de corda, Feijão preto, Separada… cada um com o preço que soma no prato. Na
-comanda, na aba Pratos, aparecem numa faixa logo acima dos pratos: toque no prato e depois em *+ Batata frita*
-(Filé de frango R$ 25 + Batata frita R$ 5 = R$ 30). O prato continua contando como 1 prato e o acompanhamento
-entra como item à parte (dá para ver quantos saíram). Os sugeridos saíram das vendas (o que vinha escrito no
-nome do prato); *Pôr todos os sugeridos* cria de uma vez, e toque no nome para mudar nome e preço.
-Na comanda, o dono também cria um extra na hora: *+ Criar extra* na faixa (ou, na busca, criar como tipo
-*Extra*), e ele já entra na faixa. A aba "Outros" da comanda virou **Extras**.
-**Extra ou Troca**: no começo da faixa, *Extra* (padrão) acrescenta com o preço do acompanhamento; *Troca* põe no
-lugar de algo do prato (ex.: batata no lugar do arroz) — pergunta quanto a mais (0 = sem custo), entra como
-"Troca: Batata frita" numa linha à parte e a faixa volta para Extra.
+**Extra na hora** (comanda) — cada prato do Consumo tem **+ extra**: escreva o que vai junto (batata, ovo,
+baião, "batata no lugar do arroz"…) e quanto a mais (0 = sem custo, para troca). Um daquele prato vira
+**"Filé de frango + batata — R$ 30"** (R$ 25 + R$ 5), numa linha à parte; *+* e *−* nessa linha põem e tiram
+"Filé de frango + batata". Os últimos extras escritos ficam como atalho (um toque põe com o mesmo valor). Nas
+vendas continua contando como Filé de frango (com o valor do extra). Na busca, escrever "filé de frango com
+batata" sugere o Filé de frango + batata e pergunta o valor do extra. Não tem mais lista de extras prontos (a
+faixa de acompanhamentos saiu da comanda); itens do tipo Extra criados antes continuam na aba **Extras**.
 
 **Pratos repetidos** (Mais → Pratos repetidos, ou a aba *Repetidos* no Cardápio; só o dono) — o mesmo prato
 cadastrado duas vezes (Costela e Costela assada) ou com o acompanhamento no nome (Filé de frango com batata
 frita). *Juntar*: o de cima sai da comanda e do cardápio do dia (não é apagado) e as vendas dele passam a
 somar no que fica (relatório, análise, cardápio); as vendas antigas não mudam. Quando o que sai tem ficha
 técnica e o que fica não tem, a ficha passa junto. *Trocar qual fica* inverte; *Já juntados* → *Separar*
-desfaz. *Juntar outros dois pratos* escolhe quaisquer dois. Na comanda, criar um prato com nome parecido com
+desfaz. *Juntar outros dois pratos* escolhe quaisquer dois. Cada sugestão mostra o preço: **igual** (prato +
+extra dá o mesmo valor) ou **"o preço muda: antes R$ 35, depois R$ 30"**. *Juntar os N que não mudam o preço*
+junta todos esses de uma vez (com Desfazer); *Criar os extras* cria de uma vez os que faltam (Baião, 2 ovos…,
+R$ 5 cada, o preço muda depois em Acompanhamentos); *Deixar separado* tira a sugestão da lista e o prato
+continua à venda como está (*Deixados separados* → *Voltar a sugerir*). Na comanda, criar um prato com nome parecido com
 um que já existe avisa: "Já existe: Pôr Filé de frango + Batata frita · R$ 30"; nome de prato juntado entra
 como o prato que ficou.
 

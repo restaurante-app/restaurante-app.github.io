@@ -62,8 +62,6 @@
           k: 'fechamento conferir gaveta bolso maquininha pix dinheiro cartao bateu sobrou sobra faltou troco' },
         { href: 'mesas/despesas', ic: 'caixa', cor: 'laranja', t: 'Despesas', s: despHoje ? P.brl0(despHoje) + ' hoje' : dono ? 'salários, aluguel, contas, gás…' : 'gás, carvão, embalagem', k: 'gasto conta luz agua aluguel salario carvao embalagem' },
         { href: 'cardapio', ic: 'fichas', cor: 'laranja', t: 'Cardápio do dia', s: cardHoje.definido ? cardHoje.itens.length + ' pratos de ' + cardHoje.nome + ' · mandar no WhatsApp' : 'monte os pratos de cada dia', k: 'pratos whatsapp menu' },
-        dono && P.Acomp ? { href: 'cardapio/acompanhamentos', ic: 'mais', cor: 'laranja', t: 'Acompanhamentos e extras', s: P.Acomp.lista().length ? P.Acomp.lista().length + ' na comanda · ' + P.Acomp.lista().slice(0, 3).map(a => a.nome.toLowerCase()).join(', ') : 'batata, baião, ovo, comida extra na comanda',
-          k: 'adicional extra extras guarnicao guarnicoes batata baiao ovo acrescimo acompanhamento' } : null,
         { href: 'cardapio/cozinha', ic: 'imprimir', cor: 'vermelho', t: 'Folha da cozinha', s: coz.dia ? coz.dia + (coz.dia === 1 ? ' prato' : ' pratos') + ' de ' + cardHoje.nome + ' + ' + coz.fixos + (coz.fixos === 1 ? ' fixo' : ' fixos') + ' · imprimir' : 'pratos do dia e o que leva · imprimir', k: 'cozinha cozinheira cozinheiras imprimir impressao producao leva folha cardapio' },
         { href: 'gas', ic: 'fogo', cor: 'vermelho', t: 'Gás', s: avisoGas ? 'botijão perto de acabar' : bot ? (botInfo.corridos ? 'botijão em uso há ' + botInfo.corridos + (botInfo.corridos === 1 ? ' dia' : ' dias') : 'botijão ligado hoje') : 'quanto dura cada botijão', destaque: !!avisoGas, k: 'botijao' },
       ]));

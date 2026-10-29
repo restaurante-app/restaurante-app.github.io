@@ -1,9 +1,12 @@
-# Próximos passos — situação em 27/10/2026
+# Próximos passos — situação em 29/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
+| App v1.23 (extra escrito na hora no prato; Pratos repetidos sem extras prontos; aviso de lançado depois do fechamento) | `main` | **publicado** (não muda o `schema.sql`) |
+| App v1.22 (Pratos repetidos: preço antes e depois, juntar de uma vez, deixar separado) | `main` | **publicado** (não muda o `schema.sql`) |
+| App v1.21.1 (avisos com Desfazer no topo da tela, um por vez — não cobrem mais os botões de baixo) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.21 (Fiado: o que cada cliente consumiu na lista e na tela do cliente; Cobrar com a chave Pix) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.20 (Painel: compras da semana e do mês em R$; Consultar período com os totais e o dia a dia) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.19 (mesa: ir abatendo o que pagam; fiado mostra o que consumiu; extrato para cobrar em imagem, PDF ou texto) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -44,6 +47,39 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.23 (pedido de 29/10)
+
+| Pedido | No app |
+|---|---|
+| Pôr o extra na hora de lançar, não os extras já estipulados (ficou confuso): "filé de frango + batata, aí sim 30" | comanda: a faixa de extras prontos saiu; cada prato do Consumo tem **+ extra** → escreve o que vai junto e quanto a mais → vira "Filé de frango + batata — R$ 30" numa linha à parte (os últimos extras viram atalho). Na busca, "filé de frango com batata" sugere o prato + o extra. Mais → "Acompanhamentos e extras" saiu |
+| Pratos repetidos | "Filé de frango com batata frita" junta no Filé de frango (o extra é escrito na hora); o cartão diz o valor para ficar como antes (ex.: Calabresa acebolada + baião, + R$ 10 = R$ 35). Com o backup: 16 juntam sem mudar o preço; só o Adicional R$ 7 → R$ 5 muda |
+| "Lancei o peixeiro depois de fechar o caixa; a sobra mudou, mas o resultado do dia não" — conferido: está certo | o dinheiro foi contado depois de pagar o peixeiro, então o pagamento já estava "dentro" da contagem: ao lançar, a saída sobe e a sobra sobe junto (o resultado não muda; se mudasse, o peixeiro contaria duas vezes). Agora o Painel e o Fechar caixa mostram "Lançado depois do fechamento: Peixeiro R$ X · no fechamento sobravam R$ A, agora sobram R$ B" |
+
+Nada apagado: o extra só muda o nome e o preço de um lançamento do prato (não conta como item tirado);
+o aviso do fechamento só lê.
+
+## O que entrou na v1.22 (pedido de 28/10)
+
+| Pedido | No app |
+|---|---|
+| Arrumar os pratos duplicados agora | Mais → **Pratos repetidos**: cada sugestão mostra se o preço fica **igual** ou **muda** ("antes R$ 35, depois R$ 30"); **Criar os 6 extras** (Baião, 2 ovos, Batata frita, Feijão de corda, Separada, Comida extra — R$ 5 cada) de uma vez; **Juntar os 10 que não mudam o preço** de uma vez (com Desfazer); **Deixar separado** para o que não quiser juntar (sai da lista e continua à venda; dá para voltar) |
+
+Com o backup de 20/10: 17 sugestões. Juntam sem mudar preço: Costela assada → Costela, Contra filé acebolado →
+Contra filé grelhado, Filé de frango grelhado e Milanesa (fora de venda, levam a ficha), Filé com batata frita,
+Filé com feijão de corda, Frango assado com baião, Dobradinha separada, Feijoada com extra e Galinha com baião
+grande. Mudam o preço (o dono decide): Adicional R$ 7 (→ R$ 5), Filé acebolado com baião (R$ 35 → 30),
+Parmegiana com baião (R$ 38 → 40), Calabresa com ovo (R$ 25 → 30), Calabresa com baião (R$ 35 → 30), Costela com
+baião (R$ 35 → 40) e Contra filé com ovo (R$ 40 → 45). Nada é apagado: juntar só tira o prato da venda e soma as
+vendas no que fica; "Deixar separado" fica em `config` (itens_juntados.manter).
+
+## O que entrou na v1.21.1 (pedido de 28/10)
+
+| Pedido | No app |
+|---|---|
+| O aviso da compra paga (com o Desfazer) atrapalha lançar as coisas em seguida: pôr em outro lugar | os avisos ("R$ 650,00 pago (Pix) · Desfazer", "Mesa 3 fechada", "recebido"…) saem de cima dos botões de baixo e aparecem **no topo da tela, por cima da barra do título**. Um por vez (o novo substitui o anterior, não empilham) e tocar no texto fecha na hora. O Desfazer continua lá pelos mesmos 6 segundos |
+
+Só muda onde o aviso aparece; nada é gravado nem apagado.
 
 ## O que entrou na v1.21 (pedido de 27/10)
 

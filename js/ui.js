@@ -117,16 +117,26 @@
   // ---------------------------------------------------------------
   //  Avisos (toast), folha inferior (sheet), confirmação
   // ---------------------------------------------------------------
+  // Aviso no topo da tela, por cima da barra do título: não cobre os botões de baixo (lançar em
+  // seguida). Um por vez — o novo substitui o anterior; tocar no texto fecha.
+  let fecharAviso = null;
   function toast(msg, o) {
     o = o || {};
+    if (fecharAviso) fecharAviso();
     const root = $('#toast-root');
-    const el = h('div', { class: 'toast ' + (o.tipo || '') },
-      h('span', { class: 'toast-msg' }, msg),
+    const el = h('div', { class: 'toast ' + (o.tipo || ''), role: 'status' },
+      h('span', { class: 'toast-msg', onClick: () => fechar() }, msg),
       o.acao ? h('button', { type: 'button', class: 'toast-acao', onClick: () => { fechar(); o.acao.fn(); } }, o.acao.rotulo) : null);
     root.appendChild(el);
     requestAnimationFrame(() => el.classList.add('on'));
     const t = setTimeout(fechar, o.ms || (o.acao ? 6000 : 2800));
-    function fechar() { clearTimeout(t); el.classList.remove('on'); setTimeout(() => el.remove(), 250); }
+    function fechar() {
+      clearTimeout(t);
+      if (fecharAviso === fechar) fecharAviso = null;
+      el.classList.remove('on');
+      setTimeout(() => el.remove(), 250);
+    }
+    fecharAviso = fechar;
     return fechar;
   }
 

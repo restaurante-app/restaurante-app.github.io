@@ -53,7 +53,8 @@
   // cardápio da comanda e folha da cozinha (js/cozinha.js) lado a lado
   function subnav(ativo) {
     const abas = [{ id: 'cardapio', rota: 'cardapio', rotulo: 'Cardápio do dia' }, { id: 'cozinha', rota: 'cardapio/cozinha', rotulo: 'Folha da cozinha' }];
-    if (P.Auth.isDono() && P.Acomp) abas.push({ id: 'acomp', rota: 'cardapio/acompanhamentos', rotulo: 'Acompanhamentos' }, { id: 'repetidos', rota: 'cardapio/repetidos', rotulo: 'Repetidos', badge: P.Acomp.contar() || null });
+    // extras (batata, baião…) são escritos na hora na comanda; a lista de acompanhamentos saiu daqui
+    if (P.Auth.isDono() && P.Acomp) abas.push({ id: 'repetidos', rota: 'cardapio/repetidos', rotulo: 'Repetidos', badge: P.Acomp.contar() || null });
     return P.UI.subnav(abas, ativo);
   }
   function telaCardapio(view) {

@@ -132,10 +132,10 @@
     });
     ultimoToque.set(k, { id, t: agora });
   }
-  // tira 1 unidade do lançamento mais recente do item (fica registrado quem tirou); com o nome,
-  // só dos lançamentos com esse nome (a troca não tira o extra do mesmo acompanhamento)
-  function tirar(c, itemId, nome) {
-    const ls = linhas(c.id).filter(l => l.item_id === itemId && (nome == null || l.nome === nome));
+  // tira 1 unidade do lançamento mais recente do item (fica registrado quem tirou); com o nome (e o
+  // preço), só dos lançamentos assim ("Filé de frango + batata" não tira o Filé de frango sem extra)
+  function tirar(c, itemId, nome, preco) {
+    const ls = linhas(c.id).filter(l => l.item_id === itemId && (nome == null || l.nome === nome) && (preco == null || Math.abs((+l.preco_unit || 0) - preco) < 0.005));
     const l = ls[ls.length - 1];
     if (!l) return false;
     const u = P.Auth.usuario();
@@ -144,6 +144,66 @@
     else P.Store.put('comanda_itens', Object.assign({}, l, marca, { quantidade: 0, excluido: true }));
     [...ultimoToque.keys()].forEach(k => { if (k.startsWith(c.id + '|' + itemId + '|')) ultimoToque.delete(k); });
     return true;
+  }
+  // Extra escrito na hora: um do prato (o lançamento mais recente com esse nome e preço) vira
+  // "Filé de frango + batata" com o valor somado (R$ 25 + R$ 5 = R$ 30). Nada sai da conta: não
+  // conta como item tirado. O prato continua o mesmo nas vendas e na ficha. Devolve o desfazer.
+  function porExtra(c, itemId, nome, preco, ex) {
+    const ls = linhas(c.id).filter(l => l.item_id === itemId && l.nome === nome && Math.abs((+l.preco_unit || 0) - preco) < 0.005);
+    const l = ls[ls.length - 1];
+    if (!l) return null;
+    const mudou = { nome: nome + ' + ' + ex.t, preco_unit: P.round(preco + ex.v, 2) };
+    [...ultimoToque.keys()].forEach(k => { if (k.startsWith(c.id + '|' + itemId + '|')) ultimoToque.delete(k); });
+    if ((+l.quantidade || 0) > 1) {
+      const u = P.Auth.usuario();
+      P.Store.put('comanda_itens', Object.assign({}, l, { quantidade: l.quantidade - 1 }));
+      const n = P.Store.put('comanda_itens', Object.assign({ id: P.uuid(), comanda_id: c.id, item_id: itemId, quantidade: 1, cmv_unit: l.cmv_unit,
+        adicionado_em: P.agoraISO(), usuario_id: u && u.id, removidos: 0 }, mudou));
+      return () => { P.Store.put('comanda_itens', l); P.Store.remove('comanda_itens', n.id); };
+    }
+    P.Store.put('comanda_itens', Object.assign({}, l, mudou));
+    return () => P.Store.put('comanda_itens', l);
+  }
+  // últimos extras escritos (atalhos neste aparelho): [{ t: 'batata', v: 5 }]
+  const EXTRAS_K = 'pari.extras';
+  const extrasRecentes = () => { try { const l = JSON.parse(localStorage.getItem(EXTRAS_K) || '[]'); return Array.isArray(l) ? l.filter(x => x && x.t) : []; } catch (e) { return []; } };
+  function lembrarExtra(x) {
+    try { localStorage.setItem(EXTRAS_K, JSON.stringify([x].concat(extrasRecentes().filter(o => P.UI.semAcento(o.t) !== P.UI.semAcento(x.t))).slice(0, 10))); } catch (e) { /* ok */ }
+  }
+  // folha: o que vai junto e quanto a mais → { t, v } (null = desistiu)
+  function pedirExtra(base, preco, texto0) {
+    return new Promise(resolve => {
+      let feito = false, valor = null;
+      const inp = h('input', { class: 'campo', type: 'text', value: texto0 || '', placeholder: 'O que vai junto? (ex.: batata, ovo, baião)', autocomplete: 'off', enterkeyhint: 'next' });
+      const bValor = h('button', { type: 'button', class: 'btn valor bloco' });
+      const previa = h('div', { class: 'cm-ex-previa' });
+      const bOk = h('button', { type: 'button', class: 'btn primario bloco' }, P.UI.icone('check'), 'Pôr na conta');
+      const fim = x => { feito = true; lembrarExtra(x); resolve(x); sh.fechar(); };
+      function mostrar() {
+        const t = inp.value.trim();
+        bValor.replaceChildren(h('b', null, valor == null ? 'Quanto a mais?' : valor > 0 ? '+ ' + P.brl(valor) : 'Sem custo'), h('small', null, valor == null ? 'toque para pôr o valor do extra' : 'trocar o valor'));
+        previa.replaceChildren(h('span', null, base + ' + ' + (t || '…')), h('b', null, P.brl(preco + (valor || 0))));
+        bOk.disabled = !t || valor == null;
+      }
+      async function pedirValor() {
+        const v = await P.UI.pedirNumero({ titulo: 'Quanto a mais?', valor, decimais: 2, prefixo: 'R$ ',
+          sub: base + ' ' + P.brl(preco) + ' + ' + (inp.value.trim() || 'extra') + '. Ponha 0 se for sem custo (troca).' });
+        if (v != null && v >= 0) { valor = P.round(v, 2); mostrar(); }
+      }
+      bValor.addEventListener('click', pedirValor);
+      inp.addEventListener('input', mostrar);
+      inp.addEventListener('keydown', e => { if (e.key !== 'Enter') return; e.preventDefault(); if (!inp.value.trim()) return; if (valor == null) pedirValor(); else fim({ t: inp.value.trim(), v: valor }); });
+      bOk.addEventListener('click', () => { if (inp.value.trim() && valor != null) fim({ t: inp.value.trim(), v: valor }); });
+      const rec = extrasRecentes();
+      const sh = P.UI.sheet(h('div', { class: 'np-sheet cm-ex' },
+        inp,
+        rec.length ? h('div', { class: 'chips cm-ex-rec' }, rec.map(x => h('button', { type: 'button', class: 'chip', onClick: () => fim({ t: x.t, v: +x.v || 0 }) },
+          x.t + ' · ' + (+x.v > 0 ? '+ ' + P.brl0(x.v) : 'sem custo')))) : null,
+        bValor, previa, bOk),
+      { titulo: 'Extra no ' + base, onFechar: () => { if (!feito) resolve(null); } });
+      mostrar();
+      setTimeout(() => inp.focus(), 80);
+    });
   }
   // comanda de outro dia que já tinha sido fechada (reaberta para corrigir) ou lançada depois:
   // ao fechar de novo continua no dia dela (não muda a venda de dia)
@@ -363,19 +423,26 @@
         const it = k ? P.Store.all('itens').find(i => chaveNome(i.nome) === k) : null;
         return it ? P.Store.get('itens', P.Calc.principal(it.id)) || it : null; // juntado em outro (Pratos repetidos): o que ficou
       };
-      // nome com um prato que já existe dentro ("filé de frango com batata"): sugere o prato + o acompanhamento
+      // nome com um prato que já existe dentro ("filé de frango com batata"): sugere o prato + o extra
+      // escrito na hora (o valor do extra é perguntado em seguida)
       const elParecido = h('div', { class: 'cm-parecido', hidden: true });
+      function textoExtra(base) {
+        const v = inNome.value.trim();
+        const m = v.match(/\s(?:com|c\/|\+)\s+(.+)$/i);
+        if (m) return m[1].trim();
+        const bw = new Set(base.nome.split(/\s+/).map(w => P.UI.semAcento(w)));
+        return v.split(/\s+/).filter(w => !bw.has(P.UI.semAcento(w))).join(' ').trim();
+      }
       function mostrarParecido() {
         const p = !existente() && P.Acomp ? P.Acomp.parecido(inNome.value) : null;
         elParecido.hidden = !p;
         if (!p) return;
-        const tot = +p.base.preco_venda + p.acomps.reduce((s, a) => s + (+a.preco_venda || 0), 0);
-        const nome = [p.base.nome].concat(p.acomps.map(a => a.nome)).join(' + ');
+        const ex = p.mesmo && !p.acomps.length ? '' : textoExtra(p.base);
         elParecido.replaceChildren(...[
-          h('small', null, p.mesmo ? 'Já existe:' : 'Parecido com um prato que já existe:'),
-          h('button', { type: 'button', class: 'btn bloco primario', onClick: () => { feito = true; resolve({ item: p.base, extras: p.acomps }); sh.fechar(); } },
-            P.UI.icone('check'), 'Pôr ' + nome + ' · ' + P.brl(tot)),
-          p.acomps.length || p.mesmo ? null : h('small', null, 'Se for outro prato, crie abaixo.')].filter(Boolean));
+          h('small', null, ex ? 'É um prato que já existe, com extra:' : 'Já existe:'),
+          h('button', { type: 'button', class: 'btn bloco primario', onClick: () => { feito = true; resolve({ item: p.base, extras: [], extra: ex }); sh.fechar(); } },
+            P.UI.icone('check'), ex ? 'Pôr ' + p.base.nome + ' + ' + ex + ' (o valor do extra a seguir)' : 'Pôr ' + p.base.nome + ' · ' + P.brl(p.base.preco_venda)),
+          h('small', null, 'Se for outro prato, crie abaixo.')]);
       }
       function mostrar() {
         mostrarParecido();
@@ -401,8 +468,6 @@
           r = ja ? P.Store.put('itens', Object.assign({}, ja, { ativo: true, preco_venda: P.round(preco, 2) }))
             : P.Store.put('itens', { id: P.uuid(), nome, categoria: cat, preco_venda: P.round(preco, 2),
               perda_pct: cat === 'PRATO' ? +P.Calc.cfgFichas().perda_padrao || 0 : 0, ativo: true, custo_estimado: null });
-          // extra criado na hora (batata, ovo, baião…) já aparece na faixa de acompanhamentos dos pratos
-          if (r.categoria === 'GUARNICAO' && P.Acomp) P.Acomp.incluir(r.id);
         }
         feito = true; resolve({ item: r, extras: [] }); sh.fechar();
       }
@@ -459,17 +524,22 @@
       if (!r) return;
       cat = r.item.categoria;
       escolher(r.item);
-      if (!r.extras.length) return;
-      r.extras.forEach(a => adicionar(c, a));
-      atualizar();
-      P.UI.toast('+1 ' + [r.item.nome].concat(r.extras.map(a => a.nome)).join(' + '));
+      if (r.extra) extraNoPrato(r.item.id, r.item.nome, +P.Calc.ficha(r.item).preco || 0, r.extra);
+    }
+    // "+ extra" num prato da conta: pergunta o que vai junto e quanto a mais
+    async function extraNoPrato(itemId, nome, preco, texto0) {
+      const ex = await pedirExtra(nome, preco, texto0);
+      if (!ex) return;
+      const desfazer = porExtra(P.Store.get('comandas', c.id) || c, itemId, nome, preco, ex);
+      if (!desfazer) return;
+      P.vibrar(15); atualizar();
+      P.UI.toast(nome + ' + ' + ex.t + ' · ' + P.brl(preco + ex.v), { acao: { rotulo: 'Desfazer', fn: () => { desfazer(); atualizar(); } } });
     }
 
     const elCab = h('div', { class: 'cm-cab' });
     const elTotal = h('div', { class: 'barra-acao' });
     const elCats = h('div', { class: 'cm-cats' });
     const elGrade = h('div', { class: 'cm-grade' });
-    const elAcomp = h('div', { class: 'cm-acomp' });
     const elConsumo = h('div', { class: 'cm-consumo' });
 
     function vendaveis() { return P.Store.all('itens').filter(it => P.Calc.vendavel(it) && !P.Calc.espetoOculto(it)); }
@@ -509,47 +579,7 @@
           cat = k; P.vibrar(10); desenharCats(); desenharGrade();
         } }, h('i', { class: 'cm-cat-dot' }), ROT_CAT[k], porCat[k] ? h('b', null, porCat[k]) : null)));
     }
-    // acompanhamentos (Batata frita, Baião, Comida extra…): na aba Pratos, logo acima dos pratos;
-    // toca no prato e depois no acompanhamento. Extra: acrescenta, com o preço dele. Troca: no lugar
-    // de algo do prato (ex.: batata no lugar do arroz), sem custo ou com a diferença; volta para Extra.
-    let modoAc = 'extra';
-    async function porTroca(it) {
-      const v = await P.UI.pedirNumero({ titulo: TROCA + it.nome, decimais: 2, prefixo: 'R$ ', ok: 'Pôr a troca',
-        sub: 'No lugar de algo do prato (ex.: ' + it.nome.toLowerCase() + ' no lugar do arroz). Quanto a mais? Deixe 0 se for sem custo.' });
-      if (v == null) return;
-      adicionar(c, it, 1, { nome: TROCA + it.nome, preco: P.round(v, 2) });
-      modoAc = 'extra';
-      P.vibrar(15);
-      atualizar();
-      P.UI.toast('⇄ ' + TROCA + it.nome + (v > 0 ? ' · + ' + P.brl(v) : ' · sem custo'));
-    }
-    function desenharAcomp() {
-      const acs = cat === 'PRATO' && !termo && P.Acomp ? P.Acomp.lista() : [];
-      // o dono cria um extra novo daqui mesmo (entra na faixa e na comanda)
-      const criar = cat === 'PRATO' && !termo && P.Acomp && P.Auth.isDono() && modoAc === 'extra'
-        ? h('button', { type: 'button', class: 'cm-ac cm-ac-novo', onClick: async () => {
-          const it = await P.Acomp.editar();
-          if (!it) return;
-          adicionar(c, it); P.vibrar(15); atualizar(); P.UI.toast('+ ' + it.nome);
-        } }, P.UI.icone('mais'), acs.length ? 'Extra' : 'Criar extra (batata, ovo, baião…)') : null;
-      elAcomp.hidden = !acs.length && !criar;
-      if (elAcomp.hidden) return;
-      const q = qtdPorItem();
-      const troca = modoAc === 'troca';
-      const modo = acs.length ? h('div', { class: 'cm-ac-modo', role: 'group', 'aria-label': 'Acrescentar ou trocar' },
-        [['extra', 'Extra'], ['troca', 'Troca']].map(([v, rot]) => h('button', { type: 'button', class: modoAc === v ? 'on' : '', 'aria-pressed': modoAc === v ? 'true' : 'false',
-          onClick: () => { modoAc = v; P.vibrar(8); desenharAcomp(); } }, rot))) : h('span', { class: 'cm-acomp-t' }, 'Com');
-      elAcomp.classList.toggle('troca', troca);
-      elAcomp.replaceChildren(modo, ...acs.map(it => h('button', { type: 'button', class: 'cm-ac' + (q.get(it.id) ? ' tem' : ''), onClick: () => {
-        if (troca) { porTroca(it); return; }
-        adicionar(c, it);
-        P.vibrar(15);
-        atualizar();
-        P.UI.toast('+ ' + it.nome);
-      } }, (troca ? '⇄ ' : '+ ') + it.nome, troca ? null : h('small', null, P.brl0(it.preco_venda)), q.get(it.id) ? h('b', null, q.get(it.id)) : null)), ...(criar ? [criar] : []));
-    }
     function desenharGrade() {
-      desenharAcomp();
       const q = qtdPorItem();
       elGrade.innerHTML = '';
       const botao = it => {
@@ -590,7 +620,7 @@
       const grupos = new Map();
       linhas(c.id).forEach(l => {
         const troca = (l.nome || '').startsWith(TROCA);
-        const k = l.item_id + (troca ? '|' + l.nome : '');
+        const k = l.item_id + '|' + l.nome + '|' + P.round(+l.preco_unit || 0, 2); // "Filé de frango + batata" fica numa linha à parte
         if (!grupos.has(k)) grupos.set(k, { itemId: l.item_id, nome: l.nome, troca, preco: +l.preco_unit || 0, q: 0, v: 0, horas: [] });
         const g = grupos.get(k);
         g.q += +l.quantidade || 0;
@@ -601,16 +631,23 @@
       if (!grupos.size) { elConsumo.appendChild(P.UI.vazio('Toque nos itens acima conforme forem saindo.')); return; }
       elConsumo.appendChild(h('div', { class: 'secao' }, 'Consumo'));
       const ehAc = id => P.Acomp && P.Acomp.ehAcomp(id);
-      grupos.forEach(g => elConsumo.appendChild(h('div', { class: 'cm-lin' + (ehAc(g.itemId) || g.troca ? ' ac' : '') },
-        h('div', { class: 'cm-lin-n' }, h('b', null, g.q + '×'), ' ' + (g.troca ? '⇄ ' : ehAc(g.itemId) ? '+ ' : '') + g.nome, h('small', null, g.horas.join(' · '))),
-        h('div', { class: 'cm-lin-v' }, P.brl(g.v)),
-        h('button', { type: 'button', class: 'lc-b', 'aria-label': 'Tirar um', onClick: () => { tirar(c, g.itemId, g.troca ? g.nome : null); P.vibrar([10, 40, 10]); atualizar(); } }, P.UI.icone('menos')),
-        h('button', { type: 'button', class: 'lc-b mais', 'aria-label': 'Mais um', onClick: () => {
-          const it = P.Store.get('itens', g.itemId);
-          if (!it) return;
-          if (g.troca) adicionar(c, it, 1, { nome: g.nome, preco: g.preco }); else adicionar(c, it);
-          P.vibrar(15); atualizar();
-        } }, P.UI.icone('mais')))));
+      const I = P.Calc.idx();
+      grupos.forEach(g => {
+        const it = I.itens.get(g.itemId);
+        const comoNoCardapio = it && g.nome === it.nome; // sem extra: "mais um" entra com o preço de hoje
+        const podeExtra = it && (it.categoria === 'PRATO' || it.categoria === 'ESPETO') && !g.troca && !ehAc(g.itemId);
+        elConsumo.appendChild(h('div', { class: 'cm-lin' + (ehAc(g.itemId) || g.troca ? ' ac' : '') },
+          h('div', { class: 'cm-lin-n' }, h('b', null, g.q + '×'), ' ' + (g.troca ? '⇄ ' : ehAc(g.itemId) ? '+ ' : '') + g.nome,
+            h('small', null, g.horas.join(' · ')),
+            podeExtra ? h('button', { type: 'button', class: 'cm-extra', onClick: () => extraNoPrato(g.itemId, g.nome, g.preco) }, P.UI.icone('mais'), 'extra') : null),
+          h('div', { class: 'cm-lin-v' }, P.brl(g.v)),
+          h('button', { type: 'button', class: 'lc-b', 'aria-label': 'Tirar um', onClick: () => { tirar(c, g.itemId, g.nome, g.preco); P.vibrar([10, 40, 10]); atualizar(); } }, P.UI.icone('menos')),
+          h('button', { type: 'button', class: 'lc-b mais', 'aria-label': 'Mais um', onClick: () => {
+            if (!it) return;
+            if (comoNoCardapio) adicionar(c, it); else adicionar(c, it, 1, { nome: g.nome, preco: g.preco });
+            P.vibrar(15); atualizar();
+          } }, P.UI.icone('mais'))));
+      });
       // pago por partes (a conta continua aberta)
       const partes = pagamentos(c.id);
       if (partes.length) {
@@ -666,7 +703,7 @@
       location.hash = '#/mesas';
     }
 
-    view.append(elCab, busca.el, elCats, elAcomp, elGrade, elConsumo, elTotal);
+    view.append(elCab, busca.el, elCats, elGrade, elConsumo, elTotal);
     desenharCab(); desenharCats(); atualizar();
     if (rapida) P.UI.toast('Venda rápida: toque nos itens e depois em Fechar conta');
     const relogio = setInterval(desenharCab, 30000);

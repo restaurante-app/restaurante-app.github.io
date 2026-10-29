@@ -148,6 +148,8 @@
           r.fat > 0 && r.compras > 0 ? ' · ' + P.pct(r.compras / r.fat * 100, 0) + ' das vendas' : null),
         P.UI.icone('avancar'));
     }
+    // caixa fechado e depois lançaram algo do dia (ex.: o peixeiro): mostra que a sobra foi refeita
+    const notaDepois = d => { const x = P.Fechamento && P.Fechamento.depois(d); return x ? h('a', { class: 'pn-txt pn-depois', href: '#/mesas/caixa' }, P.Fechamento.textoDepois(x)) : null; };
     const txtSobra = r => (r.sobra > 0 ? h('a', { class: 'pn-txt pn-sobra', href: '#/mesas/caixa' }, 'Inclui ', h('b', null, P.brl(r.sobra)), ' de sobra do caixa' + (r.nSobra > 1 ? ' (' + r.nSobra + ' dias)' : '')) : null);
 
     // barra por canal: o espeto só aparece com o turno ligado (ou se teve venda nele)
@@ -266,6 +268,7 @@
             mini('Custo vendido', P.brl0(rd.cmv), null, P.pct(rd.fat ? rd.cmv / rd.fat * 100 : null, 0)),
             mini('Despesas', P.brl0(res.outras))),
           txtSobra(rd),
+          notaDepois(dia),
           h('a', { class: 'pn-caixa', href: '#/compras' }, P.UI.icone('caixa'),
             h('span', null, 'Caixa ', h('b', null, P.brl0(res.entrou)), ' entrou · ', h('b', null, P.brl0(res.saiu)), ' saiu'),
             valorCor(P.brl0(saldoCx), saldoCx >= 0 ? 'verde' : 'vermelho')),
@@ -376,6 +379,7 @@
           pilhaCanais(rd),
           linhaSaidas(rd),
           txtSobra(rd),
+          notaDepois(dia),
           Math.abs(rd.compras - rd.saiuCompras) > 0.5 ? h('div', { class: 'pn-txt', title: 'Compra a prazo ou no cartão sai do caixa no dia em que é paga' }, 'Comprado no dia ', h('b', null, P.brl0(rd.compras)), ' · pago ', h('b', null, P.brl0(rd.saiuCompras))) : null,
           rd.fat - rd.entrou > 0.5 ? h('div', { class: 'pn-txt' }, 'Fiado: ', h('b', null, P.brl0(rd.fat - rd.entrou)), ' (entra quando receber)') : null,
         ] : h('div', { class: 'pn-vazio' }, h('span', null, 'Nada lançado neste dia.'), h('a', { href: '#/mesas', class: 'btn mini primario' }, 'Abrir mesas'))));

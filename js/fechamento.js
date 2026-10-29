@@ -105,6 +105,36 @@
     dias.forEach(d => { if (!f[d]) return; const s = sobra(d); if (s > 0) { v += s; n++; } });
     return { v: P.round(v, 2), n };
   }
+  // o que foi lançado ou mudado no dia depois de fechar o caixa (ex.: o peixeiro pago antes de contar o
+  // dinheiro, mas lançado depois). A sobra é refeita ao vivo; aqui fica o antes e o agora para mostrar:
+  // { antes, agora, itens: ['Peixeiro R$ 120,00', …] } ou null se nada mudou
+  function depois(dia) {
+    const f = fechamento(dia);
+    if (!f || !f.esperado || !f.em) return null;
+    const e = esperado(conta(dia), f.troco);
+    let antes = 0, agora = 0;
+    FORMAS.forEach(x => { if (f[x.v] != null) { antes += f[x.v] - (+f.esperado[x.v] || 0); agora += f[x.v] - e[x.v]; } });
+    antes = P.round(antes, 2); agora = P.round(agora, 2);
+    if (quase(agora - antes)) return null;
+    const novo = r => (r.modificado_em || '') > f.em;
+    const itens = [];
+    P.Store.all('compras').forEach(c => {
+      if (!novo(c)) return;
+      const v = P.Compras.saidas(c).filter(s => s.dia === dia).reduce((t, s) => t + s.valor, 0);
+      if (v > 0.005) itens.push((c.fornecedor || 'Compra') + ' ' + P.brl(v));
+    });
+    P.Store.all('despesas').forEach(d => { if (d.dia_operacional === dia && novo(d)) itens.push((d.descricao || P.Mesas.NOME_DESP[d.categoria] || 'Despesa') + ' ' + P.brl(d.valor)); });
+    P.Store.all('comandas').forEach(c => { if (c.dia_operacional === dia && c.status === 'FECHADA' && novo(c)) itens.push('venda ' + P.Mesas.rotulo(c) + ' ' + P.brl(c.total)); });
+    return { antes, agora, itens };
+  }
+  // frase para o Painel e o Fechar caixa
+  function textoDepois(x) {
+    const sa = v => (quase(v) ? 'batia' : v > 0 ? 'sobravam ' + P.brl(v) : 'faltavam ' + P.brl(-v));
+    const sb = v => (quase(v) ? 'bate' : v > 0 ? 'sobram ' + P.brl(v) : 'faltam ' + P.brl(-v));
+    return 'Lançado depois do fechamento' + (x.itens.length ? ': ' + x.itens.slice(0, 4).join(', ') + (x.itens.length > 4 ? '…' : '') : '') +
+      '. A conta do caixa foi refeita: no fechamento ' + sa(x.antes) + ', agora ' + sb(x.agora) + '. ' +
+      'Se o dinheiro foi contado depois de pagar, o resultado do dia não muda (a saída e a sobra mudam juntas).';
+  }
   function textoDif(v) {
     return quase(v) ? 'bateu' : (v > 0 ? 'sobrou ' : 'faltou ') + P.brl(Math.abs(v));
   }
@@ -223,6 +253,7 @@
           linha('Deveria ter', P.brl(totEsp)),
           resultadoLinha(totInf, totEsp),
           sb > 0.005 ? h('small', { class: 'fc-nota' }, 'A sobra de ' + P.brl(sb) + ' entra como venda no Painel e em Dia e período, à parte ("sobra do caixa").') : null,
+          f && depois(dia) ? h('small', { class: 'fc-nota fc-depois' }, textoDepois(depois(dia))) : null,
           v.dinheiro != null ? h('small', { class: 'fc-nota' }, 'Os ' + P.brl(v.dinheiro) + ' que ficaram no bolso viram o troco do início do próximo dia.') : null));
       }
       if (k.vendas.FIADO) corpo.appendChild(h('div', { class: 'dica' }, 'Vendido no fiado hoje: ' + P.brl(k.vendas.FIADO) + ' (não entra no caixa até receber).'));
@@ -262,5 +293,5 @@
   }
 
   P.UI.rota('mesas/caixa', { titulo: 'Fechar caixa', tab: 'mesas', render: telaCaixa });
-  P.Fechamento = { conta, esperado, fechamento, resultado, sobra, sobraDe };
+  P.Fechamento = { conta, esperado, fechamento, resultado, sobra, sobraDe, depois, textoDepois };
 })();
