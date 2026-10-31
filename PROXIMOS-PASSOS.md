@@ -1,9 +1,10 @@
-# Próximos passos — situação em 29/10/2026
+# Próximos passos — situação em 31/10/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
+| App v1.24 (Marmitas em aberto: ficam abertas no dia e "Pago" no fim do dia, sem fiado) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
 | App v1.23 (extra escrito na hora no prato; Pratos repetidos sem extras prontos; aviso de lançado depois do fechamento) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.22 (Pratos repetidos: preço antes e depois, juntar de uma vez, deixar separado) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.21.1 (avisos com Desfazer no topo da tela, um por vez — não cobrem mais os botões de baixo) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -47,6 +48,15 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.24 (pedido de 31/10)
+
+| Pedido | No app |
+|---|---|
+| Vendo marmitas e o pessoal paga no fim do dia: não lançar como fiado; acompanhar em aberto e no fim do dia marcar como pago, parecido com as mesas | Mesas → aba **Marmitas** (com o número em aberto): cada marmita com o nome, o que levou e o valor; **Pôr mais** e **Pago** (forma: Dinheiro, Pix, Débito, Crédito ou Fiado para quem não pagou), com Desfazer; **Receber todas** numa forma só. *+ Marmita* com o nome de quem já tem marmita aberta abre a mesma conta. As Mesas mostram "N marmitas em aberto · marcar como pagas no fim do dia" |
+
+Nada novo no banco: a marmita é uma conta aberta como as mesas; "Pago" fecha a conta com o que falta (e o
+Desfazer reabre, como o Desfazer do Fechar conta).
 
 ## O que entrou na v1.23 (pedido de 29/10)
 

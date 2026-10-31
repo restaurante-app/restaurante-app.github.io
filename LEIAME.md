@@ -54,6 +54,11 @@ se já está tudo pago, só fecha. Conta com parte paga não pode ser cancelada 
 uma conta fechada desfaz só o pagamento do fechamento; as partes continuam pagas. O que foi pago numa conta
 ainda aberta já entra no Fechar caixa e no caixa do dia.
 *Venda rápida* é para o balcão (sem mesa). *Marmita* abre comanda no canal marmita.
+**Marmitas em aberto** (Mesas → aba *Marmitas*): a marmita fica em aberto durante o dia, como uma mesa (quem
+paga no fim do dia não precisa ir para o fiado). *+ Marmita* pede o nome; se a pessoa já tem marmita aberta,
+abre a mesma conta (vai somando). No fim do dia: **Pago** em cada uma → forma (Dinheiro, Pix, Débito, Crédito
+ou Fiado para quem vai pagar outro dia), com Desfazer; ou **Receber todas** numa forma só. A conta fecha no
+dia em que foi paga.
 Abas: **Fechadas** (contas do dia), **Totais do dia** (automático: itens e valores
 somados das comandas, nada é digitado), **Despesas** (gás, carvão, embalagem, limpeza, manutenção; o dono lança também funcionários,
 aluguel, luz/água/internet e impostos), cada uma com a **forma de pagamento** (Dinheiro, Pix, Cartão, Boleto);
