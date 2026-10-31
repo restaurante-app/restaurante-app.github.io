@@ -82,6 +82,16 @@
     });
   }
   const abertas = () => P.Store.all('comandas').filter(c => c.status === 'ABERTA').sort((a, b) => (a.aberta_em < b.aberta_em ? -1 : 1));
+  // marmitas abertas: ficam em aberto durante o dia (como as mesas) e são pagas no fim do dia
+  const ehMarmita = c => c.mesa === 'Marmita' || (c.canal === 'MARMITA' && !/^\d+$/.test(c.mesa || ''));
+  const marmitasAbertas = () => abertas().filter(ehMarmita);
+  // fecha a conta com o que falta, numa forma só ("Pago" no fim do dia). Devolve o desfazer (reabre).
+  function pagarTudo(c, forma) {
+    const atual = P.Store.get('comandas', c.id) || c;
+    const f = faltaDe(atual);
+    fechar(atual, f > 0.004 ? [{ forma, valor: f }] : [], +atual.desconto || 0);
+    return () => { const x = P.Store.get('comandas', c.id); if (x && x.status === 'FECHADA') reabrir(x); };
+  }
   function nomeLocal(c) { return c.mesa ? (/^\d+$/.test(c.mesa) ? 'Mesa ' + c.mesa : c.mesa) : 'Comanda'; }
   function rotulo(c) { return nomeLocal(c) + (c.cliente ? ' · ' + c.cliente : ''); }
   function tempo(iso) {
@@ -269,8 +279,10 @@
   // ---------------------------------------------------------------
   function subnavMesas(ativo) {
     const nFiado = fiadoAberto().length;
+    const nMarm = marmitasAbertas().length;
     return P.UI.subnav([
       { id: 'abertas', rota: 'mesas', rotulo: 'Mesas' },
+      { id: 'marmitas', rota: 'mesas/marmitas', rotulo: 'Marmitas', badge: nMarm || null },
       { id: 'hoje', rota: 'mesas/hoje', rotulo: 'Fechadas' },
       { id: 'totais', rota: 'mesas/totais', rotulo: 'Totais do dia' },
       { id: 'caixa', rota: 'mesas/caixa', rotulo: 'Fechar caixa' },
@@ -303,6 +315,77 @@
     return [...vistos.values()].slice(0, 8);
   }
 
+  // marmita nova: pede o nome; se a pessoa já tem uma marmita aberta, abre a dela (vai somando no dia)
+  async function novaMarmita() {
+    const nome = await pedirTexto('Marmita — cliente / box', '', 'Ex.: Box 112 — Zé', clientesRecentes());
+    if (nome == null) return;
+    const ja = nome && marmitasAbertas().find(c => P.UI.semAcento(c.cliente || '') === P.UI.semAcento(nome));
+    if (ja) { P.UI.toast(nome + ' já tem marmita em aberto: é a mesma conta'); location.hash = '#/mesas/c/' + ja.id; return; }
+    const c = abrir({ mesa: 'Marmita', cliente: nome, canal: 'MARMITA' });
+    location.hash = '#/mesas/c/' + c.id;
+  }
+
+  // ---------------------------------------------------------------
+  //  TELA: MARMITAS EM ABERTO — vão ficando abertas durante o dia; no fim do dia "Pago" em cada uma
+  // ---------------------------------------------------------------
+  function telaMarmitas(view) {
+    view.className = 'v-mesas';
+    const corpo = h('div');
+    const resumo = c => {
+      const its = itensSomados(c.id);
+      return its.length ? its.slice(0, 3).map(i => P.numAuto(i.q) + '× ' + i.nome).join(', ') + (its.length > 3 ? '…' : '') : 'sem itens ainda';
+    };
+    async function pago(c) {
+      const atual = P.Store.get('comandas', c.id) || c;
+      const v = faltaDe(atual);
+      const forma = await P.UI.escolher({ titulo: (atual.cliente || 'Marmita') + ' pagou ' + P.brl(v) + ' em…',
+        opcoes: FORMAS.filter(x => x.v !== 'FIADO' || atual.cliente).map(x => ({ v: x.v, rotulo: x.v === 'FIADO' ? 'Fiado (paga outro dia)' : x.rotulo })) });
+      if (!forma) return;
+      const desfazer = pagarTudo(atual, forma);
+      P.vibrar([20, 40, 20]);
+      P.UI.toast((atual.cliente || 'Marmita') + ': ' + P.brl(v) + (forma === 'FIADO' ? ' no fiado' : ' pago (' + NOME_FORMA[forma] + ')'), { acao: { rotulo: 'Desfazer', fn: desfazer } });
+    }
+    async function todas(lista) {
+      const tot = P.round(lista.reduce((t, c) => t + faltaDe(c), 0), 2);
+      const forma = await P.UI.escolher({ titulo: 'As ' + lista.length + ' marmitas (' + P.brl(tot) + ') foram pagas em…', opcoes: FORMAS.filter(x => x.v !== 'FIADO').map(x => ({ v: x.v, rotulo: x.rotulo })) });
+      if (!forma) return;
+      if (!(await P.UI.confirmar('Marcar como pagas ' + EM_FORMA[forma] + ':\n' + lista.map(c => '• ' + (c.cliente || 'sem nome') + ' ' + P.brl(faltaDe(c))).join('\n') + '\n\nTotal ' + P.brl(tot) + '.', { ok: 'Pagas' }))) return;
+      const desf = lista.map(c => pagarTudo(c, forma));
+      P.vibrar([20, 40, 20]);
+      P.UI.toast(lista.length + ' marmitas pagas (' + NOME_FORMA[forma] + ') · ' + P.brl(tot), { acao: { rotulo: 'Desfazer', fn: () => desf.forEach(f => f()) } });
+    }
+    function desenhar() {
+      corpo.innerHTML = '';
+      const lista = marmitasAbertas();
+      const tot = lista.reduce((t, c) => t + faltaDe(c), 0);
+      corpo.appendChild(h('div', { class: 'fx-resumo' }, h('div', { class: 'fx-tot' },
+        h('small', null, lista.length ? lista.length + (lista.length === 1 ? ' marmita em aberto' : ' marmitas em aberto') : 'Nenhuma marmita em aberto'), h('b', null, P.brl(tot)))));
+      corpo.appendChild(h('div', { class: 'row gap mm-acoes' },
+        h('button', { type: 'button', class: 'btn grow', onClick: novaMarmita }, P.UI.icone('mais'), 'Marmita'),
+        lista.length > 1 ? h('button', { type: 'button', class: 'btn primario grow', onClick: () => todas(lista) }, P.UI.icone('check'), 'Receber todas') : null));
+      if (!lista.length) {
+        corpo.appendChild(P.UI.vazio('Toque em + Marmita: ela fica aqui em aberto durante o dia. No fim do dia, toque em Pago (ou Receber todas).'));
+        return;
+      }
+      corpo.appendChild(h('div', { class: 'ms-lista' }, lista.map(c => {
+        const pg = jaPago(c);
+        return h('div', { class: 'mm-card' },
+          h('a', { class: 'mm-top', href: '#/mesas/c/' + c.id },
+            h('div', { class: 'ms-card-n' }, c.cliente || 'sem nome',
+              h('small', null, P.Dia.hora(c.aberta_em) + ' · ' + tempo(c.aberta_em) + (pg ? ' · já pagou ' + P.brl(pg) : '')),
+              h('small', { class: 'mm-itens' }, resumo(c))),
+            h('b', null, P.brl(faltaDe(c)))),
+          h('div', { class: 'mm-bts' },
+            h('a', { class: 'btn mini', href: '#/mesas/c/' + c.id }, P.UI.icone('mais'), 'Pôr mais'),
+            h('button', { type: 'button', class: 'btn mini primario', disabled: !qtdItens(c.id), onClick: () => pago(c) }, P.UI.icone('check'), 'Pago')));
+      })));
+      corpo.appendChild(h('div', { class: 'dica' }, 'As marmitas ficam em aberto (como as mesas) até você marcar como pagas. Pago: escolhe a forma (Dinheiro, Pix, cartão) e a conta fecha no dia em que pagou. Quem não pagar hoje: Pago → Fiado.'));
+    }
+    view.append(subnavMesas('marmitas'), corpo);
+    desenhar();
+    return { onDados(t) { if (t.has('comandas') || t.has('comanda_itens') || t.has('pagamentos')) desenhar(); } };
+  }
+
   // ---------------------------------------------------------------
   //  TELA: MESAS (abertas)
   // ---------------------------------------------------------------
@@ -324,12 +407,7 @@
       const c = abrir({ mesa: String(mesa), cliente: nome });
       location.hash = '#/mesas/c/' + c.id;
     }
-    async function abrirMarmita() {
-      const nome = await pedirTexto('Marmita — cliente / box', '', 'Ex.: Box 112 — Zé', clientesRecentes());
-      if (nome == null) return;
-      const c = abrir({ mesa: 'Marmita', cliente: nome, canal: 'MARMITA' });
-      location.hash = '#/mesas/c/' + c.id;
-    }
+    const abrirMarmita = novaMarmita;
     function vendaRapida() {
       const c = abrir({ mesa: 'Balcão', cliente: '' });
       location.hash = '#/mesas/c/' + c.id + '/rapida';
@@ -377,6 +455,9 @@
       const outras = ab.filter(c => !/^\d+$/.test(c.mesa || ''));
       if (outras.length) {
         corpo.appendChild(h('div', { class: 'secao' }, 'Balcão e marmitas abertas'));
+        const nm = marmitasAbertas().length;
+        if (nm) corpo.appendChild(h('a', { class: 'pn-caixa mm-link', href: '#/mesas/marmitas' }, P.UI.icone('check'),
+          h('span', null, nm + (nm === 1 ? ' marmita em aberto' : ' marmitas em aberto') + ' · marcar como pagas no fim do dia'), P.UI.icone('avancar')));
         corpo.appendChild(h('div', { class: 'ms-lista' }, outras.map(c => h('a', { class: 'ms-card', href: '#/mesas/c/' + c.id },
           h('div', { class: 'ms-card-n' }, rotulo(c), h('small', null, NOME_CANAL[c.canal] + ' · ' + tempo(c.aberta_em) + ' · ' + qtdItens(c.id) + ' itens' + (jaPago(c) ? ' · pago ' + P.brl0(jaPago(c)) : ''))),
           h('b', null, P.brl(jaPago(c) ? faltaDe(c) : totalDe(c)))))));
@@ -1364,6 +1445,7 @@
   P.UI.rota('mesas/totais', { titulo: 'Totais do dia', tab: 'mesas', render: telaTotais });
   P.UI.rota('mesas/despesas', { titulo: 'Despesas', tab: 'mesas', render: telaDespesas });
   P.UI.rota('mesas/fiado', { titulo: 'Fiado', tab: 'mesas', render: telaFiado });
+  P.UI.rota('mesas/marmitas', { titulo: 'Marmitas em aberto', tab: 'mesas', render: telaMarmitas });
   P.UI.rota('mesas/fiado/:k', { titulo: 'Fiado do cliente', tab: 'mesas', render: telaFiadoCliente });
 
   P.Mesas = {

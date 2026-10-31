@@ -1484,6 +1484,15 @@ a.rl-tr { color: inherit; text-decoration: none; }
 .fia-card-top > b { white-space: nowrap; font-size: 1.02rem; letter-spacing: -.02em; }
 .fia-card .ms-card-n small.fia-consumo { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; color: var(--tx); font-weight: 500; margin-top: 5px; }
 .fia-acoes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+.mm-acoes { margin-bottom: 10px; }
+.mm-card { border-radius: 18px; padding: 12px 14px 10px; background: linear-gradient(180deg, var(--brilho), transparent 42%), var(--s1); border: 1px solid var(--borda); }
+.mm-top { display: flex; align-items: flex-start; gap: 12px; color: inherit; text-decoration: none; }
+.mm-top > b { white-space: nowrap; font-size: 1.02rem; letter-spacing: -.02em; }
+.mm-card .ms-card-n small.mm-itens { white-space: normal; color: var(--tx); font-weight: 500; margin-top: 4px; line-height: 1.35; }
+.mm-bts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.mm-bts .btn.mini { justify-content: center; gap: 5px; text-decoration: none; }
+.mm-bts .btn.mini svg { width: 15px; height: 15px; }
+.mm-link { border-top: 0; margin: -2px 0 8px; padding-top: 0; color: var(--marca-tx); font-weight: 700; }
 .fia-acoes .btn.mini { padding: 0 8px; gap: 5px; justify-content: center; text-decoration: none; }
 .fia-acoes .btn.mini svg { width: 15px; height: 15px; }
 .fia-ver { display: block; font-size: .76rem; color: var(--tx2); line-height: 1.35; margin: -4px 0 6px; text-decoration: none; }
