@@ -1,10 +1,11 @@
-# Próximos passos — situação em 31/10/2026
+# Próximos passos — situação em 01/11/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.24 (Marmitas em aberto: ficam abertas no dia e "Pago" no fim do dia, sem fiado) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.24.1 (vale ou salário com "Conta para" outro mês: vale de 31/10 no salário de novembro) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.24 (Marmitas em aberto: ficam abertas no dia e "Pago" no fim do dia, sem fiado) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.23 (extra escrito na hora no prato; Pratos repetidos sem extras prontos; aviso de lançado depois do fechamento) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.22 (Pratos repetidos: preço antes e depois, juntar de uma vez, deixar separado) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.21.1 (avisos com Desfazer no topo da tela, um por vez — não cobrem mais os botões de baixo) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -48,6 +49,14 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.24.1 (pedido de 31/10)
+
+| Pedido | No app |
+|---|---|
+| Lançar um vale da Chica do mês 11 ainda no mês 10 (o salário de outubro já foi pago e ela fez outro vale) | Nova despesa → Funcionários → Vale: **Conta para** Set · Out · **Nov** (vem no automático; tocar em Nov). O vale sai do caixa no dia em que foi pago (31/10) e desconta do salário de novembro na Equipe; as setas da Equipe vão até o mês que vem. Também: na Equipe, sem condução, aparecia "null" entre os botões Vale e Salário — corrigido |
+
+Usa a coluna `competencia` que já existe nas despesas: nada novo no banco e nada apagado.
 
 ## O que entrou na v1.24 (pedido de 31/10)
 

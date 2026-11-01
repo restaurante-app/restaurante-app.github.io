@@ -1081,6 +1081,9 @@
       let valor = ant ? +ant.valor : o.valor != null ? o.valor : null;
       let pessoa = ant ? ant.pessoa_id || null : o.pessoa_id || null;
       let subtipo = ant ? ant.subtipo || null : o.subtipo || null;
+      // "Conta para": o mês a que o pagamento se refere, escolhido à mão (ex.: vale pago em 31/10 que já é
+      // do salário de novembro). null = automático (o mês do pagamento; salário até o dia 10 = mês anterior)
+      let compEsc = ant && ant.competencia && ant.competencia.length === 7 ? ant.competencia : null;
       let feito = false;
       const desc = h('input', { class: 'campo', type: 'text', value: ant ? ant.descricao || '' : o.descricao || '', placeholder: 'O quê? (ex.: botijão, salário do João, aluguel de outubro)', autocomplete: 'off' });
       const dica = h('small', { class: 'campo-d' });
@@ -1096,13 +1099,22 @@
         const ps = P.Store.all('pessoas').filter(p => (p.ativo !== false || p.id === pessoa) && (cat === 'PROLABORE') === (p.pagamento === 'PROLABORE'))
           .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
         if (cat === 'PROLABORE' && !pessoa && ps.length === 1) pessoa = ps[0].id;
-        const comp = competenciaDe(cat, subtipo, ant ? ant.dia_operacional : dia);
+        const diaD = ant ? ant.dia_operacional : dia;
+        const auto = competenciaDe(cat, subtipo, diaD);
+        const porMes = auto && auto.length === 7; // semana: fica a semana do pagamento
+        const comp = porMes && compEsc ? compEsc : auto;
+        const mesMais = n => { const [y, m] = diaD.split('-').map(Number); const d = new Date(y, m - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+        const meses = [mesMais(-1), mesMais(0), mesMais(1)];
         elEquipe.replaceChildren(...[
           ps.length ? [h('span', { class: 'campo-r' }, cat === 'PROLABORE' ? 'De quem' : 'Quem'),
             P.UI.seg(ps.map(p => ({ v: p.id, rotulo: p.nome })), pessoa, v => { pessoa = v; }, 'seg-p seg-cat')]
             : h('small', { class: 'campo-d' }, 'Cadastre a equipe em Mais → Equipe para ver quanto falta pagar a cada um.'),
           cat === 'FUNCIONARIOS' ? [h('span', { class: 'campo-r' }, 'Tipo'), P.UI.seg(SUBTIPOS, subtipo, v => { subtipo = v; desenharEquipe(); }, 'seg-p seg-cat')] : null,
-          comp ? h('small', { class: 'campo-d' }, 'Conta para ' + rotuloCompetencia(comp) + '.') : null,
+          porMes ? [h('span', { class: 'campo-r' }, 'Conta para'),
+            P.UI.seg(meses.map(m => ({ v: m, rotulo: (t => t.charAt(0).toUpperCase() + t.slice(1))(P.Dia.rotuloMes(m).split('/')[0]) })), comp, v => { compEsc = v === auto ? null : v; desenharEquipe(); }, 'seg-p seg-cat'),
+            h('small', { class: 'campo-d' }, 'Conta no ' + (cat === 'PROLABORE' ? 'pró-labore' : 'salário') + ' de ' + rotuloCompetencia(comp) +
+              (compEsc ? ' (escolhido; sai do caixa no dia do pagamento, ' + P.Dia.rotuloCurto(diaD) + ').' : '.'))]
+            : comp ? h('small', { class: 'campo-d' }, 'Conta para ' + rotuloCompetencia(comp) + '.') : null,
         ].flat().filter(Boolean));
       }
       const cats = CAT_DESPESA.filter(c => c.v !== 'MERCADORIA' && (P.Auth.isDono() || !(c.fixo || c.dono)));
@@ -1128,7 +1140,8 @@
               pessoa_id: equipe ? pessoa : null,
               subtipo: cat === 'FUNCIONARIOS' ? subtipo : null,
               // editando sem trocar o tipo: mantém a competência que já tinha (ex.: vale de antes da abertura)
-              competencia: !equipe ? null : ant && ant.competencia && ant.categoria === cat && ant.subtipo === subtipo ? ant.competencia : competenciaDe(cat, subtipo, diaD),
+              competencia: !equipe ? null : compEsc && (competenciaDe(cat, subtipo, diaD) || '').length === 7 ? compEsc
+                : ant && ant.competencia && ant.categoria === cat && ant.subtipo === subtipo ? ant.competencia : competenciaDe(cat, subtipo, diaD),
             };
             const r = P.Store.put('despesas', ant
               ? Object.assign({}, ant, { categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2) }, extra)

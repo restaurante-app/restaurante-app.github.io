@@ -198,12 +198,15 @@ cancelamentos; exporta CSV (itens vendidos, contas, compras e gastos) e imprime.
 (retirada do dono, inclusive coisa pessoal paga com dinheiro do restaurante; conta como custo
 fixo) e **Investimento** (equipamento, obra: sai do caixa, mas fica fora do lucro do mês). Em
 Funcionários e Pró-labore escolhe-se **quem** e o **tipo** (vale, condução, salário, semana,
-diária); o app guarda a que mês ou semana o pagamento se refere.
+diária); o app guarda a que mês ou semana o pagamento se refere. **Conta para** (mês anterior, do pagamento ou
+o próximo): vem no automático (salário pago até o dia 10 = mês anterior; vale = mês do pagamento) e dá para
+trocar — ex.: vale dado em 31/10 que já é do salário de novembro. Sai do caixa no dia em que foi pago.
 
 **Equipe** (dono; Mais → Equipe) — quem trabalha e como recebe (salário mensal, por semana,
 diária ou pró-labore do dono), com a conta de cada um: salário do mês − vales = falta pagar,
 condução paga, semana a semana da entregadora e quanto o dono ainda pode retirar no mês.
-Botões para lançar vale, condução, salário, semana ou retirada (viram despesas do dia).
+Botões para lançar vale, condução, salário, semana ou retirada (viram despesas do dia). As setas vão até o mês
+que vem (para ver o vale já dado para o salário do mês seguinte).
 
 **Pendências** (dono; Mais → Pendências) — o que falta confirmar e anotações que não têm outro
 lugar no app, com "Resolvido" (e como resolveu) e atalho para a compra, conta ou item ligado.
