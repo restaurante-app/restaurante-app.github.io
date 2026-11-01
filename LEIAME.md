@@ -201,6 +201,9 @@ Funcionários e Pró-labore escolhe-se **quem** e o **tipo** (vale, condução, 
 diária); o app guarda a que mês ou semana o pagamento se refere. **Conta para** (mês anterior, do pagamento ou
 o próximo): vem no automático (salário pago até o dia 10 = mês anterior; vale = mês do pagamento) e dá para
 trocar — ex.: vale dado em 31/10 que já é do salário de novembro. Sai do caixa no dia em que foi pago.
+**Pago em** (toda despesa): o dia vem preenchido (o dia aberto na tela; da Equipe, hoje) e dá para trocar no
+calendário — lançar dias depois o que foi pago antes. Ao editar uma despesa (toque nela em Despesas → Do dia ou
+Do mês) também dá para mudar o dia; o aviso diz "Despesa em qui 29/10 (era 30/10)".
 
 **Equipe** (dono; Mais → Equipe) — quem trabalha e como recebe (salário mensal, por semana,
 diária ou pró-labore do dono), com a conta de cada um: salário do mês − vales = falta pagar,

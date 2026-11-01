@@ -1081,10 +1081,19 @@
       let valor = ant ? +ant.valor : o.valor != null ? o.valor : null;
       let pessoa = ant ? ant.pessoa_id || null : o.pessoa_id || null;
       let subtipo = ant ? ant.subtipo || null : o.subtipo || null;
+      // dia em que pagou: dá para escolher ao lançar e mudar ao editar (despesa lançada dias depois)
+      let diaSel = ant ? ant.dia_operacional : dia;
       // "Conta para": o mês a que o pagamento se refere, escolhido à mão (ex.: vale pago em 31/10 que já é
       // do salário de novembro). null = automático (o mês do pagamento; salário até o dia 10 = mês anterior)
-      let compEsc = ant && ant.competencia && ant.competencia.length === 7 ? ant.competencia : null;
+      let compEsc = ant && ant.competencia && ant.competencia.length === 7 && ant.competencia !== competenciaDe(ant.categoria, ant.subtipo, ant.dia_operacional) ? ant.competencia : null;
       let feito = false;
+      const bDia = h('button', { type: 'button', class: 'btn bloco ds-dia' });
+      const mostrarDia = () => bDia.replaceChildren(P.UI.icone('calendario'),
+        h('span', null, 'Pago em ', h('b', null, P.Dia.rotulo(diaSel) + (diaSel === P.Dia.hoje() ? ' (hoje)' : ''))), h('small', null, 'trocar o dia'));
+      bDia.addEventListener('click', () => P.Compras.calendario(diaSel, iso => {
+        if (iso > P.Dia.hoje()) { P.UI.toast('Dia ainda não chegou.', { tipo: 'perigo' }); return; }
+        diaSel = iso; mostrarDia(); desenharEquipe();
+      }, { titulo: 'Dia em que pagou' }));
       const desc = h('input', { class: 'campo', type: 'text', value: ant ? ant.descricao || '' : o.descricao || '', placeholder: 'O quê? (ex.: botijão, salário do João, aluguel de outubro)', autocomplete: 'off' });
       const dica = h('small', { class: 'campo-d' });
       const elEquipe = h('div', { class: 'ds-equipe' });
@@ -1099,7 +1108,7 @@
         const ps = P.Store.all('pessoas').filter(p => (p.ativo !== false || p.id === pessoa) && (cat === 'PROLABORE') === (p.pagamento === 'PROLABORE'))
           .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
         if (cat === 'PROLABORE' && !pessoa && ps.length === 1) pessoa = ps[0].id;
-        const diaD = ant ? ant.dia_operacional : dia;
+        const diaD = diaSel;
         const auto = competenciaDe(cat, subtipo, diaD);
         const porMes = auto && auto.length === 7; // semana: fica a semana do pagamento
         const comp = porMes && compEsc ? compEsc : auto;
@@ -1126,7 +1135,7 @@
       });
       const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
         P.UI.seg(cats, cat, v => { cat = v; mostrarDica(); desenharEquipe(); }, 'seg-p seg-cat'),
-        dica, bValor, elEquipe, desc,
+        dica, bValor, bDia, elEquipe, desc,
         h('span', { class: 'campo-r' }, 'Como pagou'),
         P.UI.seg(FORMAS_DESP, forma, v => { forma = v; }, 'seg-p seg-cat'),
         h('div', { class: 'row gap' },
@@ -1135,21 +1144,23 @@
             if (!(valor > 0)) { P.UI.toast('Informe o valor.', { tipo: 'perigo' }); return; }
             const u = P.Auth.usuario();
             const equipe = cat === 'FUNCIONARIOS' || cat === 'PROLABORE';
-            const diaD = ant ? ant.dia_operacional : dia;
+            const diaD = diaSel;
             const extra = {
               pessoa_id: equipe ? pessoa : null,
               subtipo: cat === 'FUNCIONARIOS' ? subtipo : null,
-              // editando sem trocar o tipo: mantém a competência que já tinha (ex.: vale de antes da abertura)
+              // editando sem trocar o tipo nem o dia: mantém a competência que já tinha (ex.: semana, vale de antes da abertura)
               competencia: !equipe ? null : compEsc && (competenciaDe(cat, subtipo, diaD) || '').length === 7 ? compEsc
-                : ant && ant.competencia && ant.categoria === cat && ant.subtipo === subtipo ? ant.competencia : competenciaDe(cat, subtipo, diaD),
+                : ant && ant.competencia && ant.categoria === cat && ant.subtipo === subtipo && ant.dia_operacional === diaD ? ant.competencia : competenciaDe(cat, subtipo, diaD),
             };
             const r = P.Store.put('despesas', ant
-              ? Object.assign({}, ant, { categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2) }, extra)
-              : Object.assign({ id: P.uuid(), dia_operacional: dia, categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2), criado_em: P.agoraISO(), usuario_id: u && u.id }, extra));
+              ? Object.assign({}, ant, { dia_operacional: diaD, categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2) }, extra)
+              : Object.assign({ id: P.uuid(), dia_operacional: diaD, categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2), criado_em: P.agoraISO(), usuario_id: u && u.id }, extra));
+            if (diaD !== (ant ? ant.dia_operacional : dia)) P.UI.toast('Despesa em ' + P.Dia.rotulo(diaD) + (ant ? ' (era ' + P.Dia.rotuloCurto(ant.dia_operacional) + ')' : ''));
             feito = true; resolve(r); sh.fechar();
           } }, 'Salvar'))),
-      { titulo: (ant ? 'Editar despesa · ' : 'Nova despesa · ') + P.Dia.rotulo(ant ? ant.dia_operacional : dia), onFechar: () => { if (!feito) resolve(null); } });
+      { titulo: ant ? 'Editar despesa' : 'Nova despesa', onFechar: () => { if (!feito) resolve(null); } });
       mostrar();
+      mostrarDia();
       mostrarDica();
       desenharEquipe();
       if (!ant && o.valor == null) setTimeout(() => bValor.click(), 150);
