@@ -208,7 +208,11 @@ Do mês) também dá para mudar o dia; o aviso diz "Despesa em qui 29/10 (era 30
 **Equipe** (dono; Mais → Equipe) — quem trabalha e como recebe (salário mensal, por semana,
 diária ou pró-labore do dono), com a conta de cada um: salário do mês − vales = falta pagar,
 condução paga, semana a semana da entregadora e quanto o dono ainda pode retirar no mês.
-Botões para lançar vale, condução, salário, semana ou retirada (viram despesas do dia). As setas vão até o mês
+Botões para lançar vale, condução, salário, semana ou retirada (viram despesas do dia).
+**Salário em 2 vezes** (padrão do salário mensal; muda em Editar → *Como paga o salário*): metade no dia 15 e o
+resto no último dia do mês, com os vales descontados da 2ª metade. O cartão mostra *1ª metade · dia 15* e
+*2ª metade · 31/10* (pago ✓ ou quanto falta) e o botão vira *Salário · 1ª metade* / *Salário · 2ª metade*, já
+com o valor. As setas vão até o mês
 que vem (para ver o vale já dado para o salário do mês seguinte).
 
 **Pendências** (dono; Mais → Pendências) — o que falta confirmar e anotações que não têm outro
@@ -243,6 +247,11 @@ conta duas vezes. Falta não entra (fica só o aviso no fechamento).
 é refeita e o Painel e o Fechar caixa mostram "no fechamento sobravam R$ 80, agora sobram R$ 200". Se o dinheiro
 foi contado depois de pagar, o **resultado do dia não muda**: a saída sobe e a sobra sobe junto (o dinheiro
 contado já estava sem o pagamento; se baixasse, o peixeiro contaria duas vezes).
+**Antes ou depois de contar**: ao lançar uma saída em dinheiro num dia de caixa já fechado, o app pergunta se o
+dinheiro saiu *antes de contar* (como acima) ou *depois de contar (do bolso)* — ex.: salário pago no fim do dia
+com o dinheiro já contado. "Depois" não mexe na conta daquele dia: o resultado do dia baixa e o **troco do dia
+seguinte** também. Em Fechar caixa, cada saída lançada depois do fechamento tem *Antes de contar / Depois (do
+bolso)* para mudar.
 
 **Folha da cozinha** (Mais → Folha da cozinha, ou a aba ao lado do Cardápio do dia) — a folha A4 que fica
 impressa na cozinha para as cozinheiras saberem o que fazer: os **pratos do dia** de cada dia da semana e os

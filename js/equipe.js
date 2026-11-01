@@ -24,6 +24,15 @@
   // competência de um pagamento (gravada; se não tiver, deduz pelo dia)
   const comp = d => d.competencia || P.Mesas.competenciaDe(d.categoria, d.subtipo, d.dia_operacional) || d.dia_operacional.slice(0, 7);
   const mesDe = d => comp(d).slice(0, 7);
+  // salário mensal em 2 vezes: metade no dia 15 e o resto (menos os vales) no último dia do mês
+  const emDuas = p => p.pagamento === 'MENSAL' && !(P.cfg('equipe').uma_vez || {})[p.id];
+  function salvarDuas(p, sim) {
+    const c = P.cfg('equipe');
+    const u = Object.assign({}, c.uma_vez);
+    if (sim) delete u[p.id]; else u[p.id] = true;
+    P.salvarCfg('equipe', Object.assign({}, c, { uma_vez: u }));
+  }
+  const ultimoDia = mes => { const [y, m] = mes.split('-').map(Number); return mes + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0'); };
 
   // conta de uma pessoa no mês (mensal/diária/dono) ou na semana (semanal)
   function contaMes(p, mes) {
@@ -37,7 +46,13 @@
     const vales = soma(por('VALE')), salario = soma(por('SALARIO')), conducao = soma(por('CONDUCAO'));
     const outros = soma(doMes.filter(d => !['VALE', 'SALARIO', 'CONDUCAO'].includes(d.subtipo)));
     const devido = p.pagamento === 'MENSAL' && ativoNoMes(p, mes) ? +p.valor || 0 : 0;
+    // em 2 vezes: 1ª metade no dia 15 (inteira) e a 2ª no último dia, com os vales descontados nela
+    const metade = emDuas(p) ? P.round(devido / 2, 2) : null;
+    const falta1 = metade != null ? P.round(Math.max(0, metade - salario), 2) : 0;
+    const segunda = metade != null ? P.round(Math.max(0, devido - metade - vales), 2) : 0;
+    const falta2 = metade != null ? P.round(Math.max(0, segunda - Math.max(0, salario - metade)), 2) : 0;
     return { previsto: devido, vales, salario, conducao, outros, pago: soma(doMes), lista: doMes, nConducao: por('CONDUCAO').length,
+      metade, falta1, segunda, falta2,
       falta: p.pagamento === 'MENSAL' ? P.round(Math.max(0, devido - vales - salario), 2) : 0 };
   }
   function ativoNoMes(p, mes) {
@@ -100,11 +115,16 @@
       bCond.addEventListener('click', async () => { const v = await P.UI.pedirNumero({ titulo: 'Condução por dia trabalhado', valor: +p.conducao_dia || null, decimais: 2, prefixo: 'R$ ', sub: '0 = sem condução' }); if (v != null) { p.conducao_dia = v; mostrar(); } });
       bIni.addEventListener('click', () => P.Compras.calendario(p.inicio || P.Dia.hoje(), iso => { p.inicio = iso; mostrar(); }, { titulo: 'Começou a trabalhar em' }));
       const cond = h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'Condução'), bCond);
+      // salário mensal: em 2 vezes (metade dia 15, o resto no último dia) ou de uma vez
+      let duas = p0 ? emDuas(p0) || p0.pagamento !== 'MENSAL' : true;
+      const elDuas = h('div', { class: 'campo-l' }, h('span', { class: 'campo-r' }, 'Como paga o salário'),
+        P.UI.seg([{ v: true, rotulo: 'Metade dia 15 + resto no fim do mês' }, { v: false, rotulo: 'Tudo de uma vez' }], duas, v => { duas = v; }, 'seg-p seg-cat'));
+      const mostrarDuas = () => { elDuas.hidden = p.pagamento !== 'MENSAL'; };
       const sh = P.UI.sheet(h('div', { class: 'np-sheet' },
         nome, funcao,
         h('span', { class: 'campo-r' }, 'Como recebe'),
-        P.UI.seg(COMO, p.pagamento, v => { p.pagamento = v; mostrar(); }, 'seg-p seg-cat'),
-        elValor, bValor, cond, bIni, obs,
+        P.UI.seg(COMO, p.pagamento, v => { p.pagamento = v; mostrar(); mostrarDuas(); }, 'seg-p seg-cat'),
+        elValor, bValor, elDuas, cond, bIni, obs,
         p0 ? P.UI.seg([{ v: true, rotulo: 'Trabalha aqui' }, { v: false, rotulo: 'Saiu' }], p.ativo !== false, v => { p.ativo = v; if (!v && !p.fim) p.fim = P.Dia.hoje(); if (v) p.fim = null; }, 'seg-p') : null,
         h('div', { class: 'row gap' },
           h('button', { type: 'button', class: 'btn', onClick: () => sh.fechar() }, 'Cancelar'),
@@ -115,10 +135,12 @@
             p.obs = obs.value.trim() || null;
             if (p.pagamento === 'PROLABORE') p.conducao_dia = 0;
             const r = P.Store.put('pessoas', p);
+            if (p.pagamento === 'MENSAL' && duas !== emDuas(r)) salvarDuas(r, duas);
             feito = true; resolve(r); sh.fechar();
           } }, 'Salvar'))),
       { titulo: p0 ? 'Editar ' + p0.nome : 'Nova pessoa na equipe', onFechar: () => { if (!feito) resolve(null); } });
       mostrar();
+      mostrarDuas();
       if (!p0) setTimeout(() => nome.focus(), 80);
     });
   }
@@ -153,7 +175,14 @@
           h('button', { type: 'button', class: 'btn grow', onClick: () => pagar(p, 'VALE').then(desenhar) }, 'Vale'));
       } else {
         const c = contaMes(p, mes);
-        if (p.pagamento === 'MENSAL') {
+        if (p.pagamento === 'MENSAL' && c.metade != null) {
+          const sit = f => (f > 0.004 ? 'falta ' + P.brl(f) : 'pago ✓');
+          corpoC.push(linha('Salário de ' + P.Dia.rotuloMes(mes), P.brl(c.previsto)));
+          corpoC.push(linha('1ª metade · dia 15', P.brl(c.metade) + ' · ' + sit(c.falta1), c.falta1 > 0.004 ? 't-amarelo' : 't-verde'));
+          if (c.vales) corpoC.push(linha('Vales (descontam da 2ª metade)', '− ' + P.brl(c.vales)));
+          corpoC.push(linha('2ª metade · ' + P.Dia.rotuloCurto(ultimoDia(mes)), P.brl(c.segunda) + ' · ' + sit(c.falta2), c.falta2 > 0.004 ? 't-amarelo' : 't-verde'));
+          corpoC.push(linha('Falta pagar do salário', P.brl(c.falta), c.falta > 0 ? 't-amarelo' : 't-verde'));
+        } else if (p.pagamento === 'MENSAL') {
           corpoC.push(linha('Salário de ' + P.Dia.rotuloMes(mes), P.brl(c.previsto)));
           if (c.vales) corpoC.push(linha('Vales (descontar do salário)', '− ' + P.brl(c.vales)));
           if (c.salario) corpoC.push(linha('Salário já pago', '− ' + P.brl(c.salario)));
@@ -165,7 +194,9 @@
         acoes.append(...[
           h('button', { type: 'button', class: 'btn grow', onClick: () => pagar(p, 'VALE').then(desenhar) }, 'Vale'),
           +p.conducao_dia > 0 ? h('button', { type: 'button', class: 'btn grow', onClick: () => pagar(p, 'CONDUCAO', +p.conducao_dia).then(desenhar) }, 'Condução') : null,
-          p.pagamento === 'MENSAL' ? h('button', { type: 'button', class: 'btn primario grow', onClick: () => pagar(p, 'SALARIO', c.falta).then(desenhar) }, 'Salário')
+          // em 2 vezes: o botão já vem com a metade que falta (1ª, inteira; depois a 2ª, menos os vales)
+          p.pagamento === 'MENSAL' ? h('button', { type: 'button', class: 'btn primario grow', onClick: () => pagar(p, 'SALARIO', c.metade != null && c.falta1 > 0.004 ? c.falta1 : c.falta).then(desenhar) },
+            c.metade != null ? (c.falta1 > 0.004 ? 'Salário · 1ª metade' : 'Salário · 2ª metade') : 'Salário')
             : h('button', { type: 'button', class: 'btn primario grow', onClick: () => pagar(p, 'DIARIA', +p.valor).then(desenhar) }, 'Diária')].filter(Boolean));
       }
       const como = p.pagamento === 'PROLABORE' ? 'Pró-labore' + (+p.valor > 0 ? ' ' + P.brl0(p.valor) + '/mês' : '') : NOME_COMO[p.pagamento] + (+p.valor > 0 ? ' ' + P.brl0(p.valor) : '');

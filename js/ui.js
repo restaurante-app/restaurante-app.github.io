@@ -364,7 +364,9 @@
         if (!lista.children.length) lista.appendChild(h('div', { class: 'vazio' }, 'Nada encontrado.'));
       }
       busca.addEventListener('input', desenhar);
-      const sh = sheet(h('div', { class: 'esc' }, busca, lista), { titulo: o.titulo, cls: 'sheet-alta', onFechar: () => { if (!feito) resolve(null); } });
+      // lista curta (ex.: formas de pagamento, antes/depois de contar): sem a busca
+      const curta = o.opcoes.length <= 6;
+      const sh = sheet(h('div', { class: 'esc' }, curta ? null : busca, lista), { titulo: o.titulo, cls: curta ? null : 'sheet-alta', onFechar: () => { if (!feito) resolve(null); } });
       desenhar();
     });
   }

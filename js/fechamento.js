@@ -32,13 +32,37 @@
     const f = fechamentos();
     const ant = Object.keys(f).filter(d => d < dia).sort().pop();
     if (!ant) return { valor: 0, dia: null };
-    return { valor: f[ant].dinheiro != null ? +f[ant].dinheiro || 0 : +f[ant].troco || 0, dia: ant };
+    // o que foi pago em dinheiro depois de contar (saiu do bolso) já não está no troco
+    const bolso = f[ant].dinheiro != null ? +f[ant].dinheiro || 0 : +f[ant].troco || 0;
+    return { valor: P.round(bolso - conta(ant).saiDepois, 2), dia: ant };
+  }
+  // saída lançada num dia de caixa já fechado: "depois de contar" = o dinheiro saiu do bolso depois de
+  // contar (não mexe na conta daquele dia; sai do troco do dia seguinte e entra no resultado).
+  // Guardado no próprio fechamento: apos { 'despesas:<id>': true, 'compras:<id>': true }
+  function marcarDepois(dia, chave, sim) {
+    const todos = Object.assign({}, fechamentos());
+    const f = todos[dia];
+    if (!f) return;
+    const apos = Object.assign({}, f.apos);
+    if (sim) apos[chave] = true; else delete apos[chave];
+    todos[dia] = Object.assign({}, f, { apos });
+    P.salvarCfg(CHAVE, todos);
+  }
+  // pergunta, ao lançar uma saída em dinheiro num dia de caixa fechado: 'antes' | 'depois' | null (desistiu)
+  function perguntarDepois(dia, valor) {
+    const f = fechamento(dia);
+    if (!f) return Promise.resolve('antes');
+    return P.UI.escolher({ titulo: 'O caixa de ' + P.Dia.rotulo(dia) + ' já foi fechado' + (f.em ? ' (às ' + P.Dia.hora(f.em) + ')' : '') + '. Os ' + P.brl(valor) + ' saíram…', opcoes: [
+      { v: 'antes', rotulo: 'Antes de contar o dinheiro', sub: 'já estavam fora do dinheiro contado (a sobra do dia é refeita)' },
+      { v: 'depois', rotulo: 'Depois de contar (saiu do bolso)', sub: 'o dia baixa ' + P.brl(valor) + ' e o troco do dia seguinte também' },
+    ] });
   }
 
   // ---------------------------------------------------------------
   //  O que o app registrou no dia
   // ---------------------------------------------------------------
   function conta(dia) {
+    const apos = (fechamento(dia) || {}).apos || {};
     const vendas = { DINHEIRO: 0, PIX: 0, DEBITO: 0, CREDITO: 0, FIADO: 0 };
     const fiado = { DINHEIRO: 0, PIX: 0, DEBITO: 0, CREDITO: 0 };
     let nContas = 0;
@@ -58,18 +82,21 @@
     // saídas pagas no dia: compras (inclusive a prazo e fatura pagas hoje) e despesas
     const saidas = [];
     P.Store.all('compras').forEach(c => P.Compras.saidas(c).forEach(s => {
-      if (s.dia === dia) saidas.push({ nome: c.fornecedor || 'Compra', sub: 'compra', valor: s.valor, origem: ORIGEM[s.forma] || 'sem', href: '#/compras/c/' + c.id });
+      if (s.dia === dia) saidas.push({ nome: c.fornecedor || 'Compra', sub: 'compra', valor: s.valor, origem: ORIGEM[s.forma] || 'sem', href: '#/compras/c/' + c.id, chave: 'compras:' + c.id, depois: !!apos['compras:' + c.id] });
     }));
     P.Store.all('despesas').forEach(d => {
       if (d.dia_operacional !== dia) return;
       const ver = P.Mesas.despVisivel(d);
-      saidas.push({ nome: ver ? d.descricao || P.Mesas.NOME_DESP[d.categoria] : 'Pagamento do dono', sub: ver ? P.Mesas.NOME_DESP[d.categoria].toLowerCase() : 'despesa', valor: +d.valor || 0, origem: ORIGEM[d.forma] || 'sem' });
+      const pes = d.pessoa_id && P.Store.get('pessoas', d.pessoa_id); // pagamento da equipe: "Salário · Tatiana"
+      saidas.push({ nome: ver ? d.descricao || (pes ? (P.Mesas.NOME_SUBTIPO[d.subtipo] || P.Mesas.NOME_DESP[d.categoria]).replace(' (adiantamento)', '') + ' · ' + pes.nome : P.Mesas.NOME_DESP[d.categoria]) : 'Pagamento do dono', sub: ver ? P.Mesas.NOME_DESP[d.categoria].toLowerCase() : 'despesa', valor: +d.valor || 0, origem: ORIGEM[d.forma] || 'sem', chave: 'despesas:' + d.id, depois: !!apos['despesas:' + d.id] });
     });
-    const soma = o => saidas.filter(s => s.origem === o).reduce((t, s) => t + s.valor, 0);
+    // o que saiu depois de contar o dinheiro não entra na conta do dia (sai do troco do dia seguinte)
+    const soma = o => saidas.filter(s => s.origem === o && !s.depois).reduce((t, s) => t + s.valor, 0);
     const abertas = P.Mesas.totaisDoDia(dia, 'TODOS');
     return {
       vendas, fiado, nContas, saidas, abertas, parcial,
       saiDinheiro: soma('dinheiro'), saiPix: soma('pix'), saiSem: soma('sem'),
+      saiDepois: P.round(saidas.filter(s => s.depois && s.origem === 'dinheiro').reduce((t, s) => t + s.valor, 0), 2),
       entDinheiro: vendas.DINHEIRO + fiado.DINHEIRO,
       entPix: vendas.PIX + fiado.PIX,
       entCartao: vendas.DEBITO + vendas.CREDITO + fiado.DEBITO + fiado.CREDITO,
@@ -111,29 +138,29 @@
   function depois(dia) {
     const f = fechamento(dia);
     if (!f || !f.esperado || !f.em) return null;
-    const e = esperado(conta(dia), f.troco);
+    const k = conta(dia), e = esperado(k, f.troco);
     let antes = 0, agora = 0;
     FORMAS.forEach(x => { if (f[x.v] != null) { antes += f[x.v] - (+f.esperado[x.v] || 0); agora += f[x.v] - e[x.v]; } });
     antes = P.round(antes, 2); agora = P.round(agora, 2);
-    if (quase(agora - antes)) return null;
+    const apos = f.apos || {};
     const novo = r => (r.modificado_em || '') > f.em;
-    const itens = [];
-    P.Store.all('compras').forEach(c => {
-      if (!novo(c)) return;
-      const v = P.Compras.saidas(c).filter(s => s.dia === dia).reduce((t, s) => t + s.valor, 0);
-      if (v > 0.005) itens.push((c.fornecedor || 'Compra') + ' ' + P.brl(v));
-    });
-    P.Store.all('despesas').forEach(d => { if (d.dia_operacional === dia && novo(d)) itens.push((d.descricao || P.Mesas.NOME_DESP[d.categoria] || 'Despesa') + ' ' + P.brl(d.valor)); });
+    // saídas em dinheiro lançadas depois do fechamento (ou marcadas "depois de contar"): dá para dizer quando saíram
+    const saidas = k.saidas.filter(s => s.chave && s.origem === 'dinheiro' && (apos[s.chave] || novo(P.Store.get(s.chave.split(':')[0], s.chave.split(':')[1]) || {})))
+      .map(s => ({ chave: s.chave, nome: s.nome, valor: s.valor, depois: !!s.depois }));
+    const itens = saidas.map(s => s.nome + ' ' + P.brl(s.valor) + (s.depois ? ' (depois de contar)' : ''));
     P.Store.all('comandas').forEach(c => { if (c.dia_operacional === dia && c.status === 'FECHADA' && novo(c)) itens.push('venda ' + P.Mesas.rotulo(c) + ' ' + P.brl(c.total)); });
-    return { antes, agora, itens };
+    if (quase(agora - antes) && !saidas.length) return null;
+    return { antes, agora, itens, saidas, saiDepois: k.saiDepois };
   }
   // frase para o Painel e o Fechar caixa
   function textoDepois(x) {
     const sa = v => (quase(v) ? 'batia' : v > 0 ? 'sobravam ' + P.brl(v) : 'faltavam ' + P.brl(-v));
     const sb = v => (quase(v) ? 'bate' : v > 0 ? 'sobram ' + P.brl(v) : 'faltam ' + P.brl(-v));
-    return 'Lançado depois do fechamento' + (x.itens.length ? ': ' + x.itens.slice(0, 4).join(', ') + (x.itens.length > 4 ? '…' : '') : '') +
-      '. A conta do caixa foi refeita: no fechamento ' + sa(x.antes) + ', agora ' + sb(x.agora) + '. ' +
-      'Se o dinheiro foi contado depois de pagar, o resultado do dia não muda (a saída e a sobra mudam juntas).';
+    const partes = ['Lançado depois do fechamento' + (x.itens.length ? ': ' + x.itens.slice(0, 4).join(', ') + (x.itens.length > 4 ? '…' : '') : '') + '.'];
+    if (!quase(x.agora - x.antes)) partes.push('Saiu antes de contar: a conta do caixa foi refeita (no fechamento ' + sa(x.antes) + ', agora ' + sb(x.agora) + ') e o resultado do dia não muda.');
+    if (x.saiDepois > 0.005) partes.push(P.brl(x.saiDepois) + ' saiu depois de contar (do bolso): baixa o resultado do dia e o troco do dia seguinte.');
+    partes.push('Em Fechar caixa dá para marcar se saiu antes ou depois de contar.');
+    return partes.join(' ');
   }
   function textoDif(v) {
     return quase(v) ? 'bateu' : (v > 0 ? 'sobrou ' : 'faltou ') + P.brl(Math.abs(v));
@@ -226,7 +253,8 @@
         k.fiado.DINHEIRO ? linha('Fiado recebido em dinheiro', sinal('+', k.fiado.DINHEIRO)) : null,
         linha('Pago em dinheiro (compras e despesas)', sinal('−', k.saiDinheiro)),
         saiuDin.length ? h('details', { class: 'fc-det' }, h('summary', null, 'O que saiu em dinheiro (' + saiuDin.length + ')'),
-          saiuDin.map(s => h(s.href ? 'a' : 'div', { class: 'fc-sai', href: s.href || null }, h('span', null, s.nome, h('small', null, ' · ' + s.sub)), h('b', null, P.brl(s.valor))))) : null,
+          saiuDin.map(s => h(s.href ? 'a' : 'div', { class: 'fc-sai', href: s.href || null }, h('span', null, s.nome, h('small', null, ' · ' + s.sub + (s.depois ? ' · depois de contar (fora desta conta)' : ''))), h('b', null, P.brl(s.valor))))) : null,
+        k.saiDepois > 0.005 ? h('small', { class: 'fc-nota' }, P.brl(k.saiDepois) + ' saiu depois de contar o dinheiro (do bolso): fica fora desta conta e sai do troco do dia seguinte.') : null,
       ], e.dinheiro, 'Ficou no bolso', 'Quanto ficou no bolso (dinheiro contado)'));
 
       corpo.appendChild(cartao(FORMAS[1], 'Pix', [
@@ -254,6 +282,9 @@
           resultadoLinha(totInf, totEsp),
           sb > 0.005 ? h('small', { class: 'fc-nota' }, 'A sobra de ' + P.brl(sb) + ' entra como venda no Painel e em Dia e período, à parte ("sobra do caixa").') : null,
           f && depois(dia) ? h('small', { class: 'fc-nota fc-depois' }, textoDepois(depois(dia))) : null,
+          f && depois(dia) && depois(dia).saidas.length ? h('div', { class: 'fc-apos' }, depois(dia).saidas.map(s => h('div', { class: 'fc-apos-l' },
+            h('span', null, s.nome + ' ', h('b', null, P.brl(s.valor))),
+            P.UI.seg([{ v: false, rotulo: 'Antes de contar' }, { v: true, rotulo: 'Depois (do bolso)' }], s.depois, v => { marcarDepois(dia, s.chave, v); desenhar(); }, 'seg-p')))) : null,
           v.dinheiro != null ? h('small', { class: 'fc-nota' }, 'Os ' + P.brl(v.dinheiro) + ' que ficaram no bolso viram o troco do início do próximo dia.') : null));
       }
       if (k.vendas.FIADO) corpo.appendChild(h('div', { class: 'dica' }, 'Vendido no fiado hoje: ' + P.brl(k.vendas.FIADO) + ' (não entra no caixa até receber).'));
@@ -293,5 +324,5 @@
   }
 
   P.UI.rota('mesas/caixa', { titulo: 'Fechar caixa', tab: 'mesas', render: telaCaixa });
-  P.Fechamento = { conta, esperado, fechamento, resultado, sobra, sobraDe, depois, textoDepois };
+  P.Fechamento = { conta, esperado, fechamento, resultado, sobra, sobraDe, depois, textoDepois, marcarDepois, perguntarDepois };
 })();
