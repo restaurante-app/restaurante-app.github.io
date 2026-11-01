@@ -1326,7 +1326,7 @@
       });
       if (mudou) P.salvarCfg('nota_insumos', mapa);
     }
-    function salvarCompra() {
+    async function salvarCompra() {
       if (!d.linhas.length) return;
       if (!pagOk()) { P.UI.toast('Pagamento dividido: ponha o valor de cada parte (a última fica com o resto, que precisa ser maior que zero).', { tipo: 'perigo', ms: 5000 }); return; }
       // insumo novo só nasce agora, com a compra (antes ficava criado mesmo se a compra não fosse salva);
@@ -1343,6 +1343,13 @@
       Object.keys(trocas).forEach(id => { if (d.linhas.some(l => l.insumo_id === id && l.unidade === trocas[id].para)) aplicarTrocaUnidade(id, trocas[id]); });
       const r = salvar(d, ant && ant.id);
       if (!ant && !rascAnt) rascunho.limpar();
+      // paga em dinheiro num dia de caixa já fechado: saiu antes ou depois de contar o dinheiro?
+      const diaC = r.compra.dia_operacional;
+      const din = P.round(saidas(r.compra).filter(x => x.dia === diaC && x.forma === 'DINHEIRO').reduce((t, x) => t + x.valor, 0), 2);
+      if (din > 0 && (!ant || ant.dia_operacional !== diaC) && P.Fechamento && P.Fechamento.fechamento(diaC)) {
+        const q = await P.Fechamento.perguntarDepois(diaC, din);
+        if (q === 'depois') P.Fechamento.marcarDepois(diaC, 'compras:' + r.compra.id, true);
+      }
       diaLista = r.compra.dia_operacional;
       P.vibrar([20, 40, 20]);
       // mostra o resultado depois que a lista de compras abrir (trocar de tela fecha as folhas)

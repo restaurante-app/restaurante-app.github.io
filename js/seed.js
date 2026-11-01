@@ -163,6 +163,9 @@
     painel: { modo: 'caixa' },
     // cobrança do fiado (js/extrato.js): chave Pix que vai no extrato (imagem, PDF e texto) — Ajustes → Cobrança
     cobranca: { pix: '11977570523' },
+    // equipe (js/equipe.js): salário mensal pago em 2 vezes (metade no dia 15, o resto no último dia),
+    // menos quem está em uma_vez { pessoaId: true } (recebe tudo de uma vez)
+    equipe: { uma_vez: {} },
   };
   // valor de configuração (o salvo no banco por cima do padrão)
   P.cfg = chave => {

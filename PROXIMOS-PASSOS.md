@@ -4,7 +4,8 @@
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.24.2 (despesa: escolher o dia em que pagou ao lançar e mudar o dia ao editar; vale ou salário com "Conta para" outro mês) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.25 (saída em dinheiro com caixa fechado: antes ou depois de contar; salário em 2 vezes — dia 15 e último dia) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.24.2 (despesa: escolher o dia em que pagou ao lançar e mudar o dia ao editar; vale ou salário com "Conta para" outro mês) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.24 (Marmitas em aberto: ficam abertas no dia e "Pago" no fim do dia, sem fiado) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.23 (extra escrito na hora no prato; Pratos repetidos sem extras prontos; aviso de lançado depois do fechamento) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.22 (Pratos repetidos: preço antes e depois, juntar de uma vez, deixar separado) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -49,6 +50,16 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.25 (pedido de 01/11)
+
+| Pedido | No app |
+|---|---|
+| "Lancei uma despesa de 460 no sábado e o resultado do dia ficou o mesmo" | o caixa de sábado estava fechado: o app supunha que o dinheiro tinha sido contado depois de pagar (como o peixeiro) e refazia a sobra (+460) junto com a saída (+460). Se o salário foi pago **depois** de contar, com o dinheiro do bolso, o certo é o dia baixar. Agora, ao lançar dinheiro num dia de caixa fechado, o app pergunta **antes ou depois de contar**; em Fechar caixa dá para marcar as que já foram lançadas. "Depois": o resultado do dia baixa 460 e o troco do dia seguinte também. Também: lançada num domingo pela Equipe, a despesa vai para segunda (dia operacional) — trocar em *Pago em* |
+| Pago metade do salário dia 15 e metade no último dia (Chica e Tatiana) | Equipe: salário mensal em 2 vezes (padrão; muda em Editar): *1ª metade · dia 15* (inteira) e *2ª metade · último dia* (com os vales descontados), cada uma com pago ✓ ou quanto falta; o botão vira *Salário · 1ª metade* / *2ª metade* já com o valor. Conferido no backup: em 15/10 a Chica recebeu R$ 1.225 (metade de R$ 2.450) |
+
+Nada apagado e nada novo no banco: o "depois de contar" fica no próprio fechamento (config `caixa_fechamentos`,
+`apos`) e o "tudo de uma vez" em config `equipe`.
 
 ## O que entrou na v1.24.2 (pedido de 01/11)
 

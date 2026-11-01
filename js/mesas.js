@@ -1140,11 +1140,15 @@
         P.UI.seg(FORMAS_DESP, forma, v => { forma = v; }, 'seg-p seg-cat'),
         h('div', { class: 'row gap' },
           h('button', { type: 'button', class: 'btn', onClick: () => sh.fechar() }, 'Cancelar'),
-          h('button', { type: 'button', class: 'btn primario grow', onClick: () => {
+          h('button', { type: 'button', class: 'btn primario grow', onClick: async () => {
             if (!(valor > 0)) { P.UI.toast('Informe o valor.', { tipo: 'perigo' }); return; }
             const u = P.Auth.usuario();
             const equipe = cat === 'FUNCIONARIOS' || cat === 'PROLABORE';
             const diaD = diaSel;
+            // dinheiro num dia de caixa já fechado: saiu antes ou depois de contar? (lançamento novo ou dia trocado)
+            const perguntar = forma === 'DINHEIRO' && (!ant || ant.dia_operacional !== diaD) && P.Fechamento && P.Fechamento.fechamento(diaD);
+            const quando = perguntar ? await P.Fechamento.perguntarDepois(diaD, P.round(valor, 2)) : null;
+            if (perguntar && !quando) return;
             const extra = {
               pessoa_id: equipe ? pessoa : null,
               subtipo: cat === 'FUNCIONARIOS' ? subtipo : null,
@@ -1155,6 +1159,8 @@
             const r = P.Store.put('despesas', ant
               ? Object.assign({}, ant, { dia_operacional: diaD, categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2) }, extra)
               : Object.assign({ id: P.uuid(), dia_operacional: diaD, categoria: cat, forma, descricao: desc.value.trim() || null, valor: P.round(valor, 2), criado_em: P.agoraISO(), usuario_id: u && u.id }, extra));
+            if (ant && ant.dia_operacional !== diaD && P.Fechamento && ((P.Fechamento.fechamento(ant.dia_operacional) || {}).apos || {})['despesas:' + ant.id]) P.Fechamento.marcarDepois(ant.dia_operacional, 'despesas:' + ant.id, false);
+            if (quando === 'depois') P.Fechamento.marcarDepois(diaD, 'despesas:' + r.id, true);
             if (diaD !== (ant ? ant.dia_operacional : dia)) P.UI.toast('Despesa em ' + P.Dia.rotulo(diaD) + (ant ? ' (era ' + P.Dia.rotuloCurto(ant.dia_operacional) + ')' : ''));
             feito = true; resolve(r); sh.fechar();
           } }, 'Salvar'))),
