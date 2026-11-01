@@ -1485,6 +1485,9 @@ a.rl-tr { color: inherit; text-decoration: none; }
 .fia-card .ms-card-n small.fia-consumo { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; color: var(--tx); font-weight: 500; margin-top: 5px; }
 .fia-acoes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
 .mm-acoes { margin-bottom: 10px; }
+.btn.ds-dia { justify-content: flex-start; gap: 8px; margin-top: 8px; font-weight: 600; }
+.btn.ds-dia span { flex: 1 1 auto; text-align: left; }
+.btn.ds-dia small { color: var(--marca-tx); font-weight: 700; font-size: .72rem; }
 .mm-card { border-radius: 18px; padding: 12px 14px 10px; background: linear-gradient(180deg, var(--brilho), transparent 42%), var(--s1); border: 1px solid var(--borda); }
 .mm-top { display: flex; align-items: flex-start; gap: 12px; color: inherit; text-decoration: none; }
 .mm-top > b { white-space: nowrap; font-size: 1.02rem; letter-spacing: -.02em; }

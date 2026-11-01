@@ -1,10 +1,11 @@
-# Próximos passos — situação em 31/10/2026
+# Próximos passos — situação em 01/11/2026
 
 ## Situação
 
 | O quê | Onde | Estado |
 |---|---|---|
-| App v1.24 (Marmitas em aberto: ficam abertas no dia e "Pago" no fim do dia, sem fiado) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.24.2 (despesa: escolher o dia em que pagou ao lançar e mudar o dia ao editar; vale ou salário com "Conta para" outro mês) | branch `claude/stoic-bardeen-kpp2gw` | **em revisão** (não muda o `schema.sql`) |
+| App v1.24 (Marmitas em aberto: ficam abertas no dia e "Pago" no fim do dia, sem fiado) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.23 (extra escrito na hora no prato; Pratos repetidos sem extras prontos; aviso de lançado depois do fechamento) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.22 (Pratos repetidos: preço antes e depois, juntar de uma vez, deixar separado) | `main` | **publicado** (não muda o `schema.sql`) |
 | App v1.21.1 (avisos com Desfazer no topo da tela, um por vez — não cobrem mais os botões de baixo) | `main` | **publicado** (não muda o `schema.sql`) |
@@ -48,6 +49,20 @@ Sem o passo 1 nada se perde: os botijões ficam no aparelho até o SQL ser rodad
 
 Como funciona por dentro: a conta paga em parte vira dois pagamentos "Fiado" (o recebido, com dia e forma, e o
 que continua em aberto). Nada novo no banco: usa as colunas que já existem.
+
+## O que entrou na v1.24.2 (pedido de 01/11)
+
+| Pedido | No app |
+|---|---|
+| Poder editar as despesas dias depois de lançar, ou escolher o dia do lançamento | toda despesa tem **Pago em <dia> · trocar o dia** (calendário; não aceita dia que ainda não chegou). Ao lançar: o dia vem preenchido e dá para trocar. Ao editar (toque na despesa em Despesas → Do dia / Do mês): muda também o dia, e o aviso diz "Despesa em qui 29/10 (era 30/10)". A competência (Conta para) acompanha o dia novo, a não ser que tenha sido escolhida à mão |
+
+## O que entrou na v1.24.1 (pedido de 31/10)
+
+| Pedido | No app |
+|---|---|
+| Lançar um vale da Chica do mês 11 ainda no mês 10 (o salário de outubro já foi pago e ela fez outro vale) | Nova despesa → Funcionários → Vale: **Conta para** Set · Out · **Nov** (vem no automático; tocar em Nov). O vale sai do caixa no dia em que foi pago (31/10) e desconta do salário de novembro na Equipe; as setas da Equipe vão até o mês que vem. Também: na Equipe, sem condução, aparecia "null" entre os botões Vale e Salário — corrigido |
+
+Usa a coluna `competencia` que já existe nas despesas: nada novo no banco e nada apagado.
 
 ## O que entrou na v1.24 (pedido de 31/10)
 

@@ -161,11 +161,12 @@
         } else corpoC.push(linha('Diária', P.brl(p.valor)), linha('Pago no mês', P.brl(c.pago)));
         if (+p.conducao_dia > 0 || c.conducao) corpoC.push(linha('Condução ' + (+p.conducao_dia > 0 ? P.brl(p.conducao_dia) + '/dia' : '') + ' · ' + c.nConducao + (c.nConducao === 1 ? ' dia pago' : ' dias pagos'), P.brl(c.conducao)));
         if (c.outros) corpoC.push(linha('Outros pagamentos', P.brl(c.outros)));
-        acoes.append(
+        // sem condução: o botão não entra (append com null escrevia "null" entre os botões)
+        acoes.append(...[
           h('button', { type: 'button', class: 'btn grow', onClick: () => pagar(p, 'VALE').then(desenhar) }, 'Vale'),
           +p.conducao_dia > 0 ? h('button', { type: 'button', class: 'btn grow', onClick: () => pagar(p, 'CONDUCAO', +p.conducao_dia).then(desenhar) }, 'Condução') : null,
           p.pagamento === 'MENSAL' ? h('button', { type: 'button', class: 'btn primario grow', onClick: () => pagar(p, 'SALARIO', c.falta).then(desenhar) }, 'Salário')
-            : h('button', { type: 'button', class: 'btn primario grow', onClick: () => pagar(p, 'DIARIA', +p.valor).then(desenhar) }, 'Diária'));
+            : h('button', { type: 'button', class: 'btn primario grow', onClick: () => pagar(p, 'DIARIA', +p.valor).then(desenhar) }, 'Diária')].filter(Boolean));
       }
       const como = p.pagamento === 'PROLABORE' ? 'Pró-labore' + (+p.valor > 0 ? ' ' + P.brl0(p.valor) + '/mês' : '') : NOME_COMO[p.pagamento] + (+p.valor > 0 ? ' ' + P.brl0(p.valor) : '');
       return h('section', { class: 'eq-card' + (p.ativo === false ? ' inativo' : '') },
@@ -182,7 +183,8 @@
       corpo.appendChild(h('div', { class: 'lc-dia' },
         h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Mês anterior', onClick: () => mudaMes(-1) }, P.UI.icone('voltar')),
         h('div', { class: 'lc-dia-t' }, P.Dia.rotuloMes(mes)),
-        h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo mês', disabled: mes >= P.Dia.mes(P.Dia.hoje()), onClick: () => mudaMes(1) }, P.UI.icone('avancar'))));
+        // vai até o mês que vem (vale já dado para o salário do mês seguinte)
+        h('button', { type: 'button', class: 'pn-nav', 'aria-label': 'Próximo mês', disabled: mes > P.Dia.mes(P.Dia.hoje()), onClick: () => mudaMes(1) }, P.UI.icone('avancar'))));
       const ps = pessoas().filter(p => p.ativo !== false || pagamentosDe(p.id).some(d => mesDe(d) === mes));
       // total do mês pela data em que foi pago (o caixa); cada cartão mostra a conta pela competência
       const pagos = P.Store.all('despesas').filter(d => (d.categoria === 'FUNCIONARIOS' || d.categoria === 'PROLABORE') && d.dia_operacional.slice(0, 7) === mes);
